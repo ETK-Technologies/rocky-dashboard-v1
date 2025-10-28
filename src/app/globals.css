@@ -1,0 +1,114 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --foreground: 17 24 39;
+
+    --card: 0 0% 100%;
+    --card-foreground: 17 24 39;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 17 24 39;
+
+    --primary: 221 83% 53%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 220 13% 95%;
+    --secondary-foreground: 17 24 39;
+
+    --muted: 220 13% 95%;
+    --muted-foreground: 215 16% 47%;
+
+    --accent: 221 83% 53%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 221 83% 53%;
+
+    --radius: 0.75rem;
+
+    --background: 220 13% 97%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-[#F8F9FB] text-foreground font-sans antialiased;
+  }
+}
+
+/* Custom WordPress-style scrollbar */
+::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 6px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+/* Override yellow/amber colors with neutral grays */
+.Toastify__toast--warning {
+  background: #6c757d !important;
+  color: white !important;
+}
+
+.Toastify__progress-bar--warning {
+  background: white !important;
+}
+
+/* Remove any yellow/amber accents from disabled states */
+.disabled\:opacity-50:disabled {
+  opacity: 0.5 !important;
+}
+
+/* Remove yellow color from input focus rings */
+input:focus,
+input:focus-visible {
+  border-color: hsl(var(--ring)) !important;
+  outline: none !important;
+  box-shadow: 0 0 0 2px hsla(207, 69%, 44%, 0.2) !important;
+}
+
+/* Completely remove yellow/amber highlights on autofill */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 1000px white inset !important;
+  -webkit-text-fill-color: rgb(29, 35, 39) !important;
+  background-color: white !important;
+  background: white !important;
+  border-color: hsl(var(--input)) !important;
+}
+
+input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 1000px white inset,
+    0 0 0 2px hsla(207, 69%, 44%, 0.2) !important;
+  border-color: hsl(var(--ring)) !important;
+}
+
+/* Prevent flash when resizing from mobile to desktop */
+@media (min-width: 1024px) {
+  aside {
+    transform: translateX(0) !important;
+  }
+}
