@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "react-toastify";
 import { authService } from "../services/authService";
 import { authStorage } from "../utils/authStorage";
-import { AUTH_SUCCESS } from "../types";
+import { AUTH_SUCCESS } from "../constants";
 
 /**
  * Custom hook for logout functionality

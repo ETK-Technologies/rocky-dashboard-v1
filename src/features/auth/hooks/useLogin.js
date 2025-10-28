@@ -8,7 +8,7 @@ import { toast } from "react-toastify";
 import { useRouter } from "next/navigation";
 import { authService } from "../services/authService";
 import { authStorage } from "../utils/authStorage";
-import { AUTH_SUCCESS, VALIDATION_RULES } from "../types";
+import { AUTH_SUCCESS, VALIDATION_RULES } from "../constants";
 
 // Validation schema
 const loginSchema = z.object({

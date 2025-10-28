@@ -4,7 +4,7 @@
  */
 
 import { makeRequest } from "@/utils/makeRequest";
-import { AUTH_ENDPOINTS, AUTH_ERRORS } from "../types";
+import { AUTH_ENDPOINTS, AUTH_ERRORS } from "../constants";
 import { authStorage } from "../utils/authStorage";
 
 /**

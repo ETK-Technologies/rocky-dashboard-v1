@@ -3,7 +3,7 @@
  * Manages tokens and user data in localStorage with SSR support
  */
 
-import { STORAGE_KEYS } from "../types";
+import { STORAGE_KEYS } from "../constants";
 
 /**
  * Check if we're in browser environment
