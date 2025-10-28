@@ -1,35 +1,77 @@
 /**
  * Authentication storage utility
- * Manages tokens and user data in localStorage
+ * Manages tokens and user data in localStorage with SSR support
  */
 
-const STORAGE_KEYS = {
-  ACCESS_TOKEN: "access_token",
-  REFRESH_TOKEN: "refresh_token",
-  USER: "user",
+import { STORAGE_KEYS } from "../types";
+
+/**
+ * Check if we're in browser environment
+ * @returns {boolean}
+ */
+const isBrowser = () => typeof window !== "undefined";
+
+/**
+ * Safe localStorage operations with error handling
+ */
+const safeStorage = {
+  getItem(key) {
+    if (!isBrowser()) return null;
+    try {
+      return localStorage.getItem(key);
+    } catch (error) {
+      console.error(`Error getting ${key} from localStorage:`, error);
+      return null;
+    }
+  },
+
+  setItem(key, value) {
+    if (!isBrowser()) return false;
+    try {
+      localStorage.setItem(key, value);
+      return true;
+    } catch (error) {
+      console.error(`Error setting ${key} in localStorage:`, error);
+      return false;
+    }
+  },
+
+  removeItem(key) {
+    if (!isBrowser()) return false;
+    try {
+      localStorage.removeItem(key);
+      return true;
+    } catch (error) {
+      console.error(`Error removing ${key} from localStorage:`, error);
+      return false;
+    }
+  },
 };
 
 export const authStorage = {
   /**
    * Save authentication data to localStorage
    * @param {Object} data - Auth response data
+   * @returns {boolean} - Success status
    */
   saveAuth(data) {
-    if (typeof window === "undefined") return;
+    if (!data) return false;
 
-    try {
-      if (data.access_token) {
-        localStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, data.access_token);
-      }
-      if (data.refresh_token) {
-        localStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, data.refresh_token);
-      }
-      if (data.user) {
-        localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(data.user));
-      }
-    } catch (error) {
-      console.error("Error saving auth data:", error);
+    let success = true;
+
+    if (data.access_token) {
+      success = safeStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, data.access_token) && success;
     }
+
+    if (data.refresh_token) {
+      success = safeStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, data.refresh_token) && success;
+    }
+
+    if (data.user) {
+      success = safeStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(data.user)) && success;
+    }
+
+    return success;
   },
 
   /**
@@ -37,8 +79,7 @@ export const authStorage = {
    * @returns {string|null}
    */
   getAccessToken() {
-    if (typeof window === "undefined") return null;
-    return localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
+    return safeStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
   },
 
   /**
@@ -46,8 +87,7 @@ export const authStorage = {
    * @returns {string|null}
    */
   getRefreshToken() {
-    if (typeof window === "undefined") return null;
-    return localStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN);
+    return safeStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN);
   },
 
   /**
@@ -55,13 +95,15 @@ export const authStorage = {
    * @returns {Object|null}
    */
   getUser() {
-    if (typeof window === "undefined") return null;
+    const userData = safeStorage.getItem(STORAGE_KEYS.USER);
+    if (!userData) return null;
 
     try {
-      const user = localStorage.getItem(STORAGE_KEYS.USER);
-      return user ? JSON.parse(user) : null;
+      return JSON.parse(userData);
     } catch (error) {
       console.error("Error parsing user data:", error);
+      // Clear corrupted data
+      this.removeUser();
       return null;
     }
   },
@@ -71,17 +113,48 @@ export const authStorage = {
    * @returns {boolean}
    */
   isAuthenticated() {
-    return !!this.getAccessToken();
+    const token = this.getAccessToken();
+    if (!token) return false;
+
+    // Basic token validation (you can add JWT expiration check here)
+    try {
+      // Check if token is not empty and has reasonable length
+      return token.length > 10;
+    } catch {
+      return false;
+    }
   },
 
   /**
    * Clear all auth data
+   * @returns {boolean} - Success status
    */
   clearAuth() {
-    if (typeof window === "undefined") return;
+    let success = true;
+    success = safeStorage.removeItem(STORAGE_KEYS.ACCESS_TOKEN) && success;
+    success = safeStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN) && success;
+    success = safeStorage.removeItem(STORAGE_KEYS.USER) && success;
+    return success;
+  },
 
-    localStorage.removeItem(STORAGE_KEYS.ACCESS_TOKEN);
-    localStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
-    localStorage.removeItem(STORAGE_KEYS.USER);
+  /**
+   * Remove only user data (keep tokens)
+   * @returns {boolean} - Success status
+   */
+  removeUser() {
+    return safeStorage.removeItem(STORAGE_KEYS.USER);
+  },
+
+  /**
+   * Get all auth data
+   * @returns {Object} - Complete auth state
+   */
+  getAuthState() {
+    return {
+      isAuthenticated: this.isAuthenticated(),
+      user: this.getUser(),
+      hasAccessToken: !!this.getAccessToken(),
+      hasRefreshToken: !!this.getRefreshToken(),
+    };
   },
 };

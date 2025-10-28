@@ -1,26 +1,17 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { Menu, LogOut, User } from "lucide-react";
-import { Button } from "@/components/ui/Button";
+import { Menu, User } from "lucide-react";
+import { LogoutButton } from "@/features/auth";
 import { authStorage } from "@/features/auth";
 import { useState, useEffect } from "react";
-import { toast } from "react-toastify";
 
 export function Topbar({ onMenuClick }) {
-  const router = useRouter();
   const [user, setUser] = useState(null);
 
   useEffect(() => {
     const userData = authStorage.getUser();
     setUser(userData);
   }, []);
-
-  const handleLogout = () => {
-    authStorage.clearAuth();
-    toast.info("You have been logged out");
-    router.push("/login");
-  };
 
   return (
     <header className="h-16 bg-white border-b border-gray-100 sticky top-0 z-30 shadow-sm">
@@ -66,15 +57,12 @@ export function Topbar({ onMenuClick }) {
               </div>
 
               {/* Logout button */}
-              <Button
+              <LogoutButton
                 variant="ghost"
                 size="icon"
-                onClick={handleLogout}
-                title="Logout"
                 className="text-gray-600 hover:text-gray-900 hover:bg-gray-50"
-              >
-                <LogOut className="h-5 w-5" />
-              </Button>
+                showIcon={true}
+              />
             </>
           )}
         </div>
