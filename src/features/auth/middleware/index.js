@@ -45,11 +45,18 @@ export const requireAuth = (router, redirectTo = "/dashboard") => {
 
 /**
  * Redirect to dashboard if authenticated (client-side)
- * @param {Function} router - Next.js router instance
+ * @param {Function} [router] - Next.js router instance (optional)
  */
 export const redirectIfAuthenticated = (router) => {
     if (isAuthenticated()) {
-        router.push("/dashboard");
+        if (router && typeof router.push === 'function') {
+            router.push("/dashboard");
+        } else {
+            // Fallback to window.location if router is not available
+            if (typeof window !== 'undefined') {
+                window.location.href = "/dashboard";
+            }
+        }
         return true;
     }
     return false;

@@ -6,10 +6,10 @@ import {
   CustomCardDescription,
   CustomCardHeader,
   CustomCardTitle,
-} from "@/components/ui/CustomCustomCard";
-import { CustomCustomInput } from "@/components/ui/CustomCustomInput";
-import { CustomCustomLabel } from "@/components/ui/CustomCustomLabel";
-import { CustomCustomButton } from "@/components/ui/CustomCustomButton";
+} from "@/components/ui/CustomCard";
+import { CustomInput } from "@/components/ui/CustomInput";
+import { CustomLabel } from "@/components/ui/CustomLabel";
+import { CustomButton } from "@/components/ui/CustomButton";
 import { Settings } from "lucide-react";
 
 export default function SettingsPage() {

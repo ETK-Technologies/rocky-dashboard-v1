@@ -6,8 +6,8 @@ import {
   CustomCardDescription,
   CustomCardHeader,
   CustomCardTitle,
-} from "@/components/ui/CustomCustomCard";
-import { CustomCustomEmptyState } from "@/components/ui/CustomCustomEmptyState";
+} from "@/components/ui/CustomCard";
+import { CustomEmptyState } from "@/components/ui/CustomEmptyState";
 import { ShoppingCart } from "lucide-react";
 
 export default function OrdersPage() {

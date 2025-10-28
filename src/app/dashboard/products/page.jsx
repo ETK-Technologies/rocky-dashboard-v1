@@ -6,9 +6,9 @@ import {
   CustomCardDescription,
   CustomCardHeader,
   CustomCardTitle,
-} from "@/components/ui/CustomCustomCard";
-import { CustomCustomEmptyState } from "@/components/ui/CustomCustomEmptyState";
-import { CustomCustomButton } from "@/components/ui/CustomCustomButton";
+} from "@/components/ui/CustomCard";
+import { CustomEmptyState } from "@/components/ui/CustomEmptyState";
+import { CustomButton } from "@/components/ui/CustomButton";
 import { Package, Plus } from "lucide-react";
 
 export default function ProductsPage() {
