@@ -1,13 +1,13 @@
 "use client";
 
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/Card";
-import { EmptyState } from "@/components/ui/EmptyState";
+  CustomCard,
+  CustomCardContent,
+  CustomCardDescription,
+  CustomCardHeader,
+  CustomCardTitle,
+} from "@/components/ui/CustomCustomCard";
+import { CustomCustomEmptyState } from "@/components/ui/CustomCustomEmptyState";
 import { Users } from "lucide-react";
 
 export default function ContactPage() {
@@ -20,19 +20,19 @@ export default function ContactPage() {
         </p>
       </div>
 
-      <Card className="border-gray-200 shadow-sm">
-        <CardHeader>
-          <CardTitle className="text-lg">All Contacts</CardTitle>
-          <CardDescription>View and manage your contacts</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <EmptyState
+      <CustomCard className="border-gray-200 shadow-sm">
+        <CustomCardHeader>
+          <CustomCardTitle className="text-lg">All Contacts</CustomCardTitle>
+          <CustomCardDescription>View and manage your contacts</CustomCardDescription>
+        </CustomCardHeader>
+        <CustomCardContent>
+          <CustomEmptyState
             icon={Users}
             title="No contacts yet"
             description="Your contacts will appear here once you add them."
           />
-        </CardContent>
-      </Card>
+        </CustomCardContent>
+      </CustomCard>
     </div>
   );
 }

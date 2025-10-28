@@ -3,16 +3,16 @@
 import { useEffect } from "react";
 import { useLogin } from "../hooks/useLogin";
 import { redirectIfAuthenticated } from "../middleware";
-import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Input";
-import { Label } from "@/components/ui/Label";
+import { CustomButton } from "@/components/ui/CustomButton";
+import { CustomInput } from "@/components/ui/CustomInput";
+import { CustomLabel } from "@/components/ui/CustomLabel";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/Card";
+  CustomCard,
+  CustomCardContent,
+  CustomCardDescription,
+  CustomCardHeader,
+  CustomCardTitle,
+} from "@/components/ui/CustomCard";
 import { Loader2, AlertCircle } from "lucide-react";
 
 /**
@@ -32,15 +32,15 @@ export function LoginForm() {
   }, []);
 
   return (
-    <Card className="w-full max-w-md">
-      <CardHeader className="text-center">
-        <CardTitle className="text-2xl font-bold">Welcome Back</CardTitle>
-        <CardDescription>
+    <CustomCard className="w-full max-w-md">
+      <CustomCardHeader className="text-center">
+        <CustomCardTitle className="text-2xl font-bold">Welcome Back</CustomCardTitle>
+        <CustomCardDescription>
           Enter your credentials to access the dashboard
-        </CardDescription>
-      </CardHeader>
+        </CustomCardDescription>
+      </CustomCardHeader>
 
-      <CardContent className="space-y-6">
+      <CustomCardContent className="space-y-6">
         {/* Error Display */}
         {error && (
           <div className="flex items-center gap-2 p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md">
@@ -59,8 +59,8 @@ export function LoginForm() {
         <form onSubmit={onSubmit} className="space-y-4">
           {/* Email Field */}
           <div className="space-y-2">
-            <Label htmlFor="email">Email Address</Label>
-            <Input
+            <CustomLabel htmlFor="email">Email Address</CustomLabel>
+            <CustomInput
               id="email"
               type="email"
               placeholder="Enter your email"
@@ -76,8 +76,8 @@ export function LoginForm() {
 
           {/* Password Field */}
           <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
-            <Input
+            <CustomLabel htmlFor="password">Password</CustomLabel>
+            <CustomInput
               id="password"
               type="password"
               placeholder="Enter your password"
@@ -92,7 +92,7 @@ export function LoginForm() {
           </div>
 
           {/* Submit Button */}
-          <Button
+          <CustomButton
             type="submit"
             className="w-full"
             disabled={isLoading}
@@ -106,7 +106,7 @@ export function LoginForm() {
             ) : (
               "Sign In"
             )}
-          </Button>
+          </CustomButton>
         </form>
 
         {/* Demo Credentials Info */}
@@ -117,7 +117,7 @@ export function LoginForm() {
             <p><strong>Password:</strong> 123123</p>
           </div>
         </div>
-      </CardContent>
-    </Card>
+      </CustomCardContent>
+    </CustomCard>
   );
 }

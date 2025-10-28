@@ -1,15 +1,15 @@
 "use client";
 
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/Card";
-import { Input } from "@/components/ui/Input";
-import { Label } from "@/components/ui/Label";
-import { Button } from "@/components/ui/Button";
+  CustomCard,
+  CustomCardContent,
+  CustomCardDescription,
+  CustomCardHeader,
+  CustomCardTitle,
+} from "@/components/ui/CustomCustomCard";
+import { CustomCustomInput } from "@/components/ui/CustomCustomInput";
+import { CustomCustomLabel } from "@/components/ui/CustomCustomLabel";
+import { CustomCustomButton } from "@/components/ui/CustomCustomButton";
 import { Settings } from "lucide-react";
 
 export default function SettingsPage() {
@@ -23,26 +23,26 @@ export default function SettingsPage() {
       </div>
 
       <div className="space-y-6">
-        <Card className="border-gray-200 shadow-sm">
-          <CardHeader>
-            <CardTitle className="text-lg">General Settings</CardTitle>
-            <CardDescription>
+        <CustomCard className="border-gray-200 shadow-sm">
+          <CustomCardHeader>
+            <CustomCardTitle className="text-lg">General Settings</CustomCardTitle>
+            <CustomCardDescription>
               Basic application settings and preferences
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
+            </CustomCardDescription>
+          </CustomCardHeader>
+          <CustomCardContent>
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="app-name">Application Name</Label>
-                <Input
+                <CustomLabel htmlFor="app-name">Application Name</CustomLabel>
+                <CustomInput
                   id="app-name"
                   defaultValue="Rocky Dashboard"
                   className="max-w-md"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="version">Version</Label>
-                <Input
+                <CustomLabel htmlFor="version">Version</CustomLabel>
+                <CustomInput
                   id="version"
                   defaultValue="1.0.0"
                   disabled
@@ -50,19 +50,19 @@ export default function SettingsPage() {
                 />
               </div>
             </div>
-          </CardContent>
-        </Card>
+          </CustomCardContent>
+        </CustomCard>
 
-        <Card className="border-gray-200 shadow-sm">
-          <CardHeader>
-            <CardTitle className="text-lg">Account Settings</CardTitle>
-            <CardDescription>Manage your account information</CardDescription>
-          </CardHeader>
-          <CardContent>
+        <CustomCard className="border-gray-200 shadow-sm">
+          <CustomCardHeader>
+            <CustomCardTitle className="text-lg">Account Settings</CustomCardTitle>
+            <CustomCardDescription>Manage your account information</CustomCardDescription>
+          </CustomCardHeader>
+          <CustomCardContent>
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="email">Email Address</Label>
-                <Input
+                <CustomLabel htmlFor="email">Email Address</CustomLabel>
+                <CustomInput
                   id="email"
                   type="email"
                   placeholder="your.email@example.com"
@@ -70,15 +70,15 @@ export default function SettingsPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="name">Full Name</Label>
-                <Input id="name" placeholder="John Doe" className="max-w-md" />
+                <CustomLabel htmlFor="name">Full Name</CustomLabel>
+                <CustomInput id="name" placeholder="John Doe" className="max-w-md" />
               </div>
-              <Button className="bg-blue-600 hover:bg-blue-700 mt-4">
+              <CustomButton className="bg-blue-600 hover:bg-blue-700 mt-4">
                 Save Changes
-              </Button>
+              </CustomButton>
             </div>
-          </CardContent>
-        </Card>
+          </CustomCardContent>
+        </CustomCard>
       </div>
     </div>
   );

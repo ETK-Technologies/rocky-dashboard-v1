@@ -1,13 +1,13 @@
 "use client";
 
-import { Button } from "@/components/ui/Button";
+import { CustomButton } from "@/components/ui/CustomButton";
 import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardHeader,
-    CardTitle,
-} from "@/components/ui/Card";
+    CustomCard,
+    CustomCardContent,
+    CustomCardDescription,
+    CustomCardHeader,
+    CustomCardTitle,
+} from "@/components/ui/CustomCard";
 import { AlertTriangle, X } from "lucide-react";
 
 /**
@@ -23,7 +23,7 @@ import { AlertTriangle, X } from "lucide-react";
  * @param {boolean} props.isLoading - Loading state
  * @param {string} props.variant - Dialog variant (danger, warning, info)
  */
-export function ConfirmationDialog({
+export function CustomConfirmationDialog({
     isOpen,
     onClose,
     onConfirm,
@@ -69,14 +69,14 @@ export function ConfirmationDialog({
             />
 
             {/* Dialog */}
-            <Card className="relative w-full max-w-md mx-4">
-                <CardHeader className="pb-4">
+            <CustomCard className="relative w-full max-w-md mx-4">
+                <CustomCardHeader className="pb-4">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
                             <div className={`p-2 rounded-full ${styles.iconBg}`}>
                                 <IconComponent className={`h-5 w-5 ${styles.iconColor}`} />
                             </div>
-                            <CardTitle className="text-lg">{title}</CardTitle>
+                            <CustomCardTitle className="text-lg">{title}</CustomCardTitle>
                         </div>
                         <button
                             onClick={onClose}
@@ -86,31 +86,31 @@ export function ConfirmationDialog({
                             <X className="h-4 w-4" />
                         </button>
                     </div>
-                </CardHeader>
+                </CustomCardHeader>
 
-                <CardContent className="space-y-4">
-                    <CardDescription className="text-base">
+                <CustomCardContent className="space-y-4">
+                    <CustomCardDescription className="text-base">
                         {description}
-                    </CardDescription>
+                    </CustomCardDescription>
 
                     <div className="flex gap-3 justify-end">
-                        <Button
+                        <CustomButton
                             variant="outline"
                             onClick={onClose}
                             disabled={isLoading}
                         >
                             {cancelText}
-                        </Button>
-                        <Button
+                        </CustomButton>
+                        <CustomButton
                             onClick={onConfirm}
                             disabled={isLoading}
                             className={styles.confirmButton}
                         >
                             {isLoading ? "Processing..." : confirmText}
-                        </Button>
+                        </CustomButton>
                     </div>
-                </CardContent>
-            </Card>
+                </CustomCardContent>
+            </CustomCard>
         </div>
     );
 }

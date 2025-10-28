@@ -1,13 +1,13 @@
 "use client";
 
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/Card";
-import { EmptyState } from "@/components/ui/EmptyState";
+  CustomCard,
+  CustomCardContent,
+  CustomCardDescription,
+  CustomCardHeader,
+  CustomCardTitle,
+} from "@/components/ui/CustomCustomCard";
+import { CustomCustomEmptyState } from "@/components/ui/CustomCustomEmptyState";
 import { Calendar } from "lucide-react";
 
 export default function CalendarPage() {
@@ -20,19 +20,19 @@ export default function CalendarPage() {
         </p>
       </div>
 
-      <Card className="border-gray-200 shadow-sm">
-        <CardHeader>
-          <CardTitle className="text-lg">Your Calendar</CardTitle>
-          <CardDescription>View and manage your events</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <EmptyState
+      <CustomCard className="border-gray-200 shadow-sm">
+        <CustomCardHeader>
+          <CustomCardTitle className="text-lg">Your Calendar</CustomCardTitle>
+          <CustomCardDescription>View and manage your events</CustomCardDescription>
+        </CustomCardHeader>
+        <CustomCardContent>
+          <CustomEmptyState
             icon={Calendar}
             title="No events scheduled"
             description="Your calendar events will appear here once you create them."
           />
-        </CardContent>
-      </Card>
+        </CustomCardContent>
+      </CustomCard>
     </div>
   );
 }

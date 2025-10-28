@@ -1,13 +1,13 @@
 "use client";
 
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/Card";
-import { EmptyState } from "@/components/ui/EmptyState";
+  CustomCard,
+  CustomCardContent,
+  CustomCardDescription,
+  CustomCardHeader,
+  CustomCardTitle,
+} from "@/components/ui/CustomCustomCard";
+import { CustomCustomEmptyState } from "@/components/ui/CustomCustomEmptyState";
 import { Activity } from "lucide-react";
 
 export default function ActivityPage() {
@@ -20,19 +20,19 @@ export default function ActivityPage() {
         </p>
       </div>
 
-      <Card className="border-gray-200 shadow-sm">
-        <CardHeader>
-          <CardTitle className="text-lg">Recent Activity</CardTitle>
-          <CardDescription>Track all changes and updates</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <EmptyState
+      <CustomCard className="border-gray-200 shadow-sm">
+        <CustomCardHeader>
+          <CustomCardTitle className="text-lg">Recent Activity</CustomCardTitle>
+          <CustomCardDescription>Track all changes and updates</CustomCardDescription>
+        </CustomCardHeader>
+        <CustomCardContent>
+          <CustomEmptyState
             icon={Activity}
             title="No activity yet"
             description="Activity logs will appear here when you start using the dashboard."
           />
-        </CardContent>
-      </Card>
+        </CustomCardContent>
+      </CustomCard>
     </div>
   );
 }

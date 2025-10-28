@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { authStorage } from "@/features/auth";
 import { DashboardCard, QuickAccessCard } from "./DashboardCard";
-import { Button } from "@/components/ui/Button";
+import { CustomButton } from "@/components/ui/CustomButton";
 import { useRouter } from "next/navigation";
 
 export default function DashboardMain() {
@@ -129,30 +129,28 @@ export default function DashboardMain() {
           <div className="flex items-center gap-2">
             <button
               onClick={() => setViewMode("grid")}
-              className={`p-2 rounded-lg transition-colors ${
-                viewMode === "grid"
+              className={`p-2 rounded-lg transition-colors ${viewMode === "grid"
                   ? "bg-blue-50 text-blue-600"
                   : "text-gray-400 hover:text-gray-600 hover:bg-gray-50"
-              }`}
+                }`}
             >
               <Grid3x3 className="h-4 w-4" />
             </button>
             <button
               onClick={() => setViewMode("list")}
-              className={`p-2 rounded-lg transition-colors ${
-                viewMode === "list"
+              className={`p-2 rounded-lg transition-colors ${viewMode === "list"
                   ? "bg-blue-50 text-blue-600"
                   : "text-gray-400 hover:text-gray-600 hover:bg-gray-50"
-              }`}
+                }`}
             >
               <List className="h-4 w-4" />
             </button>
-            <Button
+            <CustomButton
               className="ml-2 bg-blue-600 hover:bg-blue-700 text-white"
               size="sm"
             >
               + Add New
-            </Button>
+            </CustomButton>
           </div>
         </div>
       </div>

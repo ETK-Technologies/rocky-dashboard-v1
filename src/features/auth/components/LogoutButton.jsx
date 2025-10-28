@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Button } from "@/components/ui/Button";
-import { ConfirmationDialog } from "@/components/ui/ConfirmationDialog";
+import { CustomButton } from "@/components/ui/CustomButton";
+import { CustomConfirmationDialog } from "@/components/ui/CustomConfirmationDialog";
 import { useLogout } from "@/features/auth";
 import { LogOut } from "lucide-react";
 
@@ -49,7 +49,7 @@ export function LogoutButton({
 
     return (
         <>
-            <Button
+            <CustomButton
                 variant={variant}
                 size={size}
                 onClick={handleLogoutClick}
@@ -67,9 +67,9 @@ export function LogoutButton({
                     />
                 )}
                 {size !== "icon" && (isLoggingOut ? "Logging out..." : children)}
-            </Button>
+            </CustomButton>
 
-            <ConfirmationDialog
+            <CustomConfirmationDialog
                 isOpen={isDialogOpen}
                 onClose={handleCancelLogout}
                 onConfirm={handleConfirmLogout}

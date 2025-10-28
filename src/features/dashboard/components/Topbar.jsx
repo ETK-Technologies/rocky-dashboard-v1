@@ -1,7 +1,7 @@
 "use client";
 
 import { Menu, Bell, Search } from "lucide-react";
-import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/Avatar";
+import { CustomAvatar, CustomAvatarImage, CustomAvatarFallback } from "@/components/ui/CustomAvatar";
 import { LogoutButton } from "@/features/auth";
 import { authStorage } from "@/features/auth";
 import { useState, useEffect } from "react";
@@ -49,16 +49,16 @@ export function Topbar({ onMenuClick }) {
             <>
               {/* User Avatar with dropdown indicator */}
               <div className="flex items-center gap-3 pl-3 border-l border-gray-200">
-                <Avatar className="h-9 w-9 cursor-pointer ring-2 ring-gray-100 hover:ring-gray-200 transition-all">
+                <CustomAvatar className="h-9 w-9 cursor-pointer ring-2 ring-gray-100 hover:ring-gray-200 transition-all">
                   {user.avatar ? (
-                    <AvatarImage src={user.avatar} alt={user.firstName} />
+                    <CustomAvatarImage src={user.avatar} alt={user.firstName} />
                   ) : (
-                    <AvatarFallback className="bg-gradient-to-br from-blue-500 to-blue-600 text-white text-sm font-semibold">
+                    <CustomAvatarFallback className="bg-gradient-to-br from-blue-500 to-blue-600 text-white text-sm font-semibold">
                       {user.firstName?.[0]}
                       {user.lastName?.[0]}
-                    </AvatarFallback>
+                    </CustomAvatarFallback>
                   )}
-                </Avatar>
+                </CustomAvatar>
 
                 {/* Logout button */}
                 <LogoutButton

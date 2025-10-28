@@ -1,14 +1,14 @@
 "use client";
 
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/Card";
-import { EmptyState } from "@/components/ui/EmptyState";
-import { Button } from "@/components/ui/Button";
+  CustomCard,
+  CustomCardContent,
+  CustomCardDescription,
+  CustomCardHeader,
+  CustomCardTitle,
+} from "@/components/ui/CustomCustomCard";
+import { CustomCustomEmptyState } from "@/components/ui/CustomCustomEmptyState";
+import { CustomCustomButton } from "@/components/ui/CustomCustomButton";
 import { Package, Plus } from "lucide-react";
 
 export default function ProductsPage() {
@@ -21,31 +21,31 @@ export default function ProductsPage() {
             Manage your product catalog
           </p>
         </div>
-        <Button className="bg-blue-600 hover:bg-blue-700">
+        <CustomButton className="bg-blue-600 hover:bg-blue-700">
           <Plus className="h-4 w-4 mr-2" />
           Add Product
-        </Button>
+        </CustomButton>
       </div>
 
-      <Card className="border-gray-200 shadow-sm">
-        <CardHeader>
-          <CardTitle className="text-lg">All Products</CardTitle>
-          <CardDescription>View and manage all your products</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <EmptyState
+      <CustomCard className="border-gray-200 shadow-sm">
+        <CustomCardHeader>
+          <CustomCardTitle className="text-lg">All Products</CustomCardTitle>
+          <CustomCardDescription>View and manage all your products</CustomCardDescription>
+        </CustomCardHeader>
+        <CustomCardContent>
+          <CustomEmptyState
             icon={Package}
             title="No products yet"
             description="Get started by creating your first product. Products will appear here once you add them."
             action={
-              <Button className="bg-blue-600 hover:bg-blue-700">
+              <CustomButton className="bg-blue-600 hover:bg-blue-700">
                 <Plus className="h-4 w-4 mr-2" />
                 Create Product
-              </Button>
+              </CustomButton>
             }
           />
-        </CardContent>
-      </Card>
+        </CustomCardContent>
+      </CustomCard>
     </div>
   );
 }

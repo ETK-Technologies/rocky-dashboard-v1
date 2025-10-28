@@ -1,13 +1,13 @@
 "use client";
 
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/Card";
-import { EmptyState } from "@/components/ui/EmptyState";
+  CustomCard,
+  CustomCardContent,
+  CustomCardDescription,
+  CustomCardHeader,
+  CustomCardTitle,
+} from "@/components/ui/CustomCustomCard";
+import { CustomCustomEmptyState } from "@/components/ui/CustomCustomEmptyState";
 import { ShoppingCart } from "lucide-react";
 
 export default function OrdersPage() {
@@ -20,19 +20,19 @@ export default function OrdersPage() {
         </p>
       </div>
 
-      <Card className="border-gray-200 shadow-sm">
-        <CardHeader>
-          <CardTitle className="text-lg">All Orders</CardTitle>
-          <CardDescription>View and manage all customer orders</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <EmptyState
+      <CustomCard className="border-gray-200 shadow-sm">
+        <CustomCardHeader>
+          <CustomCardTitle className="text-lg">All Orders</CustomCardTitle>
+          <CustomCardDescription>View and manage all customer orders</CustomCardDescription>
+        </CustomCardHeader>
+        <CustomCardContent>
+          <CustomEmptyState
             icon={ShoppingCart}
             title="No orders yet"
             description="Orders from customers will appear here. Start by adding some products to your catalog."
           />
-        </CardContent>
-      </Card>
+        </CustomCardContent>
+      </CustomCard>
     </div>
   );
 }
