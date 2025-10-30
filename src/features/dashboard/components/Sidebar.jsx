@@ -12,14 +12,14 @@ import {
   Calendar,
   Users,
   X,
+  Folder,
 } from "lucide-react";
 import { cn } from "@/utils/cn";
 
 const navigation = [
   { name: "Files", href: "/dashboard", icon: LayoutDashboard },
-  { name: "Activity", href: "/dashboard/activity", icon: Activity },
-  { name: "Calendar", href: "/dashboard/calendar", icon: Calendar },
-  { name: "Contact", href: "/dashboard/contact", icon: Users },
+  { name: "Categories", href: "/dashboard/categories", icon: Folder },
+  { name: "Products", href: "/dashboard/products", icon: Package },
 ];
 
 const bottomNavigation = [
@@ -42,31 +42,31 @@ export function Sidebar({ isOpen, onClose }) {
       {/* Sidebar */}
       <aside
         className={cn(
-          "fixed left-0 top-0 h-full bg-white border-r border-gray-200 w-64 z-50 transition-transform duration-300 ease-in-out",
+          "fixed left-0 top-0 h-full bg-card border-r border-border w-64 z-40 transition-all duration-300 ease-in-out",
           "lg:translate-x-0 shadow-sm",
           isOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
         {/* Logo */}
-        <div className="flex items-center justify-between h-16 px-6 border-b border-gray-100">
+        <div className="flex items-center justify-between h-14 sm:h-16 px-4 sm:px-6 border-b border-border">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
-              <FileText className="h-5 w-5 text-white" />
+            <div className="w-7 h-7 sm:w-8 sm:h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
+              <FileText className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
             </div>
-            <h1 className="text-lg font-semibold text-gray-900">
+            <h1 className="text-base sm:text-lg font-semibold text-foreground">
               Rocky Dashboard
             </h1>
           </div>
           <button
             onClick={onClose}
-            className="lg:hidden text-gray-400 hover:text-gray-600 transition-colors"
+            className="lg:hidden text-muted-foreground hover:text-foreground transition-colors p-1"
           >
             <X className="h-5 w-5" />
           </button>
         </div>
 
         {/* Navigation */}
-        <nav className="mt-6 px-4 flex flex-col h-[calc(100vh-120px)]">
+        <nav className="mt-4 sm:mt-6 px-4 flex flex-col h-[calc(100vh-100px)] sm:h-[calc(100vh-120px)]">
           <ul className="space-y-1 flex-1">
             {navigation.map((item) => {
               const isActive = pathname === item.href;
@@ -78,8 +78,8 @@ export function Sidebar({ isOpen, onClose }) {
                     className={cn(
                       "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200",
                       isActive
-                        ? "bg-blue-50 text-blue-600"
-                        : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                        ? "bg-primary/10 text-primary"
+                        : "text-muted-foreground hover:bg-accent hover:text-foreground"
                     )}
                   >
                     <item.icon className="h-5 w-5" />
@@ -91,7 +91,7 @@ export function Sidebar({ isOpen, onClose }) {
           </ul>
 
           {/* Bottom Navigation */}
-          <div className="border-t border-gray-100 pt-4 pb-4">
+          <div className="border-t border-border pt-4 pb-4">
             <ul className="space-y-1">
               {bottomNavigation.map((item) => {
                 const isActive = pathname === item.href;
@@ -103,8 +103,8 @@ export function Sidebar({ isOpen, onClose }) {
                       className={cn(
                         "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200",
                         isActive
-                          ? "bg-blue-50 text-blue-600"
-                          : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                          ? "bg-primary/10 text-primary"
+                          : "text-muted-foreground hover:bg-accent hover:text-foreground"
                       )}
                     >
                       <item.icon className="h-5 w-5" />

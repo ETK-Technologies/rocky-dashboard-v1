@@ -1,9 +1,14 @@
 "use client";
 
 import { Menu, Bell, Search } from "lucide-react";
-import { CustomAvatar, CustomAvatarImage, CustomAvatarFallback } from "@/components/ui/CustomAvatar";
+import {
+  CustomAvatar,
+  CustomAvatarImage,
+  CustomAvatarFallback,
+} from "@/components/ui/CustomAvatar";
 import { LogoutButton } from "@/features/auth";
 import { authStorage } from "@/features/auth";
+import { ThemeToggle } from "@/features/theme";
 import { useState, useEffect } from "react";
 
 export function Topbar({ onMenuClick }) {
@@ -15,32 +20,44 @@ export function Topbar({ onMenuClick }) {
   }, []);
 
   return (
-    <header className="h-16 bg-white border-b border-gray-100 sticky top-0 z-30 shadow-sm">
-      <div className="flex items-center justify-between h-full px-4 lg:px-8">
+    <header className="h-14 sm:h-16 bg-card border-b border-border sticky top-0 z-30 shadow-sm transition-colors">
+      <div className="flex items-center justify-between h-full px-3 sm:px-4 lg:px-8">
         {/* Left side - Menu button for mobile */}
         <button
           onClick={onMenuClick}
-          className="lg:hidden text-gray-600 hover:text-gray-900 transition-colors p-2 hover:bg-gray-50 rounded-lg"
+          className="lg:hidden text-muted-foreground hover:text-foreground transition-colors p-2 hover:bg-accent rounded-lg"
         >
           <Menu className="h-5 w-5" />
         </button>
 
-        {/* Center - Search bar */}
-        <div className="flex-1 max-w-2xl mx-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+        {/* Center - Search bar (hidden on small mobile) */}
+        <div className="hidden sm:flex flex-1 max-w-2xl mx-4">
+          <div className="relative w-full">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <input
               type="text"
               placeholder="Search anything..."
-              className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all placeholder:text-gray-400"
+              className="w-full pl-10 pr-4 py-2 bg-secondary border border-border rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-all"
             />
           </div>
         </div>
 
         {/* Right side - Notifications and User menu */}
-        <div className="flex items-center gap-3">
-          {/* Notification Bell */}
-          <button className="relative p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-colors">
+        <div className="flex items-center gap-1 sm:gap-2">
+          {/* Search icon for mobile */}
+          <button className="sm:hidden p-2 text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg transition-colors">
+            <Search className="h-5 w-5" />
+          </button>
+
+          {/* Theme Toggle */}
+          <ThemeToggle
+            variant="ghost"
+            size="icon"
+            className="text-muted-foreground hover:text-foreground hover:bg-accent"
+          />
+
+          {/* Notification Bell - hidden on mobile */}
+          <button className="hidden sm:block relative p-2 text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg transition-colors">
             <Bell className="h-5 w-5" />
             <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full"></span>
           </button>
@@ -48,23 +65,23 @@ export function Topbar({ onMenuClick }) {
           {user && (
             <>
               {/* User Avatar with dropdown indicator */}
-              <div className="flex items-center gap-3 pl-3 border-l border-gray-200">
-                <CustomAvatar className="h-9 w-9 cursor-pointer ring-2 ring-gray-100 hover:ring-gray-200 transition-all">
+              <div className="flex items-center gap-1 sm:gap-2 pl-2 border-l border-border">
+                <CustomAvatar className="h-8 w-8 sm:h-9 sm:w-9 cursor-pointer ring-2 ring-border hover:ring-ring transition-all">
                   {user.avatar ? (
                     <CustomAvatarImage src={user.avatar} alt={user.firstName} />
                   ) : (
-                    <CustomAvatarFallback className="bg-gradient-to-br from-blue-500 to-blue-600 text-white text-sm font-semibold">
+                    <CustomAvatarFallback className="bg-gradient-to-br from-blue-500 to-blue-600 text-white text-xs sm:text-sm font-semibold">
                       {user.firstName?.[0]}
                       {user.lastName?.[0]}
                     </CustomAvatarFallback>
                   )}
                 </CustomAvatar>
 
-                {/* Logout button */}
+                {/* Logout button - hidden on small mobile */}
                 <LogoutButton
                   variant="ghost"
                   size="icon"
-                  className="text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+                  className="hidden sm:block text-muted-foreground hover:text-foreground hover:bg-accent"
                   showIcon={true}
                 />
               </div>

@@ -11,15 +11,40 @@ export async function makeRequest(endpoint, options = {}) {
 
   const url = `${baseURL}${endpoint}`;
 
-  const defaultHeaders = {
-    "Content-Type": "application/json",
-    ...options.headers,
+  // Get access token from localStorage
+  const getAccessToken = () => {
+    if (typeof window === "undefined") return null;
+    try {
+      return localStorage.getItem("access_token");
+    } catch {
+      return null;
+    }
   };
+
+  const accessToken = getAccessToken();
+
+  // Don't set Content-Type for FormData - let browser set it automatically
+  const isFormData = options.body instanceof FormData;
+
+  const defaultHeaders = isFormData
+    ? {
+        ...(accessToken && { Authorization: `Bearer ${accessToken}` }),
+        ...options.headers,
+      }
+    : {
+        "Content-Type": "application/json",
+        ...(accessToken && { Authorization: `Bearer ${accessToken}` }),
+        ...options.headers,
+      };
 
   const config = {
     ...options,
     headers: defaultHeaders,
   };
+
+  // Log request start
+  const startTime = performance.now();
+  console.log(`🌐 API Request: ${options.method || "GET"} ${url}`);
 
   try {
     const response = await fetch(url, config);
@@ -38,7 +63,18 @@ export async function makeRequest(endpoint, options = {}) {
       };
     }
 
+    // Calculate request duration
+    const duration = (performance.now() - startTime).toFixed(2);
+
     if (!response.ok) {
+      // Log error
+      console.error(
+        `❌ API Error: ${options.method || "GET"} ${url} - ${
+          response.status
+        } (${duration}ms)`
+      );
+      console.error("Error details:", data);
+
       // Return error data from API
       throw {
         status: response.status,
@@ -49,6 +85,13 @@ export async function makeRequest(endpoint, options = {}) {
         data,
       };
     }
+
+    // Log success
+    console.log(
+      `✅ API Success: ${options.method || "GET"} ${url} - ${
+        response.status
+      } (${duration}ms)`
+    );
 
     return data;
   } catch (error) {

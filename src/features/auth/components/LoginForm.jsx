@@ -3,17 +3,17 @@
 import { useEffect } from "react";
 import { useLogin } from "../hooks/useLogin";
 import { redirectIfAuthenticated } from "../middleware";
-import { CustomButton } from "@/components/ui/CustomButton";
-import { CustomInput } from "@/components/ui/CustomInput";
-import { CustomLabel } from "@/components/ui/CustomLabel";
 import {
+  CustomButton,
+  CustomInput,
+  CustomLabel,
   CustomCard,
   CustomCardContent,
   CustomCardDescription,
   CustomCardHeader,
   CustomCardTitle,
-} from "@/components/ui/CustomCard";
-import { Loader2, AlertCircle } from "lucide-react";
+} from "@/components/ui";
+import { Loader2 } from "lucide-react";
 
 /**
  * Login form component
@@ -34,28 +34,15 @@ export function LoginForm() {
   return (
     <CustomCard className="w-full max-w-md">
       <CustomCardHeader className="text-center">
-        <CustomCardTitle className="text-2xl font-bold">Welcome Back</CustomCardTitle>
+        <CustomCardTitle className="text-2xl font-bold">
+          Welcome Back
+        </CustomCardTitle>
         <CustomCardDescription>
           Enter your credentials to access the dashboard
         </CustomCardDescription>
       </CustomCardHeader>
 
       <CustomCardContent className="space-y-6">
-        {/* Error Display */}
-        {error && (
-          <div className="flex items-center gap-2 p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md">
-            <AlertCircle className="h-4 w-4 flex-shrink-0" />
-            <span>{error}</span>
-            <button
-              onClick={clearError}
-              className="ml-auto text-red-400 hover:text-red-600"
-              aria-label="Dismiss error"
-            >
-              ×
-            </button>
-          </div>
-        )}
-
         <form onSubmit={onSubmit} className="space-y-4">
           {/* Email Field */}
           <div className="space-y-2">
@@ -70,7 +57,9 @@ export function LoginForm() {
               autoComplete="email"
             />
             {errors.email && (
-              <p className="text-sm text-red-600">{errors.email.message}</p>
+              <p className="text-sm text-red-600 dark:text-red-400">
+                {errors.email.message}
+              </p>
             )}
           </div>
 
@@ -87,7 +76,9 @@ export function LoginForm() {
               autoComplete="current-password"
             />
             {errors.password && (
-              <p className="text-sm text-red-600">{errors.password.message}</p>
+              <p className="text-sm text-red-600 dark:text-red-400">
+                {errors.password.message}
+              </p>
             )}
           </div>
 
@@ -110,11 +101,17 @@ export function LoginForm() {
         </form>
 
         {/* Demo Credentials Info */}
-        <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-md">
-          <h4 className="text-sm font-medium text-blue-900 mb-2">Demo Credentials</h4>
-          <div className="text-sm text-blue-700 space-y-1">
-            <p><strong>Email:</strong> moatef@gmail.com</p>
-            <p><strong>Password:</strong> 123123</p>
+        <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-900 rounded-lg">
+          <h4 className="text-sm font-semibold text-blue-900 dark:text-blue-400 mb-2">
+            Demo Credentials
+          </h4>
+          <div className="text-sm text-blue-700 dark:text-blue-300 space-y-1">
+            <p>
+              <strong>Email:</strong> moatef@gmail.com
+            </p>
+            <p>
+              <strong>Password:</strong> 123123
+            </p>
           </div>
         </div>
       </CustomCardContent>

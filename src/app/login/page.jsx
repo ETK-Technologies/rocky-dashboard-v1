@@ -1,4 +1,3 @@
-import { redirect } from "next/navigation";
 import { LoginForm } from "@/features/auth";
 
 /**
@@ -10,7 +9,7 @@ export default function LoginPage() {
   // For now, we'll handle redirects client-side in the LoginForm
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <div className="w-full max-w-md">
         <LoginForm />
       </div>

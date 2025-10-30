@@ -10,12 +10,16 @@ import {
   TrendingUp,
   MoreHorizontal,
   MoreVertical,
-  Grid3x3,
-  List,
 } from "lucide-react";
 import { authStorage } from "@/features/auth";
 import { DashboardCard, QuickAccessCard } from "./DashboardCard";
-import { CustomButton } from "@/components/ui/CustomButton";
+import {
+  CustomButton,
+  PageContainer,
+  SectionHeader,
+  ViewToggle,
+  IconButton,
+} from "@/components/ui";
 import { useRouter } from "next/navigation";
 
 export default function DashboardMain() {
@@ -35,32 +39,32 @@ export default function DashboardMain() {
       size: "2.3 GB",
       itemCount: "23 items",
       icon: Folder,
-      iconColor: "text-blue-600",
-      bgColor: "bg-blue-50",
+      iconColor: "text-blue-600 dark:text-blue-400",
+      bgColor: "bg-blue-50 dark:bg-blue-950/30",
     },
     {
       title: "Source",
       size: "1.2 MB",
       itemCount: "1 item",
       icon: Folder,
-      iconColor: "text-blue-600",
-      bgColor: "bg-blue-50",
+      iconColor: "text-blue-600 dark:text-blue-400",
+      bgColor: "bg-blue-50 dark:bg-blue-950/30",
     },
     {
       title: "Brand Assets",
       size: "241 MB",
       itemCount: "8 items",
       icon: Folder,
-      iconColor: "text-blue-600",
-      bgColor: "bg-blue-50",
+      iconColor: "text-blue-600 dark:text-blue-400",
+      bgColor: "bg-blue-50 dark:bg-blue-950/30",
     },
     {
       title: "Great Studios Pitch...",
       size: "12.3 MB",
       itemCount: "pptx",
       icon: FileText,
-      iconColor: "text-orange-600",
-      bgColor: "bg-orange-50",
+      iconColor: "text-orange-600 dark:text-orange-400",
+      bgColor: "bg-orange-50 dark:bg-orange-950/30",
     },
   ];
 
@@ -71,8 +75,8 @@ export default function DashboardMain() {
       size: "2.5 GB",
       itemCount: "45 items",
       icon: Package,
-      iconColor: "text-purple-600",
-      bgColor: "bg-purple-50",
+      iconColor: "text-purple-600 dark:text-purple-400",
+      bgColor: "bg-purple-50 dark:bg-purple-950/30",
       onClick: () => router.push("/dashboard/products"),
     },
     {
@@ -80,8 +84,8 @@ export default function DashboardMain() {
       size: "512 MB",
       itemCount: "128 items",
       icon: ShoppingCart,
-      iconColor: "text-green-600",
-      bgColor: "bg-green-50",
+      iconColor: "text-green-600 dark:text-green-400",
+      bgColor: "bg-green-50 dark:bg-green-950/30",
       onClick: () => router.push("/dashboard/orders"),
     },
     {
@@ -89,66 +93,46 @@ export default function DashboardMain() {
       size: "45 MB",
       itemCount: "12 items",
       icon: TrendingUp,
-      iconColor: "text-blue-600",
-      bgColor: "bg-blue-50",
+      iconColor: "text-blue-600 dark:text-blue-400",
+      bgColor: "bg-blue-50 dark:bg-blue-950/30",
     },
     {
       title: "Documents",
       size: "1.8 GB",
       itemCount: "234 items",
       icon: FileText,
-      iconColor: "text-yellow-600",
-      bgColor: "bg-yellow-50",
+      iconColor: "text-yellow-600 dark:text-yellow-400",
+      bgColor: "bg-yellow-50 dark:bg-yellow-950/30",
     },
     {
       title: "Images",
       size: "3.2 GB",
       itemCount: "567 items",
       icon: ImageIcon,
-      iconColor: "text-pink-600",
-      bgColor: "bg-pink-50",
+      iconColor: "text-pink-600 dark:text-pink-400",
+      bgColor: "bg-pink-50 dark:bg-pink-950/30",
     },
     {
       title: "Designs",
       size: "892 MB",
       itemCount: "89 items",
       icon: Folder,
-      iconColor: "text-indigo-600",
-      bgColor: "bg-indigo-50",
+      iconColor: "text-indigo-600 dark:text-indigo-400",
+      bgColor: "bg-indigo-50 dark:bg-indigo-950/30",
     },
   ];
 
   return (
-    <div className="p-6 lg:p-8 max-w-[1600px] mx-auto">
+    <PageContainer>
       {/* Header with breadcrumb */}
       <div className="mb-6">
         <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-2 text-sm text-gray-600">
-            <span className="font-medium text-gray-900">Home</span>
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <span className="font-medium text-foreground">Home</span>
           </div>
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => setViewMode("grid")}
-              className={`p-2 rounded-lg transition-colors ${viewMode === "grid"
-                  ? "bg-blue-50 text-blue-600"
-                  : "text-gray-400 hover:text-gray-600 hover:bg-gray-50"
-                }`}
-            >
-              <Grid3x3 className="h-4 w-4" />
-            </button>
-            <button
-              onClick={() => setViewMode("list")}
-              className={`p-2 rounded-lg transition-colors ${viewMode === "list"
-                  ? "bg-blue-50 text-blue-600"
-                  : "text-gray-400 hover:text-gray-600 hover:bg-gray-50"
-                }`}
-            >
-              <List className="h-4 w-4" />
-            </button>
-            <CustomButton
-              className="ml-2 bg-blue-600 hover:bg-blue-700 text-white"
-              size="sm"
-            >
+            <ViewToggle view={viewMode} onViewChange={setViewMode} />
+            <CustomButton className="ml-2" size="sm">
               + Add New
             </CustomButton>
           </div>
@@ -157,12 +141,16 @@ export default function DashboardMain() {
 
       {/* Quick Access Section */}
       <div className="mb-8">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-gray-900">Quick Access</h2>
-          <button className="text-gray-400 hover:text-gray-600 transition-colors p-1">
-            <MoreHorizontal className="h-5 w-5" />
-          </button>
-        </div>
+        <SectionHeader
+          title="Quick Access"
+          action={
+            <IconButton
+              icon={MoreHorizontal}
+              label="More options"
+              variant="ghost"
+            />
+          }
+        />
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {quickAccessItems.map((item, index) => (
@@ -173,20 +161,22 @@ export default function DashboardMain() {
 
       {/* Main Folders Section */}
       <div>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-gray-900">All Files</h2>
-          <div className="flex items-center gap-4 text-sm text-gray-600">
-            <button className="hover:text-gray-900 transition-colors">
-              Name
-            </button>
-            <button className="hover:text-gray-900 transition-colors">
-              Size
-            </button>
-            <button className="hover:text-gray-900 transition-colors">
-              Modified
-            </button>
-          </div>
-        </div>
+        <SectionHeader
+          title="All Files"
+          action={
+            <div className="flex items-center gap-4 text-sm text-muted-foreground">
+              <button className="hover:text-foreground transition-colors">
+                Name
+              </button>
+              <button className="hover:text-foreground transition-colors">
+                Size
+              </button>
+              <button className="hover:text-foreground transition-colors">
+                Modified
+              </button>
+            </div>
+          }
+        />
 
         {viewMode === "grid" ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -195,29 +185,29 @@ export default function DashboardMain() {
             ))}
           </div>
         ) : (
-          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+          <div className="bg-card rounded-xl border border-border overflow-hidden">
             <table className="w-full">
-              <thead className="bg-gray-50 border-b border-gray-200">
+              <thead className="bg-secondary border-b border-border">
                 <tr>
-                  <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-6 py-3">
+                  <th className="text-left text-xs font-medium text-muted-foreground uppercase tracking-wider px-6 py-3">
                     Name
                   </th>
-                  <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-6 py-3">
+                  <th className="text-left text-xs font-medium text-muted-foreground uppercase tracking-wider px-6 py-3">
                     Size
                   </th>
-                  <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-6 py-3">
+                  <th className="text-left text-xs font-medium text-muted-foreground uppercase tracking-wider px-6 py-3">
                     Items
                   </th>
                   <th className="w-12"></th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-200">
+              <tbody className="divide-y divide-border">
                 {folders.map((folder, index) => {
                   const Icon = folder.icon;
                   return (
                     <tr
                       key={index}
-                      className="hover:bg-gray-50 cursor-pointer transition-colors"
+                      className="hover:bg-accent cursor-pointer transition-colors"
                       onClick={folder.onClick}
                     >
                       <td className="px-6 py-4">
@@ -227,20 +217,20 @@ export default function DashboardMain() {
                           >
                             <Icon className={`h-5 w-5 ${folder.iconColor}`} />
                           </div>
-                          <span className="text-sm font-medium text-gray-900">
+                          <span className="text-sm font-medium text-foreground">
                             {folder.title}
                           </span>
                         </div>
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-600">
+                      <td className="px-6 py-4 text-sm text-muted-foreground">
                         {folder.size}
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-600">
+                      <td className="px-6 py-4 text-sm text-muted-foreground">
                         {folder.itemCount}
                       </td>
                       <td className="px-6 py-4">
-                        <button className="p-1 hover:bg-gray-100 rounded-lg transition-colors">
-                          <MoreVertical className="h-4 w-4 text-gray-400" />
+                        <button className="p-1 hover:bg-accent rounded-lg transition-colors">
+                          <MoreVertical className="h-4 w-4 text-muted-foreground" />
                         </button>
                       </td>
                     </tr>
@@ -251,6 +241,6 @@ export default function DashboardMain() {
           </div>
         )}
       </div>
-    </div>
+    </PageContainer>
   );
 }

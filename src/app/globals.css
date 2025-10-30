@@ -35,14 +35,50 @@
 
     --background: 220 13% 97%;
   }
+
+  .dark {
+    --foreground: 210 40% 98%;
+
+    --card: 222 47% 11%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 222 47% 11%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 217 91% 60%;
+    --primary-foreground: 222 47% 11%;
+
+    --secondary: 217 33% 17%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 217 33% 17%;
+    --muted-foreground: 215 20% 65%;
+
+    --accent: 217 33% 17%;
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 63% 31%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 217 33% 17%;
+    --input: 217 33% 17%;
+    --ring: 217 91% 60%;
+
+    --background: 222 47% 8%;
+  }
 }
 
 @layer base {
   * {
-    @apply border-border;
+    border-color: hsl(var(--border));
   }
   body {
-    @apply bg-[#F8F9FB] text-foreground font-sans antialiased;
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    font-family: Inter, system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    transition: background-color 0.3s ease, color 0.3s ease;
   }
 }
 
@@ -56,13 +92,25 @@
   background: #f1f1f1;
 }
 
+.dark ::-webkit-scrollbar-track {
+  background: #1f2937;
+}
+
 ::-webkit-scrollbar-thumb {
-  background: #c1c1c1;
+  background: #d1d5db;
   border-radius: 6px;
 }
 
+.dark ::-webkit-scrollbar-thumb {
+  background: #4b5563;
+}
+
 ::-webkit-scrollbar-thumb:hover {
-  background: #a8a8a8;
+  background: #9ca3af;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #6b7280;
 }
 
 /* Override yellow/amber colors with neutral grays */
@@ -100,9 +148,26 @@ input:-webkit-autofill:active {
   border-color: hsl(var(--input)) !important;
 }
 
+.dark input:-webkit-autofill,
+.dark input:-webkit-autofill:hover,
+.dark input:-webkit-autofill:focus,
+.dark input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 1000px hsl(var(--card)) inset !important;
+  -webkit-text-fill-color: hsl(var(--foreground)) !important;
+  background-color: hsl(var(--card)) !important;
+  background: hsl(var(--card)) !important;
+  border-color: hsl(var(--input)) !important;
+}
+
 input:-webkit-autofill:focus {
   -webkit-box-shadow: 0 0 0 1000px white inset,
     0 0 0 2px hsla(207, 69%, 44%, 0.2) !important;
+  border-color: hsl(var(--ring)) !important;
+}
+
+.dark input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 1000px hsl(var(--card)) inset,
+    0 0 0 2px hsla(217, 91%, 60%, 0.2) !important;
   border-color: hsl(var(--ring)) !important;
 }
 

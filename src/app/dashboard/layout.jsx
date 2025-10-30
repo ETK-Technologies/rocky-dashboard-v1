@@ -33,13 +33,15 @@ export default function DashboardLayout({ children }) {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[#F8F9FB]">
+    <div className="flex h-screen overflow-hidden bg-background">
       <Sidebar isOpen={isSidebarOpen} onClose={closeSidebar} />
 
-      <div className="flex-1 flex flex-col lg:ml-64 relative z-0">
+      <div className="flex-1 flex flex-col w-full lg:ml-64 relative z-0 min-w-0">
         <Topbar onMenuClick={toggleSidebar} />
 
-        <main className="flex-1 overflow-auto relative z-0">{children}</main>
+        <main className="flex-1 overflow-auto relative z-0 bg-background w-full">
+          {children}
+        </main>
       </div>
     </div>
   );

@@ -22,20 +22,20 @@ export { authStorage } from "./utils/authStorage";
 
 // Middleware
 export {
-    isAuthenticated,
-    getCurrentUser,
-    getAuthState,
-    requireAuth,
-    redirectIfAuthenticated,
-    getServerAuthState,
-    AUTH_ROUTES,
+  isAuthenticated,
+  getCurrentUser,
+  getAuthState,
+  requireAuth,
+  redirectIfAuthenticated,
+  getServerAuthState,
+  AUTH_ROUTES,
 } from "./middleware";
 
 // Types and Constants
 export {
-    STORAGE_KEYS,
-    AUTH_ENDPOINTS,
-    AUTH_ERRORS,
-    AUTH_SUCCESS,
-    VALIDATION_RULES,
+  STORAGE_KEYS,
+  AUTH_ENDPOINTS,
+  AUTH_ERRORS,
+  AUTH_SUCCESS,
+  VALIDATION_RULES,
 } from "./constants";
