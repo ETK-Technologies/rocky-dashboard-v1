@@ -8,6 +8,7 @@ import { toast } from "react-toastify";
 import { useRouter } from "next/navigation";
 import { authService } from "../services/authService";
 import { authStorage } from "../utils/authStorage";
+import { useAuthStore } from "@/lib/store/authStore";
 import { AUTH_SUCCESS, VALIDATION_RULES } from "../constants";
 
 // Validation schema
@@ -40,6 +41,9 @@ export function useLogin() {
     mode: "onBlur", // Validate on blur for better UX
   });
 
+  // Get Zustand store actions
+  const { login: loginToStore } = useAuthStore();
+
   /**
    * Handle login form submission
    * @param {Object} data - Form data
@@ -49,17 +53,26 @@ export function useLogin() {
     setError(null);
 
     try {
+      // Call API to login
       const response = await authService.login(data.email, data.password);
 
-      // Save auth data
+      // Save auth data to localStorage
       const saveSuccess = authStorage.saveAuth(response);
       if (!saveSuccess) {
         console.warn("Failed to save auth data to localStorage");
       }
 
-      // Show success message
-      const userName = response.user?.firstName || response.user?.name || "User";
-      toast.success(`${AUTH_SUCCESS.LOGIN_SUCCESS} ${userName}!`);
+      // Login to Zustand store and fetch user profile
+      const user = await loginToStore(response);
+
+      if (!user) {
+        throw new Error("Failed to fetch user profile after login");
+      }
+
+      // Show success message with user's name and role
+      const userName = user.firstName || user.email || "User";
+      const userRole = user.role ? ` as ${user.role}` : "";
+      toast.success(`${AUTH_SUCCESS.LOGIN_SUCCESS} ${userName}${userRole}!`);
 
       // Redirect to dashboard
       router.push("/dashboard");
@@ -79,7 +92,7 @@ export function useLogin() {
     } finally {
       setIsLoading(false);
     }
-  }, [router]);
+  }, [router, loginToStore]);
 
   /**
    * Clear error state

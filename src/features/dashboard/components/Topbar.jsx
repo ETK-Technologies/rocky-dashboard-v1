@@ -1,23 +1,17 @@
 "use client";
 
-import { Menu, Bell, Search } from "lucide-react";
+import { Menu, Bell, Search, Shield, Crown } from "lucide-react";
 import {
   CustomAvatar,
   CustomAvatarImage,
   CustomAvatarFallback,
 } from "@/components/ui/CustomAvatar";
 import { LogoutButton } from "@/features/auth";
-import { authStorage } from "@/features/auth";
+import { useAuth } from "@/features/auth/hooks/useAuth";
 import { ThemeToggle } from "@/features/theme";
-import { useState, useEffect } from "react";
 
 export function Topbar({ onMenuClick }) {
-  const [user, setUser] = useState(null);
-
-  useEffect(() => {
-    const userData = authStorage.getUser();
-    setUser(userData);
-  }, []);
+  const { user, getRoleDisplayName, isAdmin, isSuperAdmin } = useAuth();
 
   return (
     <header className="h-14 sm:h-16 bg-card border-b border-border sticky top-0 z-30 shadow-sm transition-colors">
@@ -64,8 +58,23 @@ export function Topbar({ onMenuClick }) {
 
           {user && (
             <>
-              {/* User Avatar with dropdown indicator */}
-              <div className="flex items-center gap-1 sm:gap-2 pl-2 border-l border-border">
+              {/* User Info & Avatar */}
+              <div className="flex items-center gap-1 sm:gap-3 pl-2 border-l border-border">
+                {/* User name and role - hidden on mobile */}
+                <div className="hidden md:flex flex-col items-end">
+                  <span className="text-sm font-medium text-foreground">
+                    {user.firstName || user.email}
+                  </span>
+                  <div className="flex items-center gap-1">
+                    {isSuperAdmin() && <Crown className="h-3 w-3 text-yellow-500" />}
+                    {isAdmin() && !isSuperAdmin() && <Shield className="h-3 w-3 text-purple-500" />}
+                    <span className="text-xs text-muted-foreground">
+                      {getRoleDisplayName()}
+                    </span>
+                  </div>
+                </div>
+
+                {/* User Avatar */}
                 <CustomAvatar className="h-8 w-8 sm:h-9 sm:w-9 cursor-pointer ring-2 ring-border hover:ring-ring transition-all">
                   {user.avatar ? (
                     <CustomAvatarImage src={user.avatar} alt={user.firstName} />

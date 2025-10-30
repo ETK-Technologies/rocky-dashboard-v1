@@ -35,24 +35,53 @@ export function useProducts(initialFilters = {}) {
     try {
       const response = await productService.getAll(filters);
 
-      // Handle response structure
-      if (response.data) {
-        setProducts(Array.isArray(response.data) ? response.data : []);
-        setPagination(
-          response.pagination || {
-            page: filters.page,
-            limit: filters.limit,
-            total: 0,
-            totalPages: 0,
-          }
-        );
-      } else if (Array.isArray(response)) {
-        // If no pagination structure, assume direct array
-        setProducts(response);
-      } else {
-        // If response is not an array, set empty array
-        setProducts([]);
+      // Normalize various possible API shapes
+      // Supported shapes:
+      // 1) { data: [...], pagination: {...} }
+      // 2) { items: [...], meta: { page, limit, total, totalPages } }
+      // 3) { results: [...], page, limit, total, totalPages }
+      // 4) { products: [...], pagination: { page, limit, total, pages } }
+      // 5) [...]
+      let list = [];
+      let paginationData = null;
+
+      if (Array.isArray(response)) {
+        list = response;
+      } else if (response?.data && Array.isArray(response.data)) {
+        list = response.data;
+        paginationData =
+          response.pagination || response.meta || response.data?.pagination;
+      } else if (Array.isArray(response?.products)) {
+        // Backend shape provided: { products, pagination: { page, limit, total, pages } }
+        list = response.products;
+        const p = response.pagination || {};
+        paginationData = {
+          page: p.page ?? filters.page,
+          limit: p.limit ?? filters.limit,
+          total: p.total ?? (Array.isArray(list) ? list.length : 0),
+          totalPages: p.totalPages ?? p.pages ?? 1,
+        };
+      } else if (Array.isArray(response?.data?.items)) {
+        list = response.data.items;
+        paginationData = response.data.pagination || response.meta;
+      } else if (Array.isArray(response?.items)) {
+        list = response.items;
+        paginationData = response.meta || response.pagination;
+      } else if (Array.isArray(response?.results)) {
+        list = response.results;
+        const { page, limit, total, totalPages } = response;
+        paginationData = { page, limit, total, totalPages };
       }
+
+      setProducts(Array.isArray(list) ? list : []);
+      setPagination(
+        paginationData || {
+          page: filters.page,
+          limit: filters.limit,
+          total: Array.isArray(list) ? list.length : 0,
+          totalPages: 1,
+        }
+      );
     } catch (err) {
       setError(err.message || "Failed to fetch products");
       setProducts([]); // Ensure products is an empty array on error

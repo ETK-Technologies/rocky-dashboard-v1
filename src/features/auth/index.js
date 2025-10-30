@@ -7,10 +7,11 @@
 export { LoginForm } from "./components/LoginForm";
 export { LogoutButton } from "./components/LogoutButton";
 
-// Context
-export { AuthProvider, useAuth } from "./context/AuthContext";
+// Context (Legacy - prefer useAuth hook from hooks/useAuth.js)
+export { AuthProvider, useAuth as useAuthContext } from "./context/AuthContext";
 
 // Hooks
+export { useAuth } from "./hooks/useAuth"; // New RBAC-enabled hook
 export { useLogin } from "./hooks/useLogin";
 export { useLogout } from "./hooks/useLogout";
 

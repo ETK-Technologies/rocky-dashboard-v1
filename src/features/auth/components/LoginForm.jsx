@@ -107,10 +107,10 @@ export function LoginForm() {
           </h4>
           <div className="text-sm text-blue-700 dark:text-blue-300 space-y-1">
             <p>
-              <strong>Email:</strong> moatef@gmail.com
+              <strong>Email:</strong> superadmin@rocky.ca
             </p>
             <p>
-              <strong>Password:</strong> 123123
+              <strong>Password:</strong> password123
             </p>
           </div>
         </div>

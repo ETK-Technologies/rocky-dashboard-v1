@@ -95,7 +95,6 @@ export default function ProductForm({ productId = null }) {
     // Metadata
     metaTitle: "",
     metaDescription: "",
-    metaKeywords: "",
   });
 
   const [images, setImages] = useState([]);
@@ -144,7 +143,6 @@ export default function ProductForm({ productId = null }) {
 
         metaTitle: productData.metaTitle || "",
         metaDescription: productData.metaDescription || "",
-        metaKeywords: productData.metaKeywords || "",
       });
 
       if (productData.images) setImages(productData.images);
@@ -344,7 +342,6 @@ export default function ProductForm({ productId = null }) {
         backorders: formValues.backorders,
         metaTitle: formValues.metaTitle,
         metaDescription: formValues.metaDescription,
-        metaKeywords: formValues.metaKeywords,
       };
 
       if (formValues.salePrice) {
@@ -420,6 +417,7 @@ export default function ProductForm({ productId = null }) {
   const hasSubscription =
     formValues.type === "SUBSCRIPTION" ||
     formValues.type === "VARIABLE_SUBSCRIPTION";
+  const isVariableSubscription = formValues.type === "VARIABLE_SUBSCRIPTION";
 
   return (
     <PageContainer>
@@ -774,16 +772,107 @@ export default function ProductForm({ productId = null }) {
                     <h3 className="text-lg font-semibold text-foreground">
                       Attributes
                     </h3>
-                    <CustomButton
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={addAttribute}
-                      disabled={loading}
-                    >
-                      <Plus className="h-4 w-4 mr-2" />
-                      Add Attribute
-                    </CustomButton>
+                    <div className="flex items-center gap-2">
+                      <CustomButton
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={addAttribute}
+                        disabled={loading}
+                      >
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add Attribute
+                      </CustomButton>
+                      {isVariableSubscription && (
+                        <CustomButton
+                          type="button"
+                          size="sm"
+                          onClick={() => {
+                            // Generate variants from attribute combinations
+                            const parsed = attributes
+                              .filter((a) => a.name && a.value)
+                              .map((a) => ({
+                                name: a.name.trim(),
+                                values: a.value
+                                  // Support comma, pipe, or slash separators
+                                  .split(/[,|/]+/)
+                                  .map((v) => v.trim())
+                                  .filter(Boolean),
+                              }))
+                              .filter((a) => a.values.length > 0);
+
+                            if (parsed.length === 0) return;
+
+                            // Merge rows with same attribute name and de-duplicate values
+                            const mergedMap = parsed.reduce((map, p) => {
+                              const key = p.name.toLowerCase();
+                              const set = map.get(key) || new Set();
+                              p.values.forEach((v) => set.add(v));
+                              map.set(key, set);
+                              return map;
+                            }, new Map());
+
+                            const merged = Array.from(mergedMap.entries()).map(
+                              ([key, set]) => ({
+                                name:
+                                  parsed.find(
+                                    (x) => x.name.toLowerCase() === key
+                                  )?.name || key,
+                                values: Array.from(set),
+                              })
+                            );
+
+                            // Clean values: remove accidental "name:" prefixes from each value
+                            const cleaned = merged.map((p) => ({
+                              name: p.name,
+                              values: p.values.map((v) =>
+                                v
+                                  .replace(
+                                    new RegExp(`^${p.name}\\s*:\\s*`, "i"),
+                                    ""
+                                  )
+                                  .trim()
+                              ),
+                            }));
+
+                            // Cartesian product of values only
+                            const valueLists = cleaned.map((p) => p.values);
+                            const combos = valueLists.reduce(
+                              (acc, vals) =>
+                                acc.flatMap((a) => vals.map((v) => [...a, v])),
+                              [[]]
+                            );
+
+                            const newVariants = combos.map((values, idx) => ({
+                              name: values
+                                .map((v, i) => `${cleaned[i].name}: ${v}`)
+                                .join(" | "),
+                              sku: "",
+                              price: "",
+                              salePrice: "",
+                              // initialize per-variant subscription fields (editable later)
+                              subscriptionPeriod: formValues.subscriptionPeriod,
+                              subscriptionInterval: 1,
+                              subscriptionLength: 0,
+                              subscriptionSignUpFee: "0",
+                              subscriptionTrialLength: 0,
+                              subscriptionTrialPeriod:
+                                formValues.subscriptionTrialPeriod,
+                              manageStock: true,
+                              stockQuantity: 0,
+                              attributes: cleaned.map((p) => ({
+                                name: p.name,
+                              })),
+                            }));
+
+                            setVariants(newVariants);
+                          }}
+                          disabled={loading || attributes.length === 0}
+                        >
+                          Generate Variants
+                        </CustomButton>
+                      )}
+                    </div>
                   </div>
 
                   {errors.attributes && (
@@ -903,13 +992,171 @@ export default function ProductForm({ productId = null }) {
                             }
                             disabled={loading}
                           />
+                          <CustomInput
+                            placeholder="Image URL"
+                            value={variant.imageUrl || ""}
+                            onChange={(e) =>
+                              updateVariant(index, "imageUrl", e.target.value)
+                            }
+                            disabled={loading}
+                          />
+                          <CustomInput
+                            type="number"
+                            placeholder="Stock Quantity"
+                            value={variant.stockQuantity ?? 0}
+                            onChange={(e) =>
+                              updateVariant(
+                                index,
+                                "stockQuantity",
+                                Number(e.target.value)
+                              )
+                            }
+                            disabled={loading}
+                          />
                         </div>
+
+                        {isVariableSubscription && (
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
+                            <div className="space-y-2">
+                              <CustomLabel htmlFor={`v-${index}-period`}>
+                                Subscription Period
+                              </CustomLabel>
+                              <select
+                                id={`v-${index}-period`}
+                                value={
+                                  variant.subscriptionPeriod ||
+                                  formValues.subscriptionPeriod
+                                }
+                                onChange={(e) =>
+                                  updateVariant(
+                                    index,
+                                    "subscriptionPeriod",
+                                    e.target.value
+                                  )
+                                }
+                                disabled={loading}
+                                className={cn(
+                                  "flex h-10 w-full rounded-md border px-3 py-2 text-sm transition-colors",
+                                  "bg-white text-gray-900 border-gray-300",
+                                  "dark:bg-gray-800 dark:text-gray-100 dark:border-gray-600",
+                                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
+                                  "focus-visible:ring-blue-500 dark:focus-visible:ring-blue-400"
+                                )}
+                              >
+                                {SUBSCRIPTION_PERIODS.map((p) => (
+                                  <option key={p.value} value={p.value}>
+                                    {p.label}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                            <FormField
+                              id={`v-${index}-interval`}
+                              label="Interval"
+                              type="number"
+                              min="1"
+                              value={variant.subscriptionInterval ?? 1}
+                              onChange={(e) =>
+                                updateVariant(
+                                  index,
+                                  "subscriptionInterval",
+                                  Number(e.target.value)
+                                )
+                              }
+                              disabled={loading}
+                            />
+                            <FormField
+                              id={`v-${index}-length`}
+                              label="Length"
+                              type="number"
+                              min="0"
+                              value={variant.subscriptionLength ?? 0}
+                              onChange={(e) =>
+                                updateVariant(
+                                  index,
+                                  "subscriptionLength",
+                                  Number(e.target.value)
+                                )
+                              }
+                              helperText="0 = never expires"
+                              disabled={loading}
+                            />
+                            <FormField
+                              id={`v-${index}-signup`}
+                              label="Sign-up Fee"
+                              type="number"
+                              step="0.01"
+                              value={variant.subscriptionSignUpFee ?? "0"}
+                              onChange={(e) =>
+                                updateVariant(
+                                  index,
+                                  "subscriptionSignUpFee",
+                                  e.target.value
+                                )
+                              }
+                              disabled={loading}
+                            />
+                            <FormField
+                              id={`v-${index}-trial-len`}
+                              label="Trial Length"
+                              type="number"
+                              min="0"
+                              value={variant.subscriptionTrialLength ?? 0}
+                              onChange={(e) =>
+                                updateVariant(
+                                  index,
+                                  "subscriptionTrialLength",
+                                  Number(e.target.value)
+                                )
+                              }
+                              disabled={loading}
+                            />
+                            <div className="space-y-2">
+                              <CustomLabel htmlFor={`v-${index}-trial-period`}>
+                                Trial Period
+                              </CustomLabel>
+                              <select
+                                id={`v-${index}-trial-period`}
+                                value={
+                                  variant.subscriptionTrialPeriod ||
+                                  formValues.subscriptionTrialPeriod
+                                }
+                                onChange={(e) =>
+                                  updateVariant(
+                                    index,
+                                    "subscriptionTrialPeriod",
+                                    e.target.value
+                                  )
+                                }
+                                disabled={loading}
+                                className={cn(
+                                  "flex h-10 w-full rounded-md border px-3 py-2 text-sm transition-colors",
+                                  "bg-white text-gray-900 border-gray-300",
+                                  "dark:bg-gray-800 dark:text-gray-100 dark:border-gray-600",
+                                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
+                                  "focus-visible:ring-blue-500 dark:focus-visible:ring-blue-400"
+                                )}
+                              >
+                                {SUBSCRIPTION_PERIODS.map((period) => (
+                                  <option
+                                    key={period.value}
+                                    value={period.value}
+                                  >
+                                    {period.label}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
                 </CustomCardContent>
               </CustomCard>
             )}
+
+            {/* Generated Variants preview removed; editing inline above for VARIABLE_SUBSCRIPTION */}
 
             {/* Inventory */}
             <CustomCard>
@@ -1186,15 +1433,7 @@ export default function ProductForm({ productId = null }) {
                     </p>
                   </div>
 
-                  <FormField
-                    id="metaKeywords"
-                    name="metaKeywords"
-                    label="Meta Keywords"
-                    value={formValues.metaKeywords}
-                    onChange={handleInputChange}
-                    placeholder="keyword1, keyword2, keyword3"
-                    disabled={loading}
-                  />
+                  {/* Meta keywords removed from payload; field omitted to match backend schema */}
                 </div>
               </CustomCardContent>
             </CustomCard>

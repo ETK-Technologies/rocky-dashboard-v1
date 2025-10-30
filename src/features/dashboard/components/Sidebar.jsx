@@ -13,21 +13,80 @@ import {
   Users,
   X,
   Folder,
+  Shield,
+  Crown,
+  User,
 } from "lucide-react";
 import { cn } from "@/utils/cn";
+import { RoleGuard } from "@/components/common/ProtectedRoute";
+import { useAuth } from "@/features/auth/hooks/useAuth";
 
 const navigation = [
   { name: "Files", href: "/dashboard", icon: LayoutDashboard },
-  { name: "Categories", href: "/dashboard/categories", icon: Folder },
-  { name: "Products", href: "/dashboard/products", icon: Package },
+  {
+    name: "Categories",
+    href: "/dashboard/categories",
+    icon: Folder,
+    roles: ["admin", "super_admin"],
+  },
+  {
+    name: "Products",
+    href: "/dashboard/products",
+    icon: Package,
+    roles: ["admin", "super_admin"],
+  },
+];
+
+const adminNavigation = [
+  {
+    name: "Admin Panel",
+    href: "/dashboard/admin",
+    icon: Shield,
+    roles: ["admin", "super_admin"],
+  },
+  {
+    name: "Super Admin",
+    href: "/dashboard/super-admin",
+    icon: Crown,
+    roles: ["super_admin"],
+  },
 ];
 
 const bottomNavigation = [
+  { name: "Profile", href: "/dashboard/profile", icon: User },
   { name: "Settings", href: "/dashboard/settings", icon: Settings },
 ];
 
 export function Sidebar({ isOpen, onClose }) {
   const pathname = usePathname();
+  const { isAuthorized } = useAuth();
+
+  const NavItem = ({ item }) => {
+    const isActive = pathname === item.href;
+
+    // Check if user has required role for this nav item
+    if (item.roles && !isAuthorized(item.roles)) {
+      return null;
+    }
+
+    return (
+      <li>
+        <Link
+          href={item.href}
+          onClick={onClose}
+          className={cn(
+            "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200",
+            isActive
+              ? "bg-primary/10 text-primary"
+              : "text-muted-foreground hover:bg-accent hover:text-foreground"
+          )}
+        >
+          <item.icon className="h-5 w-5" />
+          {item.name}
+        </Link>
+      </li>
+    );
+  };
 
   return (
     <>
@@ -68,51 +127,32 @@ export function Sidebar({ isOpen, onClose }) {
         {/* Navigation */}
         <nav className="mt-4 sm:mt-6 px-4 flex flex-col h-[calc(100vh-100px)] sm:h-[calc(100vh-120px)]">
           <ul className="space-y-1 flex-1">
-            {navigation.map((item) => {
-              const isActive = pathname === item.href;
-              return (
-                <li key={item.name}>
-                  <Link
-                    href={item.href}
-                    onClick={onClose}
-                    className={cn(
-                      "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200",
-                      isActive
-                        ? "bg-primary/10 text-primary"
-                        : "text-muted-foreground hover:bg-accent hover:text-foreground"
-                    )}
-                  >
-                    <item.icon className="h-5 w-5" />
-                    {item.name}
-                  </Link>
+            {/* Main Navigation */}
+            {navigation.map((item) => (
+              <NavItem key={item.name} item={item} />
+            ))}
+
+            {/* Admin Navigation Section */}
+            {isAuthorized(["admin", "super_admin"]) && (
+              <>
+                <li className="pt-4 pb-2">
+                  <div className="px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    Administration
+                  </div>
                 </li>
-              );
-            })}
+                {adminNavigation.map((item) => (
+                  <NavItem key={item.name} item={item} />
+                ))}
+              </>
+            )}
           </ul>
 
           {/* Bottom Navigation */}
           <div className="border-t border-border pt-4 pb-4">
             <ul className="space-y-1">
-              {bottomNavigation.map((item) => {
-                const isActive = pathname === item.href;
-                return (
-                  <li key={item.name}>
-                    <Link
-                      href={item.href}
-                      onClick={onClose}
-                      className={cn(
-                        "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200",
-                        isActive
-                          ? "bg-primary/10 text-primary"
-                          : "text-muted-foreground hover:bg-accent hover:text-foreground"
-                      )}
-                    >
-                      <item.icon className="h-5 w-5" />
-                      {item.name}
-                    </Link>
-                  </li>
-                );
-              })}
+              {bottomNavigation.map((item) => (
+                <NavItem key={item.name} item={item} />
+              ))}
             </ul>
           </div>
         </nav>
