@@ -11,7 +11,7 @@ export const STORAGE_KEYS = {
 
 // API endpoints
 export const AUTH_ENDPOINTS = {
-  LOGIN: "/api/v1/auth/login",
+  LOGIN: "/api/v1/admin/auth/login",
   LOGOUT: "/api/v1/auth/logout",
   REFRESH: "/api/v1/auth/refresh",
   PROFILE: "/api/v1/users/profile", // Updated to match backend API

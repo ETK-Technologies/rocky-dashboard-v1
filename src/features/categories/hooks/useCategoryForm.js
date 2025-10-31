@@ -43,28 +43,14 @@ export function useCategoryForm(categoryId = null) {
   /**
    * Submit form data
    * @param {Object} formValues - Form values
-   * @param {File|null} imageFile - Image file to upload
+   * @param {string|null} imageUrl - CDN URL from upload (or existing URL)
    */
   const submitForm = useCallback(
-    async (formValues, imageFile) => {
+    async (formValues, imageUrl) => {
       setLoading(true);
       setError(null);
 
       try {
-        // TODO: Upload image to Cloudinary and get URL
-        // For now, we'll handle File objects by creating a data URL
-        let imageUrl = null;
-
-        if (imageFile && imageFile instanceof File) {
-          // In production: upload to Cloudinary and get URL
-          // const uploadedUrl = await uploadToCloudinary(imageFile);
-          // imageUrl = uploadedUrl;
-
-          // For now, just indicate we have a new image
-          toast.info("Image upload to Cloudinary not yet implemented");
-          console.log("📸 Image file ready for upload:", imageFile.name);
-        }
-
         // Always send JSON
         const submitData = {
           name: formValues.name,
@@ -77,16 +63,13 @@ export function useCategoryForm(categoryId = null) {
           metaDescription: formValues.metaDescription || "",
         };
 
-        // Add image URL if we have one (either new upload or existing)
+        // Add image URL if we have one (from upload or existing)
         if (imageUrl) {
           submitData.image = imageUrl;
-        } else if (categoryData?.image && !imageFile) {
-          // Keep existing image URL if not changed
+        } else if (categoryData?.image && !imageUrl) {
+          // Keep existing image URL if not changed and no new upload
           submitData.image = categoryData.image;
         }
-
-        console.log("📤 Sending JSON:");
-        console.log(JSON.stringify(submitData, null, 2));
 
         // Submit based on mode
         if (isEditMode) {

@@ -37,8 +37,7 @@ export default function CategoryForm({ categoryId = null }) {
     metaTitle: "",
     metaDescription: "",
   });
-  const [imageFile, setImageFile] = useState(null);
-  const [imagePreview, setImagePreview] = useState(null);
+  const [imageUrl, setImageUrl] = useState(null);
   const [errors, setErrors] = useState({});
 
   // Load category data in edit mode
@@ -54,7 +53,7 @@ export default function CategoryForm({ categoryId = null }) {
         metaTitle: categoryData.metaTitle || "",
         metaDescription: categoryData.metaDescription || "",
       });
-      setImagePreview(categoryData.image || null);
+      setImageUrl(categoryData.image || null);
     }
   }, [categoryData, isEditMode]);
 
@@ -95,9 +94,10 @@ export default function CategoryForm({ categoryId = null }) {
     }
   };
 
-  // Handle image change
-  const handleImageChange = (file) => {
-    setImageFile(file);
+  // Handle image change - now receives CDN URL string from SingleImageUpload
+  const handleImageChange = (url) => {
+    // url can be a CDN URL string or null
+    setImageUrl(url);
     if (errors.image) {
       setErrors((prev) => ({
         ...prev,
@@ -138,7 +138,7 @@ export default function CategoryForm({ categoryId = null }) {
         parentId: formValues.parentId || null,
       };
 
-      await submitForm(submitData, imageFile);
+      await submitForm(submitData, imageUrl);
     } catch (error) {
       // Error is already handled in the hook
     }
@@ -299,11 +299,10 @@ export default function CategoryForm({ categoryId = null }) {
                   Category Image
                 </h3>
                 <SingleImageUpload
-                  value={imagePreview}
+                  value={imageUrl}
                   onChange={handleImageChange}
                   onRemove={() => {
-                    setImageFile(null);
-                    setImagePreview(null);
+                    setImageUrl(null);
                   }}
                   error={errors.image}
                 />

@@ -30,3 +30,4 @@ export { SectionHeader } from "./SectionHeader";
 export { SingleImageUpload } from "./SingleImageUpload";
 export { Tooltip } from "./Tooltip";
 export { ViewToggle } from "./ViewToggle";
+export { FileUpload } from "@/features/uploads/components/FileUpload";

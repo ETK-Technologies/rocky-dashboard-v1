@@ -69,6 +69,18 @@ export function useLogin() {
         throw new Error("Failed to fetch user profile after login");
       }
 
+      // Only allow admins and super admins to access dashboard
+      const role = (user.role || "").toLowerCase();
+      const isAdmin = role === "admin" || role === "super_admin";
+
+      if (!isAdmin) {
+        // Clear stored auth and block dashboard access
+        authStorage.clearAuth();
+        toast.error("Dashboard access is restricted to admins only");
+        router.push("/");
+        return;
+      }
+
       // Show success message with user's name and role
       const userName = user.firstName || user.email || "User";
       const userRole = user.role ? ` as ${user.role}` : "";

@@ -3,19 +3,25 @@
  * Handles authentication and role-based access control at the edge
  */
 
-import { NextResponse } from 'next/server';
+import { NextResponse } from "next/server";
 
 /**
  * Role-based route configuration
  */
 const ROUTE_CONFIG = {
   // Public routes (no authentication required)
-  public: ['/login', '/', '/api/v1/auth/login'],
+  public: ["/login", "/"],
 
   // Protected routes by role
-  user: ['/dashboard', '/profile'],
-  admin: ['/dashboard/products', '/dashboard/categories', '/dashboard/products/new', '/dashboard/categories/new'],
-  super_admin: ['/dashboard/admin', '/dashboard/super-admin', '/dashboard/settings'],
+  user: [],
+  admin: ["/dashboard"],
+  super_admin: [
+    "/dashboard/admin",
+    "/dashboard/super-admin",
+    "/dashboard/settings",
+    "/dashboard/super-admin/uploads",
+    "/dashboard/super-admin/uploads/settings",
+  ],
 };
 
 /**
@@ -35,17 +41,17 @@ function matchesPattern(path, pattern) {
   if (path === pattern) return true;
 
   // Starts with pattern (for nested routes)
-  if (pattern.endsWith('/') && path.startsWith(pattern)) return true;
-  if (!pattern.endsWith('/') && path.startsWith(pattern + '/')) return true;
+  if (pattern.endsWith("/") && path.startsWith(pattern)) return true;
+  if (!pattern.endsWith("/") && path.startsWith(pattern + "/")) return true;
 
   // Dynamic route matching [id]
-  const patternParts = pattern.split('/');
-  const pathParts = path.split('/');
+  const patternParts = pattern.split("/");
+  const pathParts = path.split("/");
 
   if (patternParts.length !== pathParts.length) return false;
 
   return patternParts.every((part, i) => {
-    if (part.startsWith('[') && part.endsWith(']')) return true;
+    if (part.startsWith("[") && part.endsWith("]")) return true;
     return part === pathParts[i];
   });
 }
@@ -54,7 +60,7 @@ function matchesPattern(path, pattern) {
  * Check if path is public
  */
 function isPublicPath(pathname) {
-  return ROUTE_CONFIG.public.some(route => matchesPattern(pathname, route));
+  return ROUTE_CONFIG.public.some((route) => matchesPattern(pathname, route));
 }
 
 /**
@@ -62,18 +68,20 @@ function isPublicPath(pathname) {
  */
 function getRequiredRole(pathname) {
   // Check super_admin routes first (most restrictive)
-  if (ROUTE_CONFIG.super_admin.some(route => matchesPattern(pathname, route))) {
-    return 'super_admin';
+  if (
+    ROUTE_CONFIG.super_admin.some((route) => matchesPattern(pathname, route))
+  ) {
+    return "super_admin";
   }
 
   // Check admin routes
-  if (ROUTE_CONFIG.admin.some(route => matchesPattern(pathname, route))) {
-    return 'admin';
+  if (ROUTE_CONFIG.admin.some((route) => matchesPattern(pathname, route))) {
+    return "admin";
   }
 
   // Check user routes
-  if (ROUTE_CONFIG.user.some(route => matchesPattern(pathname, route))) {
-    return 'user';
+  if (ROUTE_CONFIG.user.some((route) => matchesPattern(pathname, route))) {
+    return "user";
   }
 
   return null;
@@ -98,14 +106,14 @@ function hasRequiredRole(userRole, requiredRole) {
  */
 function decodeJWT(token) {
   try {
-    const parts = token.split('.');
+    const parts = token.split(".");
     if (parts.length !== 3) return null;
 
     const payload = parts[1];
-    const decoded = Buffer.from(payload, 'base64').toString('utf-8');
+    const decoded = Buffer.from(payload, "base64").toString("utf-8");
     return JSON.parse(decoded);
   } catch (error) {
-    console.error('Error decoding JWT:', error);
+    console.error("Error decoding JWT:", error);
     return null;
   }
 }
@@ -118,10 +126,10 @@ export function middleware(request) {
 
   // Skip middleware for static files, API routes (except auth), and Next.js internals
   if (
-    pathname.startsWith('/_next') ||
-    pathname.startsWith('/static') ||
-    pathname.includes('.') ||
-    pathname.startsWith('/api/v1') // Skip API routes (they handle their own auth)
+    pathname.startsWith("/_next") ||
+    pathname.startsWith("/static") ||
+    pathname.includes(".") ||
+    pathname.startsWith("/api/v1") // Skip API routes (they handle their own auth)
   ) {
     return NextResponse.next();
   }
@@ -133,14 +141,16 @@ export function middleware(request) {
 
   // Get access token from cookies or Authorization header
   const accessToken =
-    request.cookies.get('access_token')?.value ||
-    request.headers.get('authorization')?.replace('Bearer ', '');
+    request.cookies.get("access_token")?.value ||
+    request.headers.get("authorization")?.replace("Bearer ", "");
 
   // No token - redirect to login
   if (!accessToken) {
-    console.log(`🔒 Middleware: No token found, redirecting to login from ${pathname}`);
-    const loginUrl = new URL('/login', request.url);
-    loginUrl.searchParams.set('redirect', pathname);
+    console.log(
+      `🔒 Middleware: No token found, redirecting to login from ${pathname}`
+    );
+    const loginUrl = new URL("/login", request.url);
+    loginUrl.searchParams.set("redirect", pathname);
     return NextResponse.redirect(loginUrl);
   }
 
@@ -150,7 +160,9 @@ export function middleware(request) {
 
   // If we can't get role from token, allow but log warning
   if (!userRole) {
-    console.warn('⚠️ Middleware: Could not extract role from token, allowing access');
+    console.warn(
+      "⚠️ Middleware: Could not extract role from token, allowing access"
+    );
     return NextResponse.next();
   }
 
@@ -161,15 +173,17 @@ export function middleware(request) {
     console.log(
       `🔒 Middleware: User role '${userRole}' insufficient for ${pathname} (requires '${requiredRole}')`
     );
-    
+
     // Redirect to dashboard with error
-    const dashboardUrl = new URL('/dashboard', request.url);
-    dashboardUrl.searchParams.set('error', 'unauthorized');
+    const dashboardUrl = new URL("/dashboard", request.url);
+    dashboardUrl.searchParams.set("error", "unauthorized");
     return NextResponse.redirect(dashboardUrl);
   }
 
   // User is authorized
-  console.log(`✅ Middleware: User role '${userRole}' authorized for ${pathname}`);
+  console.log(
+    `✅ Middleware: User role '${userRole}' authorized for ${pathname}`
+  );
   return NextResponse.next();
 }
 
@@ -187,7 +201,6 @@ export const config = {
      * - favicon.ico (favicon file)
      * - public files (public folder)
      */
-    '/((?!api/v1|_next/static|_next/image|favicon.ico|.*\\..*).*)',
+    "/((?!api/v1|_next/static|_next/image|favicon.ico|.*\\..*).*)",
   ],
 };
-

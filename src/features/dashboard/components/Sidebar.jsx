@@ -16,6 +16,7 @@ import {
   Shield,
   Crown,
   User,
+  Upload,
 } from "lucide-react";
 import { cn } from "@/utils/cn";
 import { RoleGuard } from "@/components/common/ProtectedRoute";
@@ -48,6 +49,18 @@ const adminNavigation = [
     name: "Super Admin",
     href: "/dashboard/super-admin",
     icon: Crown,
+    roles: ["super_admin"],
+  },
+  {
+    name: "Users",
+    href: "/dashboard/super-admin/users",
+    icon: Users,
+    roles: ["super_admin"],
+  },
+  {
+    name: "File Manager",
+    href: "/dashboard/super-admin/uploads",
+    icon: Upload,
     roles: ["super_admin"],
   },
 ];
