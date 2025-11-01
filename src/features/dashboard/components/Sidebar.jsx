@@ -6,11 +6,8 @@ import { useState } from "react";
 import {
   LayoutDashboard,
   Package,
-  ShoppingCart,
   Settings,
   FileText,
-  Activity,
-  Calendar,
   Users,
   X,
   Folder,
