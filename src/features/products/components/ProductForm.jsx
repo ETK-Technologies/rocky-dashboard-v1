@@ -13,9 +13,11 @@ import {
   CustomLabel,
   CustomInput,
   LoadingState,
+  FileUpload,
 } from "@/components/ui";
 import { useProductForm } from "../hooks/useProductForm";
 import { useCategories } from "@/features/categories/hooks/useCategories";
+import { useProductAttributes } from "../hooks/useProductAttributes";
 import { cn } from "@/utils/cn";
 
 const PRODUCT_TYPES = [
@@ -55,6 +57,7 @@ export default function ProductForm({ productId = null }) {
   const { loading, fetchLoading, productData, isEditMode, submitForm } =
     useProductForm(productId);
   const { categories } = useCategories();
+  const { allAttributes, fetchAllAttributes } = useProductAttributes();
 
   // Form state
   const [formValues, setFormValues] = useState({
@@ -103,6 +106,11 @@ export default function ProductForm({ productId = null }) {
   const [categoryIds, setCategoryIds] = useState([]);
   const [metadata, setMetadata] = useState([]);
   const [errors, setErrors] = useState({});
+
+  // Fetch all available attributes on mount
+  useEffect(() => {
+    fetchAllAttributes();
+  }, [fetchAllAttributes]);
 
   // Load product data in edit mode
   useEffect(() => {
@@ -217,6 +225,45 @@ export default function ProductForm({ productId = null }) {
 
   const removeImage = (index) => {
     setImages((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  // Handle image upload completion
+  const handleImageUploadComplete = (index, uploadedFiles) => {
+    if (!uploadedFiles || uploadedFiles.length === 0) {
+      console.warn("No files were uploaded");
+      return;
+    }
+
+    try {
+      // Get the first uploaded file
+      const fileData = uploadedFiles[0];
+
+      // Extract URL - response may have url, path, or fileUrl property
+      const imageUrl =
+        fileData.url ||
+        fileData.path ||
+        fileData.fileUrl ||
+        fileData.location ||
+        (typeof fileData === "string" ? fileData : "");
+
+      if (imageUrl) {
+        updateImage(index, "url", imageUrl);
+        // Set default alt text if empty
+        const currentImage = images[index];
+        if (!currentImage?.altText) {
+          const altText =
+            fileData.originalName ||
+            fileData.name ||
+            fileData.filename ||
+            `Product image ${index + 1}`;
+          updateImage(index, "altText", altText);
+        }
+      } else {
+        console.warn("Uploaded file does not contain a URL:", fileData);
+      }
+    } catch (error) {
+      console.error("Error processing uploaded image:", error);
+    }
   };
 
   const addAttribute = () => {
@@ -885,14 +932,30 @@ export default function ProductForm({ productId = null }) {
                     {attributes.map((attribute, index) => (
                       <div key={index} className="flex gap-2 items-start">
                         <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-2">
-                          <CustomInput
-                            placeholder="Attribute name (e.g., Size)"
-                            value={attribute.name}
-                            onChange={(e) =>
-                              updateAttribute(index, "name", e.target.value)
-                            }
-                            disabled={loading}
-                          />
+                          <div>
+                            <input
+                              list={`attribute-list-${index}`}
+                              placeholder="Attribute name (e.g., Size, Color)"
+                              value={attribute.name}
+                              onChange={(e) =>
+                                updateAttribute(index, "name", e.target.value)
+                              }
+                              disabled={loading}
+                              className={cn(
+                                "flex h-10 w-full rounded-md border px-3 py-2 text-sm transition-colors",
+                                "bg-white text-gray-900 border-gray-300",
+                                "dark:bg-gray-800 dark:text-gray-100 dark:border-gray-600",
+                                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
+                                "focus-visible:ring-blue-500 dark:focus-visible:ring-blue-400",
+                                "disabled:cursor-not-allowed disabled:opacity-50"
+                              )}
+                            />
+                            <datalist id={`attribute-list-${index}`}>
+                              {allAttributes.map((attr) => (
+                                <option key={attr} value={attr} />
+                              ))}
+                            </datalist>
+                          </div>
                           <CustomInput
                             placeholder="Values (comma-separated: S, M, L)"
                             value={attribute.value}
@@ -1463,7 +1526,7 @@ export default function ProductForm({ productId = null }) {
                   {images.map((image, index) => (
                     <div
                       key={index}
-                      className="p-3 border border-border rounded-lg space-y-2"
+                      className="p-3 border border-border rounded-lg space-y-3"
                     >
                       <div className="flex items-center justify-between">
                         <span className="text-sm font-medium">
@@ -1478,24 +1541,68 @@ export default function ProductForm({ productId = null }) {
                           <X className="h-4 w-4" />
                         </button>
                       </div>
-                      <CustomInput
-                        placeholder="Image URL"
-                        value={image.url}
-                        onChange={(e) =>
-                          updateImage(index, "url", e.target.value)
-                        }
-                        disabled={loading}
-                        className="text-sm"
-                      />
-                      <CustomInput
-                        placeholder="Alt text"
-                        value={image.altText}
-                        onChange={(e) =>
-                          updateImage(index, "altText", e.target.value)
-                        }
-                        disabled={loading}
-                        className="text-sm"
-                      />
+
+                      {/* Image Preview */}
+                      {image.url && (
+                        <div className="relative w-full h-32 bg-gray-100 dark:bg-gray-800 rounded-lg overflow-hidden border border-border">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={image.url}
+                            alt={image.altText || `Product image ${index + 1}`}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              e.target.style.display = "none";
+                            }}
+                          />
+                          <div className="hidden absolute inset-0 items-center justify-center text-muted-foreground">
+                            <Package className="h-8 w-8" />
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Upload Section */}
+                      <div className="space-y-2">
+                        <FileUpload
+                          multiple={false}
+                          accept="image/*"
+                          onUploadComplete={(uploadedFiles) =>
+                            handleImageUploadComplete(index, uploadedFiles)
+                          }
+                          className="border-0"
+                        />
+                        <div className="text-xs text-center text-muted-foreground">
+                          or enter URL manually below
+                        </div>
+                      </div>
+
+                      {/* Manual URL Input */}
+                      <div className="space-y-2">
+                        <CustomLabel
+                          htmlFor={`image-url-${index}`}
+                          className="text-xs"
+                        >
+                          Image URL
+                        </CustomLabel>
+                        <CustomInput
+                          id={`image-url-${index}`}
+                          placeholder="https://example.com/image.jpg"
+                          value={image.url}
+                          onChange={(e) =>
+                            updateImage(index, "url", e.target.value)
+                          }
+                          disabled={loading}
+                          className="text-sm"
+                        />
+                        <CustomInput
+                          placeholder="Alt text (for accessibility)"
+                          value={image.altText}
+                          onChange={(e) =>
+                            updateImage(index, "altText", e.target.value)
+                          }
+                          disabled={loading}
+                          className="text-sm"
+                        />
+                      </div>
                     </div>
                   ))}
 

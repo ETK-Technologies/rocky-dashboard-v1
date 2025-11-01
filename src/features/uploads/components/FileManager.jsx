@@ -258,10 +258,10 @@ export default function FileManager() {
 
   return (
     <PageContainer>
-      <PageHeader
+      {/* <PageHeader
         title="File Manager"
         description="Manage files and folders with full control"
-      />
+      /> */}
 
       {/* File Manager Container with Professional Layout */}
       <div
