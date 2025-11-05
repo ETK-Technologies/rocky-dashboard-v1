@@ -16,6 +16,7 @@ import {
   User,
   Upload,
   Tag,
+  Globe,
   ChevronDown,
   ChevronRight,
 } from "lucide-react";
@@ -38,9 +39,9 @@ const navigation = [
     roles: ["admin", "super_admin"],
     children: [
       {
-        name: "Products Attributes",
-        href: "/dashboard/products/attributes",
-        icon: Tag,
+        name: "Global Attributes",
+        href: "/dashboard/products/global-attributes",
+        icon: Globe,
         roles: ["admin", "super_admin"],
       },
     ],
