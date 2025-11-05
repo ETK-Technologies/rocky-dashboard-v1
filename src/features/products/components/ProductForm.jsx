@@ -126,6 +126,7 @@ export default function ProductForm({ productId = null }) {
 
   // Ref to track if attributes have been loaded to prevent infinite loops
   const attributesLoadedRef = useRef(false);
+  const inlineAttributesLoadedRef = useRef(false);
 
   // Load product data in edit mode
   useEffect(() => {
@@ -184,8 +185,9 @@ export default function ProductForm({ productId = null }) {
           }
         }
       }
-      // Load inline attributes
-      if (productData.attributes) {
+      // Load inline attributes from productData (may be incomplete)
+      // We'll fetch them separately via the dedicated endpoint to ensure completeness
+      if (productData.attributes && !inlineAttributesLoadedRef.current) {
         setAttributes(productData.attributes);
       }
 
@@ -205,10 +207,35 @@ export default function ProductForm({ productId = null }) {
     }
   }, [productData, isEditMode]);
 
-  // Reset attributes loaded flag when productId changes
+  // Reset attributes loaded flags when productId changes
   useEffect(() => {
     attributesLoadedRef.current = false;
+    inlineAttributesLoadedRef.current = false;
   }, [productId]);
+
+  // Fetch inline attributes separately when editing (more reliable than relying on productData.attributes)
+  useEffect(() => {
+    if (isEditMode && productId && !inlineAttributesLoadedRef.current) {
+      const fetchInlineAttributes = async () => {
+        try {
+          const fetchedAttributes = await productAttributeService.getAll(
+            productId
+          );
+          if (
+            Array.isArray(fetchedAttributes) &&
+            fetchedAttributes.length > 0
+          ) {
+            setAttributes(fetchedAttributes);
+          }
+          inlineAttributesLoadedRef.current = true;
+        } catch (error) {
+          console.error("Failed to fetch inline attributes:", error);
+          // Don't show error toast as it's not critical - productData.attributes is fallback
+        }
+      };
+      fetchInlineAttributes();
+    }
+  }, [isEditMode, productId]);
 
   // Load product global attributes when productId changes (edit mode)
   useEffect(() => {
@@ -824,21 +851,64 @@ export default function ProductForm({ productId = null }) {
         // Save inline attributes via the separate attributes endpoint
         // This ensures all attributes (including merged global ones) are saved
         if (
-          (formValues.type === "VARIABLE" ||
-            formValues.type === "VARIABLE_SUBSCRIPTION") &&
-          submitData.attributes &&
-          submitData.attributes.length > 0
+          formValues.type === "VARIABLE" ||
+          formValues.type === "VARIABLE_SUBSCRIPTION"
         ) {
           try {
-            console.log(
-              "💾 Saving attributes via attributes endpoint:",
-              submitData.attributes
-            );
-            await productAttributeService.upsert(
-              productIdToUse,
-              submitData.attributes
-            );
-            console.log("✅ Attributes saved successfully");
+            if (isEditMode) {
+              // In edit mode: First, fetch current attributes to determine what to delete
+              const currentInlineAttributes =
+                await productAttributeService.getAll(productIdToUse);
+              const currentAttributeNames = (currentInlineAttributes || []).map(
+                (a) => a.name?.toLowerCase()
+              );
+              const newAttributeNames = (submitData.attributes || []).map((a) =>
+                a.name?.toLowerCase()
+              );
+
+              // Delete attributes that were removed
+              const attributesToDelete = currentAttributeNames.filter(
+                (name) => !newAttributeNames.includes(name)
+              );
+              for (const attributeName of attributesToDelete) {
+                try {
+                  // Find the original name (preserving case)
+                  const originalAttr = currentInlineAttributes.find(
+                    (a) => a.name?.toLowerCase() === attributeName
+                  );
+                  if (originalAttr?.name) {
+                    await productAttributeService.delete(
+                      productIdToUse,
+                      originalAttr.name
+                    );
+                    console.log(`🗑️ Deleted attribute: ${originalAttr.name}`);
+                  }
+                } catch (deleteError) {
+                  console.error(
+                    `Failed to delete attribute ${attributeName}:`,
+                    deleteError
+                  );
+                  // Continue with other deletions
+                }
+              }
+            }
+
+            // Upsert remaining/new attributes
+            if (submitData.attributes && submitData.attributes.length > 0) {
+              console.log(
+                "💾 Saving attributes via attributes endpoint:",
+                submitData.attributes
+              );
+              await productAttributeService.upsert(
+                productIdToUse,
+                submitData.attributes
+              );
+              console.log("✅ Attributes saved successfully");
+            } else if (isEditMode) {
+              // If no attributes left and we're in edit mode, attributes were all deleted
+              // (handled above in the deletion loop)
+              console.log("✅ All attributes removed");
+            }
           } catch (error) {
             console.error("Failed to save attributes:", error);
             toast.error("Product saved but failed to save some attributes");

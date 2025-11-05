@@ -49,11 +49,11 @@ export function DashboardCard({
       </h3>
 
       {/* Meta info */}
-      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-        <span>{size}</span>
-        <span>•</span>
-        <span>{itemCount}</span>
-      </div>
+      {itemCount && (
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <span>{itemCount}</span>
+        </div>
+      )}
     </div>
   );
 }
@@ -89,11 +89,11 @@ export function QuickAccessCard({
           <h4 className="text-sm font-semibold text-foreground truncate mb-0.5">
             {title}
           </h4>
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <span>{size}</span>
-            <span>•</span>
-            <span>{itemCount}</span>
-          </div>
+          {itemCount && (
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <span>{itemCount}</span>
+            </div>
+          )}
         </div>
       </div>
     </div>

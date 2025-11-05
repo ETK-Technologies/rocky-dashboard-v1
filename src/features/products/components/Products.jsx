@@ -17,11 +17,13 @@ import {
   ErrorState,
 } from "@/components/ui";
 import { useProducts } from "../hooks/useProducts";
+import { useCategories } from "@/features/categories";
 
 export default function Products() {
   const router = useRouter();
   const { products, loading, error, deleteProduct, pagination, updateFilters } =
     useProducts();
+  const { categories } = useCategories();
   const [searchTerm, setSearchTerm] = useState("");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [productToDelete, setProductToDelete] = useState(null);
@@ -29,6 +31,11 @@ export default function Products() {
   const [filterValues, setFilterValues] = useState({
     type: "",
     status: "",
+    categoryIds: "",
+    minPrice: "",
+    maxPrice: "",
+    inStock: "",
+    sort: "",
   });
 
   // Handle search
@@ -46,10 +53,44 @@ export default function Products() {
     const newFilters = { ...filterValues, [key]: value };
     setFilterValues(newFilters);
 
-    // Apply filters
+    // Apply filters - only include non-empty values
     const appliedFilters = { page: 1 };
-    if (newFilters.type) appliedFilters.type = newFilters.type;
-    if (newFilters.status) appliedFilters.status = newFilters.status;
+    if (newFilters.type && newFilters.type.trim() !== "") {
+      appliedFilters.type = newFilters.type;
+    } else {
+      // Explicitly remove type filter when "All Types" is selected
+      appliedFilters.type = undefined;
+    }
+    if (newFilters.status && newFilters.status.trim() !== "") {
+      appliedFilters.status = newFilters.status;
+    } else {
+      appliedFilters.status = undefined;
+    }
+    if (newFilters.categoryIds && newFilters.categoryIds.trim() !== "") {
+      appliedFilters.categoryIds = newFilters.categoryIds;
+    } else {
+      appliedFilters.categoryIds = undefined;
+    }
+    if (newFilters.minPrice && newFilters.minPrice.trim() !== "") {
+      appliedFilters.minPrice = parseFloat(newFilters.minPrice);
+    } else {
+      appliedFilters.minPrice = undefined;
+    }
+    if (newFilters.maxPrice && newFilters.maxPrice.trim() !== "") {
+      appliedFilters.maxPrice = parseFloat(newFilters.maxPrice);
+    } else {
+      appliedFilters.maxPrice = undefined;
+    }
+    if (newFilters.inStock !== "" && newFilters.inStock !== null) {
+      appliedFilters.inStock = newFilters.inStock === "true";
+    } else {
+      appliedFilters.inStock = undefined;
+    }
+    if (newFilters.sort && newFilters.sort.trim() !== "") {
+      appliedFilters.sort = newFilters.sort;
+    } else {
+      appliedFilters.sort = undefined;
+    }
 
     updateFilters(appliedFilters);
   };
@@ -255,16 +296,36 @@ export default function Products() {
 
   // Check if filters are active
   const hasActiveFilters =
-    searchTerm || filterValues.type || filterValues.status;
+    searchTerm ||
+    filterValues.type ||
+    filterValues.status ||
+    filterValues.categoryIds ||
+    filterValues.minPrice ||
+    filterValues.maxPrice ||
+    filterValues.inStock !== "" ||
+    filterValues.sort;
 
   // Handle clear filters
   const handleClearFilters = () => {
     setSearchTerm("");
-    setFilterValues({ type: "", status: "" });
+    setFilterValues({
+      type: "",
+      status: "",
+      categoryIds: "",
+      minPrice: "",
+      maxPrice: "",
+      inStock: "",
+      sort: "",
+    });
     updateFilters({
       search: undefined,
       type: undefined,
       status: undefined,
+      categoryIds: undefined,
+      minPrice: undefined,
+      maxPrice: undefined,
+      inStock: undefined,
+      sort: undefined,
       page: 1,
     });
   };
@@ -348,13 +409,15 @@ export default function Products() {
       {/* Filter Panel */}
       {showFilters && (
         <div className="mb-6 p-4 bg-card rounded-lg border border-border">
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             <div>
-              <label className="block text-sm font-medium mb-2">Type</label>
+              <label className="block text-sm font-medium mb-2 text-foreground">
+                Type
+              </label>
               <select
                 value={filterValues.type}
                 onChange={(e) => handleFilterChange("type", e.target.value)}
-                className="w-full px-3 py-2 bg-background border border-input rounded-md"
+                className="w-full px-3 py-2 bg-background border border-input rounded-md text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100 dark:focus:ring-primary"
               >
                 <option value="">All Types</option>
                 <option value="SIMPLE">Simple</option>
@@ -367,11 +430,13 @@ export default function Products() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-2">Status</label>
+              <label className="block text-sm font-medium mb-2 text-foreground">
+                Status
+              </label>
               <select
                 value={filterValues.status}
                 onChange={(e) => handleFilterChange("status", e.target.value)}
-                className="w-full px-3 py-2 bg-background border border-input rounded-md"
+                className="w-full px-3 py-2 bg-background border border-input rounded-md text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100 dark:focus:ring-primary"
               >
                 <option value="">All Status</option>
                 <option value="DRAFT">Draft</option>
@@ -379,6 +444,104 @@ export default function Products() {
                 <option value="ARCHIVED">Archived</option>
               </select>
             </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2 text-foreground">
+                Category
+              </label>
+              <select
+                value={filterValues.categoryIds}
+                onChange={(e) =>
+                  handleFilterChange("categoryIds", e.target.value)
+                }
+                className="w-full px-3 py-2 bg-background border border-input rounded-md text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100 dark:focus:ring-primary"
+              >
+                <option value="">All Categories</option>
+                {Array.isArray(categories) &&
+                  categories.map((category) => (
+                    <option key={category.id} value={category.id}>
+                      {category.name}
+                    </option>
+                  ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2 text-foreground">
+                Stock Status
+              </label>
+              <select
+                value={filterValues.inStock}
+                onChange={(e) => handleFilterChange("inStock", e.target.value)}
+                className="w-full px-3 py-2 bg-background border border-input rounded-md text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100 dark:focus:ring-primary"
+              >
+                <option value="">All</option>
+                <option value="true">In Stock</option>
+                <option value="false">Out of Stock</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2 text-foreground">
+                Min Price ($)
+              </label>
+              <CustomInput
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="0.00"
+                value={filterValues.minPrice}
+                onChange={(e) => handleFilterChange("minPrice", e.target.value)}
+                className="dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2 text-foreground">
+                Max Price ($)
+              </label>
+              <CustomInput
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="1000.00"
+                value={filterValues.maxPrice}
+                onChange={(e) => handleFilterChange("maxPrice", e.target.value)}
+                className="dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2 text-foreground">
+                Sort By
+              </label>
+              <select
+                value={filterValues.sort}
+                onChange={(e) => handleFilterChange("sort", e.target.value)}
+                className="w-full px-3 py-2 bg-background border border-input rounded-md text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100 dark:focus:ring-primary"
+              >
+                <option value="">Default (Relevance)</option>
+                <option value="basePrice:asc">Price: Low to High</option>
+                <option value="basePrice:desc">Price: High to Low</option>
+                <option value="name:asc">Name: A to Z</option>
+                <option value="name:desc">Name: Z to A</option>
+                <option value="createdAt:desc">Newest First</option>
+                <option value="createdAt:asc">Oldest First</option>
+              </select>
+            </div>
+
+            {hasActiveFilters && (
+              <div className="flex items-end">
+                <CustomButton
+                  onClick={handleClearFilters}
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
+                >
+                  Clear All
+                </CustomButton>
+              </div>
+            )}
           </div>
         </div>
       )}

@@ -207,7 +207,7 @@ export function Sidebar({ isOpen, onClose }) {
         {/* Logo */}
         <div className="flex items-center justify-between h-14 sm:h-16 px-4 sm:px-6 border-b border-border">
           <div className="flex items-center gap-2">
-            <div className="w-7 h-7 sm:w-8 sm:h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
+            <div className="w-7 h-7 sm:w-8 sm:h-8 bg-gradient-to-br from-[#af7f56] to-[#9d6f46] rounded-lg flex items-center justify-center">
               <FileText className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
             </div>
             <h1 className="text-base sm:text-lg font-semibold text-foreground">

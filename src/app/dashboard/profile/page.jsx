@@ -58,7 +58,7 @@ export default function ProfilePage() {
         />
 
         {/* Profile Header Card */}
-        <div className="mb-8 p-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg shadow-lg text-white">
+        <div className="mb-8 p-8 bg-gradient-to-r from-[#af7f56] to-purple-600 rounded-lg shadow-lg text-white">
           <div className="flex items-center gap-6">
             {/* Avatar */}
             <div className="w-24 h-24 bg-white/20 backdrop-blur rounded-full flex items-center justify-center">
@@ -76,7 +76,7 @@ export default function ProfilePage() {
             {/* User Info */}
             <div className="flex-1">
               <h2 className="text-3xl font-bold mb-2">{getUserFullName()}</h2>
-              <p className="text-blue-100 mb-3">{user?.email}</p>
+              <p className="text-white/90 mb-3">{user?.email}</p>
               <div className="flex gap-2">
                 <span className={`px-3 py-1 rounded-full text-sm font-medium ${getRoleBadgeColor()}`}>
                   {getRoleDisplayName()}

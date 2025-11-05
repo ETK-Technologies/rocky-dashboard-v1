@@ -1,3 +1,5 @@
+"use client";
+
 import DashboardMain from "@/features/dashboard/components/DashboardMain";
 
 export default function DashboardPage() {
