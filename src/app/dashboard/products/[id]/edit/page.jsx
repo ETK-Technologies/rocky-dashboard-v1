@@ -1,9 +1,11 @@
 "use client";
 
 import { ProductForm } from "@/features/products";
-import { use } from "react";
+import { useParams } from "next/navigation";
 
-export default function EditProductPage({ params }) {
-  const resolvedParams = use(Promise.resolve(params));
-  return <ProductForm productId={resolvedParams.id} />;
+export default function EditProductPage() {
+  const params = useParams();
+  const productId = params.id;
+
+  return <ProductForm productId={productId} />;
 }

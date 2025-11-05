@@ -30,7 +30,9 @@ export function useProductAttributes(productId = null) {
 
     try {
       const data = await productAttributeService.getAll(id);
-      const attributesList = Array.isArray(data) ? data : data?.data || data?.attributes || [];
+      const attributesList = Array.isArray(data)
+        ? data
+        : data?.data || data?.attributes || [];
       setAttributes(attributesList);
     } catch (err) {
       setError(err.message || "Failed to load attributes");
@@ -45,10 +47,13 @@ export function useProductAttributes(productId = null) {
   const fetchAllAttributes = useCallback(async () => {
     try {
       // Get all products
-      const productsResponse = await productService.getAll({ limit: 1000 });
+      const productsResponse = await productService.getAll({ limit: 100 });
       const products = Array.isArray(productsResponse)
         ? productsResponse
-        : productsResponse?.data || productsResponse?.items || productsResponse?.results || [];
+        : productsResponse?.data ||
+          productsResponse?.items ||
+          productsResponse?.results ||
+          [];
 
       // Fetch attributes for each product
       const attributePromises = products.map((product) =>
@@ -89,7 +94,7 @@ export function useProductAttributes(productId = null) {
     error,
     fetchAttributes,
     fetchAllAttributes,
-    refetch: () => (productId ? fetchAttributes(productId) : fetchAllAttributes()),
+    refetch: () =>
+      productId ? fetchAttributes(productId) : fetchAllAttributes(),
   };
 }
-

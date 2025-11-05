@@ -16,8 +16,10 @@ import {
   User,
   Upload,
   Tag,
+  Globe,
   ChevronDown,
   ChevronRight,
+  GitBranch,
 } from "lucide-react";
 import { cn } from "@/utils/cn";
 import { RoleGuard } from "@/components/common/ProtectedRoute";
@@ -38,9 +40,9 @@ const navigation = [
     roles: ["admin", "super_admin"],
     children: [
       {
-        name: "Products Attributes",
-        href: "/dashboard/products/attributes",
-        icon: Tag,
+        name: "Global Attributes",
+        href: "/dashboard/products/global-attributes",
+        icon: Globe,
         roles: ["admin", "super_admin"],
       },
     ],
@@ -76,6 +78,12 @@ const adminNavigation = [
     name: "Builder",
     href: "/dashboard/builder",
     icon: Folder,
+    roles: ["admin", "super_admin"],
+  },
+  {
+    name: "Flow",
+    href: "/dashboard/flow",
+    icon: GitBranch,
     roles: ["admin", "super_admin"],
   },
 ];

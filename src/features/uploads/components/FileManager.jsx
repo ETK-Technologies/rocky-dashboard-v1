@@ -44,6 +44,27 @@ import {
 } from "@/components/ui";
 import { FolderCard } from "@/components/common/FolderCard";
 import { useFileManager } from "../hooks/useFileManager";
+import { FolderSelector } from "./FolderSelector";
+import { images } from "next.config";
+import Image from "next/image";
+
+// Helper function to get all descendant folder IDs (prevents circular moves)
+const getAllDescendantFolderIds = (folderId, items) => {
+  const descendants = [];
+  const folders = items.filter((item) => item.type === "folder");
+
+  const findDescendants = (parentId) => {
+    folders.forEach((folder) => {
+      if (folder.parentId === parentId) {
+        descendants.push(folder.id);
+        findDescendants(folder.id);
+      }
+    });
+  };
+
+  findDescendants(folderId);
+  return descendants;
+};
 
 export default function FileManager() {
   const router = useRouter();
@@ -107,6 +128,10 @@ export default function FileManager() {
   // Handle create folder
   const handleCreateFolder = async () => {
     if (!newFolderName.trim()) return;
+    console.log("FileManager - Creating folder:", {
+      name: newFolderName.trim(),
+      currentFolderId,
+    });
     const success = await createFolder(newFolderName.trim());
     if (success) {
       setShowCreateFolder(false);
@@ -224,22 +249,19 @@ export default function FileManager() {
           className="hover:bg-gray-100 dark:hover:bg-gray-700"
         />
       </Tooltip>
-      {/* Only show Move icon if not in root folder */}
-      {currentFolderId !== null && (
-        <Tooltip content="Move" side="top">
-          <IconButton
-            icon={Move}
-            label="Move"
-            variant="ghost"
-            size="sm"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleMoveClick(item);
-            }}
-            className="hover:bg-gray-100 dark:hover:bg-gray-700"
-          />
-        </Tooltip>
-      )}
+      <Tooltip content="Move" side="top">
+        <IconButton
+          icon={Move}
+          label="Move"
+          variant="ghost"
+          size="sm"
+          onClick={(e) => {
+            e.stopPropagation();
+            handleMoveClick(item);
+          }}
+          className="hover:bg-gray-100 dark:hover:bg-gray-700"
+        />
+      </Tooltip>
       <Tooltip content="Delete" side="top">
         <IconButton
           icon={Trash2}
@@ -323,7 +345,13 @@ export default function FileManager() {
 
         {/* Breadcrumb Navigation */}
         <div className="border-b border-border bg-secondary/30 px-4 py-2 flex items-center gap-2 text-sm flex-shrink-0">
-          <Home className="h-4 w-4 text-muted-foreground" />
+          <button
+            onClick={() => navigateToBreadcrumb(0)}
+            className="p-1 hover:bg-accent rounded transition-colors"
+            title="Go to Root"
+          >
+            <Home className="h-4 w-4 text-muted-foreground" />
+          </button>
           {breadcrumbs.map((crumb, index) => (
             <div key={crumb.id || "root"} className="flex items-center gap-2">
               {index > 0 && (
@@ -484,10 +512,16 @@ export default function FileManager() {
                           {/* File Preview/Icon */}
                           <div className="w-20 h-20 rounded-lg overflow-hidden flex items-center justify-center bg-secondary mb-3 flex-shrink-0">
                             {isImage && file.cdnUrl ? (
-                              <img
+                              // <img
+                              //   src={file.cdnUrl}
+                              //   alt={file.originalName || file.filename}
+                              //   className="w-full h-full object-cover"
+                              // />
+                              <Image
                                 src={file.cdnUrl}
                                 alt={file.originalName || file.filename}
-                                className="w-full h-full object-cover"
+                                width={80}
+                                height={80}
                               />
                             ) : (
                               <FileIcon className="h-10 w-10 text-muted-foreground" />
@@ -718,30 +752,35 @@ export default function FileManager() {
         </div>
       )}
 
-      {/* Move Dialog - simplified for now */}
+      {/* Move Dialog with Folder Selector */}
       {showMoveDialog && itemToMove && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-card rounded-lg p-6 max-w-md w-full mx-4">
+          <div className="bg-card rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] flex flex-col">
             <h3 className="text-lg font-semibold mb-4">
-              Move {itemToMove.type === "folder" ? "Folder" : "File"}
+              Move {itemToMove.type === "folder" ? "Folder" : "File"}:{" "}
+              <span className="text-muted-foreground">
+                {itemToMove.name || itemToMove.originalName}
+              </span>
             </h3>
-            <p className="text-muted-foreground mb-4">
-              Move to root folder (move functionality can be enhanced later)
-            </p>
-            <div className="flex justify-end gap-2">
-              <CustomButton
-                variant="outline"
-                onClick={() => {
-                  setShowMoveDialog(false);
-                  setItemToMove(null);
-                }}
-              >
-                Cancel
-              </CustomButton>
-              <CustomButton onClick={() => handleMoveConfirm(null)}>
-                Move to Root
-              </CustomButton>
-            </div>
+            <FolderSelector
+              currentFolderId={currentFolderId}
+              excludeFolderId={
+                itemToMove.type === "folder" ? itemToMove.id : null
+              }
+              excludeParentIds={
+                itemToMove.type === "folder"
+                  ? [
+                      ...(itemToMove.id ? [itemToMove.id] : []),
+                      ...getAllDescendantFolderIds(itemToMove.id, items),
+                    ]
+                  : []
+              }
+              onSelect={handleMoveConfirm}
+              onCancel={() => {
+                setShowMoveDialog(false);
+                setItemToMove(null);
+              }}
+            />
           </div>
         </div>
       )}

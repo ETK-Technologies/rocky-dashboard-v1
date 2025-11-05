@@ -57,16 +57,21 @@ export function useProductForm(productId = null) {
         );
 
         // Submit based on mode
+        let savedProduct;
         if (isEditMode) {
-          await productService.update(productId, formData);
+          savedProduct = await productService.update(productId, formData);
           toast.success("Product updated successfully");
         } else {
-          await productService.create(formData);
+          savedProduct = await productService.create(formData);
           toast.success("Product created successfully");
         }
 
-        // Redirect to products list
-        router.push("/dashboard/products");
+        // Normalize response - extract product data from response
+        const product = savedProduct?.data || savedProduct;
+
+        // Return the saved product for further processing
+        // Note: Redirect will be handled by the form after attributes are saved
+        return product;
       } catch (err) {
         const errorMessage =
           err?.message || err?.data?.message || "Failed to submit form";

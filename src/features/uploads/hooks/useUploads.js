@@ -8,7 +8,12 @@ export function useUploads() {
   const [uploads, setUploads] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, totalPages: 0 });
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 20,
+    total: 0,
+    totalPages: 0,
+  });
   const [settings, setSettings] = useState(null);
 
   /**
@@ -64,23 +69,26 @@ export function useUploads() {
   /**
    * Delete an upload
    */
-  const deleteUpload = useCallback(async (id) => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      await uploadService.deleteUpload(id);
-      toast.success("File deleted successfully");
-      await fetchUploads();
-      return true;
-    } catch (err) {
-      const message = err?.message || "Failed to delete file";
-      setError(message);
-      toast.error(message);
-      return false;
-    } finally {
-      setIsLoading(false);
-    }
-  }, [fetchUploads]);
+  const deleteUpload = useCallback(
+    async (id) => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        await uploadService.deleteUpload(id);
+        toast.success("File deleted successfully");
+        await fetchUploads();
+        return true;
+      } catch (err) {
+        const message = err?.message || "Failed to delete file";
+        setError(message);
+        toast.error(message);
+        return false;
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [fetchUploads]
+  );
 
   /**
    * Fetch upload settings
@@ -136,4 +144,3 @@ export function useUploads() {
     updateSettings,
   };
 }
-

@@ -170,7 +170,9 @@ export default function UploadSettings() {
 
             {formValues.storageProvider === "local" && (
               <div>
-                <CustomLabel htmlFor="localStoragePath">Storage Path</CustomLabel>
+                <CustomLabel htmlFor="localStoragePath">
+                  Storage Path
+                </CustomLabel>
                 <CustomInput
                   id="localStoragePath"
                   name="localStoragePath"
@@ -266,7 +268,9 @@ export default function UploadSettings() {
                 </div>
 
                 <div>
-                  <CustomLabel htmlFor="bunnyCdnAccessKey">Access Key</CustomLabel>
+                  <CustomLabel htmlFor="bunnyCdnAccessKey">
+                    Access Key
+                  </CustomLabel>
                   <CustomInput
                     id="bunnyCdnAccessKey"
                     name="bunnyCdnAccessKey"
@@ -380,11 +384,7 @@ export default function UploadSettings() {
             </CustomCardDescription>
           </CustomCardHeader>
           <CustomCardContent className="space-y-4">
-            <CustomButton
-              type="button"
-              variant="outline"
-              onClick={handleDebug}
-            >
+            <CustomButton type="button" variant="outline" onClick={handleDebug}>
               Check Credentials
             </CustomButton>
 
@@ -408,4 +408,3 @@ export default function UploadSettings() {
     </PageContainer>
   );
 }
-
