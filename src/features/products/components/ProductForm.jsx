@@ -23,6 +23,7 @@ import {
   useProductGlobalAttributes,
 } from "@/features/attributes";
 import { cn } from "@/utils/cn";
+import { generateSlug } from "@/utils/generateSlug";
 import { toast } from "react-toastify";
 import { Globe } from "lucide-react";
 import { productGlobalAttributeService } from "@/features/attributes/services/productGlobalAttributeService";
@@ -169,20 +170,47 @@ export default function ProductForm({ productId = null }) {
         metaDescription: productData.metaDescription || "",
       });
 
-      // Handle images - if it's an array, first image is featured, rest are gallery
+      // Handle images - check featured property, otherwise use first image as featured
       if (productData.images && Array.isArray(productData.images)) {
-        if (productData.images.length > 0) {
+        const featuredImg = productData.images.find(
+          (img) => (typeof img === "object" ? img.featured : false) || false
+        );
+        const galleryImgs = productData.images.filter(
+          (img) => !(typeof img === "object" ? img.featured : false)
+        );
+
+        // Set featured image (use found featured image or first image)
+        if (featuredImg) {
+          setFeaturedImage(
+            typeof featuredImg === "string" ? featuredImg : featuredImg.url
+          );
+        } else if (productData.images.length > 0) {
+          // Fallback to first image if no featured image is set
           const firstImage = productData.images[0];
           setFeaturedImage(
             typeof firstImage === "string" ? firstImage : firstImage.url
           );
-          if (productData.images.length > 1) {
-            setGalleryImages(
-              productData.images
-                .slice(1)
-                .map((img) => (typeof img === "string" ? img : img.url))
-            );
-          }
+        }
+
+        // Set gallery images (all non-featured images)
+        if (galleryImgs.length > 0) {
+          setGalleryImages(
+            galleryImgs.map((img) => (typeof img === "string" ? img : img.url))
+          );
+        } else if (featuredImg && productData.images.length > 1) {
+          // If we found a featured image, use the rest as gallery
+          setGalleryImages(
+            productData.images
+              .filter((img) => {
+                const imgUrl = typeof img === "string" ? img : img.url;
+                const featuredUrl =
+                  typeof featuredImg === "string"
+                    ? featuredImg
+                    : featuredImg.url;
+                return imgUrl !== featuredUrl;
+              })
+              .map((img) => (typeof img === "string" ? img : img.url))
+          );
         }
       }
       // Load inline attributes from productData (may be incomplete)
@@ -623,13 +651,23 @@ export default function ProductForm({ productId = null }) {
       if (formValues.width) submitData.width = parseFloat(formValues.width);
       if (formValues.height) submitData.height = parseFloat(formValues.height);
 
-      // Combine featured image and gallery images
+      // Combine featured image and gallery images with featured flag
       const allImages = [];
       if (featuredImage) {
-        allImages.push({ url: featuredImage, altText: "", sortOrder: 0 });
+        allImages.push({
+          url: featuredImage,
+          altText: "",
+          sortOrder: 0,
+          featured: true,
+        });
       }
       galleryImages.forEach((url, index) => {
-        allImages.push({ url, altText: "", sortOrder: index + 1 });
+        allImages.push({
+          url,
+          altText: "",
+          sortOrder: index + 1,
+          featured: false,
+        });
       });
       if (allImages.length > 0) {
         submitData.images = allImages;
@@ -1344,174 +1382,177 @@ export default function ProductForm({ productId = null }) {
               </CustomCard>
             )}
 
-            {/* Global Attributes */}
-            <CustomCard>
-              <CustomCardContent className="pt-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-foreground">
-                    Global Attributes
-                  </h3>
-                </div>
-
-                <div className="space-y-4">
-                  {/* Add Global Attribute */}
-                  <div className="space-y-2">
-                    <CustomLabel>Add Global Attribute</CustomLabel>
-                    <div className="flex gap-2">
-                      <select
-                        value=""
-                        onChange={(e) => {
-                          if (e.target.value) {
-                            handleAddGlobalAttribute(e.target.value);
-                            e.target.value = "";
-                          }
-                        }}
-                        disabled={loading || globalAttributesLoading}
-                        className={cn(
-                          "flex-1 h-10 rounded-md border px-3 py-2 text-sm transition-colors",
-                          "bg-white text-gray-900 border-gray-300",
-                          "dark:bg-gray-800 dark:text-gray-100 dark:border-gray-600",
-                          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
-                          "focus-visible:ring-blue-500 dark:focus-visible:ring-blue-400",
-                          "disabled:cursor-not-allowed disabled:opacity-50"
-                        )}
-                      >
-                        <option value="">Select a global attribute...</option>
-                        {globalAttributes
-                          .filter(
-                            (ga) =>
-                              !productGlobalAttributes.some(
-                                (pga) => pga.globalAttributeId === ga.id
-                              )
-                          )
-                          .map((attr) => (
-                            <option key={attr.id} value={attr.id}>
-                              {attr.name}
-                              {attr.description && ` - ${attr.description}`}
-                            </option>
-                          ))}
-                      </select>
-                    </div>
-                    {globalAttributes.length === 0 && (
-                      <p className="text-sm text-muted-foreground">
-                        No global attributes available. Go to Global Attributes
-                        page to create one.
-                      </p>
-                    )}
+            {/* Global Attributes - Only for VARIABLE and VARIABLE_SUBSCRIPTION products */}
+            {(formValues.type === "VARIABLE" ||
+              formValues.type === "VARIABLE_SUBSCRIPTION") && (
+              <CustomCard>
+                <CustomCardContent className="pt-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-semibold text-foreground">
+                      Global Attributes
+                    </h3>
                   </div>
 
-                  {/* Selected Global Attributes */}
-                  <div className="space-y-3">
-                    <CustomLabel>Assigned Attributes</CustomLabel>
-                    {productGlobalAttributes.length === 0 ? (
-                      <p className="text-sm text-muted-foreground py-4 text-center">
-                        No attributes assigned yet. Select an attribute from the
-                        dropdown above.
-                      </p>
-                    ) : (
-                      productGlobalAttributes.map((attr, index) => {
-                        const globalAttr = attr.globalAttribute || {};
-                        return (
-                          <div
-                            key={`${attr.globalAttributeId}-${index}`}
-                            className="p-3 border border-border rounded-lg space-y-2"
-                          >
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-2">
-                                <Globe className="h-4 w-4 text-muted-foreground" />
-                                <span className="font-medium">
-                                  {globalAttr.name || "Unknown"}
-                                </span>
-                                {globalAttr.description && (
-                                  <span className="text-xs text-muted-foreground">
-                                    ({globalAttr.description})
+                  <div className="space-y-4">
+                    {/* Add Global Attribute */}
+                    <div className="space-y-2">
+                      <CustomLabel>Add Global Attribute</CustomLabel>
+                      <div className="flex gap-2">
+                        <select
+                          value=""
+                          onChange={(e) => {
+                            if (e.target.value) {
+                              handleAddGlobalAttribute(e.target.value);
+                              e.target.value = "";
+                            }
+                          }}
+                          disabled={loading || globalAttributesLoading}
+                          className={cn(
+                            "flex-1 h-10 rounded-md border px-3 py-2 text-sm transition-colors",
+                            "bg-white text-gray-900 border-gray-300",
+                            "dark:bg-gray-800 dark:text-gray-100 dark:border-gray-600",
+                            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
+                            "focus-visible:ring-blue-500 dark:focus-visible:ring-blue-400",
+                            "disabled:cursor-not-allowed disabled:opacity-50"
+                          )}
+                        >
+                          <option value="">Select a global attribute...</option>
+                          {globalAttributes
+                            .filter(
+                              (ga) =>
+                                !productGlobalAttributes.some(
+                                  (pga) => pga.globalAttributeId === ga.id
+                                )
+                            )
+                            .map((attr) => (
+                              <option key={attr.id} value={attr.id}>
+                                {attr.name}
+                                {attr.description && ` - ${attr.description}`}
+                              </option>
+                            ))}
+                        </select>
+                      </div>
+                      {globalAttributes.length === 0 && (
+                        <p className="text-sm text-muted-foreground">
+                          No global attributes available. Go to Global
+                          Attributes page to create one.
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Selected Global Attributes */}
+                    <div className="space-y-3">
+                      <CustomLabel>Assigned Attributes</CustomLabel>
+                      {productGlobalAttributes.length === 0 ? (
+                        <p className="text-sm text-muted-foreground py-4 text-center">
+                          No attributes assigned yet. Select an attribute from
+                          the dropdown above.
+                        </p>
+                      ) : (
+                        productGlobalAttributes.map((attr, index) => {
+                          const globalAttr = attr.globalAttribute || {};
+                          return (
+                            <div
+                              key={`${attr.globalAttributeId}-${index}`}
+                              className="p-3 border border-border rounded-lg space-y-2"
+                            >
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  <Globe className="h-4 w-4 text-muted-foreground" />
+                                  <span className="font-medium">
+                                    {globalAttr.name || "Unknown"}
                                   </span>
-                                )}
+                                  {globalAttr.description && (
+                                    <span className="text-xs text-muted-foreground">
+                                      ({globalAttr.description})
+                                    </span>
+                                  )}
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleRemoveGlobalAttribute(index)
+                                  }
+                                  disabled={loading}
+                                  className="p-1 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-red-600"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </button>
                               </div>
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  handleRemoveGlobalAttribute(index)
+                              <CustomInput
+                                placeholder={`Enter value for ${globalAttr.name}`}
+                                value={attr.value}
+                                onChange={(e) =>
+                                  handleUpdateGlobalAttribute(
+                                    index,
+                                    "value",
+                                    e.target.value
+                                  )
                                 }
                                 disabled={loading}
-                                className="p-1 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-red-600"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </button>
-                            </div>
-                            <CustomInput
-                              placeholder={`Enter value for ${globalAttr.name}`}
-                              value={attr.value}
-                              onChange={(e) =>
-                                handleUpdateGlobalAttribute(
-                                  index,
-                                  "value",
-                                  e.target.value
-                                )
-                              }
-                              disabled={loading}
-                            />
-                            <div className="flex items-center gap-4 text-sm">
-                              <label className="flex items-center gap-2 cursor-pointer">
-                                <input
-                                  type="checkbox"
-                                  checked={attr.visible}
-                                  onChange={(e) =>
-                                    handleUpdateGlobalAttribute(
-                                      index,
-                                      "visible",
-                                      e.target.checked
-                                    )
-                                  }
-                                  className="h-4 w-4 rounded border-gray-300"
-                                  disabled={loading}
-                                />
-                                <span>Visible</span>
-                              </label>
-                              <label className="flex items-center gap-2 cursor-pointer">
-                                <input
-                                  type="checkbox"
-                                  checked={attr.variation}
-                                  onChange={(e) =>
-                                    handleUpdateGlobalAttribute(
-                                      index,
-                                      "variation",
-                                      e.target.checked
-                                    )
-                                  }
-                                  className="h-4 w-4 rounded border-gray-300"
-                                  disabled={loading}
-                                />
-                                <span>Used for Variations</span>
-                              </label>
-                            </div>
-                            {isVariableProduct &&
-                              attr.variation &&
-                              attr.value &&
-                              attr.value.trim() && (
-                                <div className="mt-2">
-                                  <CustomButton
-                                    type="button"
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() =>
-                                      handleAddGlobalToVariants(index)
+                              />
+                              <div className="flex items-center gap-4 text-sm">
+                                <label className="flex items-center gap-2 cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={attr.visible}
+                                    onChange={(e) =>
+                                      handleUpdateGlobalAttribute(
+                                        index,
+                                        "visible",
+                                        e.target.checked
+                                      )
                                     }
+                                    className="h-4 w-4 rounded border-gray-300"
                                     disabled={loading}
-                                  >
-                                    <Plus className="h-4 w-4 mr-2" />
-                                    Add to Variant Attributes
-                                  </CustomButton>
-                                </div>
-                              )}
-                          </div>
-                        );
-                      })
-                    )}
+                                  />
+                                  <span>Visible</span>
+                                </label>
+                                <label className="flex items-center gap-2 cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={attr.variation}
+                                    onChange={(e) =>
+                                      handleUpdateGlobalAttribute(
+                                        index,
+                                        "variation",
+                                        e.target.checked
+                                      )
+                                    }
+                                    className="h-4 w-4 rounded border-gray-300"
+                                    disabled={loading}
+                                  />
+                                  <span>Used for Variations</span>
+                                </label>
+                              </div>
+                              {isVariableProduct &&
+                                attr.variation &&
+                                attr.value &&
+                                attr.value.trim() && (
+                                  <div className="mt-2">
+                                    <CustomButton
+                                      type="button"
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() =>
+                                        handleAddGlobalToVariants(index)
+                                      }
+                                      disabled={loading}
+                                    >
+                                      <Plus className="h-4 w-4 mr-2" />
+                                      Add to Variant Attributes
+                                    </CustomButton>
+                                  </div>
+                                )}
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
                   </div>
-                </div>
-              </CustomCardContent>
-            </CustomCard>
+                </CustomCardContent>
+              </CustomCard>
+            )}
 
             {/* Attributes (for variable products variant generation) */}
             {isVariableProduct && (
