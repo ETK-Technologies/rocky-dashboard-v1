@@ -19,6 +19,8 @@ import {
     ChevronDown,
     ChevronRight,
     ClipboardList,
+    Globe,
+    GitBranch,
 } from "lucide-react";
 import { cn } from "@/utils/cn";
 import { RoleGuard } from "@/components/common/ProtectedRoute";
@@ -38,12 +40,12 @@ const navigation = [
         icon: Package,
         roles: ["admin", "super_admin"],
         children: [
-            {
-                name: "Products Attributes",
-                href: "/dashboard/products/attributes",
-                icon: Tag,
-                roles: ["admin", "super_admin"],
-            },
+          {
+            name: "Global Attributes",
+            href: "/dashboard/products/global-attributes",
+            icon: Globe,
+            roles: ["admin", "super_admin"],
+           },
         ],
     },
 ];

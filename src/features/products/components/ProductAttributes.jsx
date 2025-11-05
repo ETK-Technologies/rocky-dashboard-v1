@@ -1,13 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Trash2, Search, Tag, Package } from "lucide-react";
+import { Trash2, Search, Package, Link2, Globe } from "lucide-react";
 import {
   CustomButton,
   PageContainer,
   PageHeader,
-  DataTable,
   CustomInput,
   IconButton,
   CustomCard,
@@ -15,109 +14,110 @@ import {
   LoadingState,
   ErrorState,
   CustomConfirmationDialog,
+  CustomBadge,
+  CustomModal,
+  CustomLabel,
 } from "@/components/ui";
 import { useProducts } from "../hooks/useProducts";
-import { productAttributeService } from "../services/productAttributeService";
+import {
+  useGlobalAttributes,
+  useProductGlobalAttributes,
+} from "@/features/attributes";
 import { toast } from "react-toastify";
 
 export default function ProductAttributes() {
   const router = useRouter();
   const { products, loading: productsLoading } = useProducts();
   const [selectedProductId, setSelectedProductId] = useState("");
-  const [attributes, setAttributes] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [newAttributeName, setNewAttributeName] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [attributeToDelete, setAttributeToDelete] = useState(null);
 
-  // Fetch attributes when product is selected
-  useEffect(() => {
-    if (selectedProductId) {
-      fetchAttributes();
-    } else {
-      setAttributes([]);
+  // Global attributes
+  const { attributes: globalAttributesList, loading: globalAttributesLoading } =
+    useGlobalAttributes({
+      autoFetch: true,
+    });
+  const {
+    attributes: productGlobalAttributes,
+    loading: productGlobalAttributesLoading,
+    error: globalError,
+    bulkAssign,
+    removeAttribute,
+  } = useProductGlobalAttributes(selectedProductId);
+
+  // Assign global attribute modal
+  const [assignModalOpen, setAssignModalOpen] = useState(false);
+  const [selectedGlobalAttribute, setSelectedGlobalAttribute] = useState(null);
+  const [assignFormData, setAssignFormData] = useState({
+    value: "",
+    position: 0,
+    visible: true,
+    variation: false,
+  });
+
+  // Handle assign global attribute
+  const handleOpenAssignModal = (globalAttribute) => {
+    setSelectedGlobalAttribute(globalAttribute);
+    setAssignFormData({
+      value: "",
+      position: productGlobalAttributes.length,
+      visible: true,
+      variation: globalAttribute.variation || false,
+    });
+    setAssignModalOpen(true);
+  };
+
+  const handleCloseAssignModal = () => {
+    setAssignModalOpen(false);
+    setSelectedGlobalAttribute(null);
+    setAssignFormData({
+      value: "",
+      position: 0,
+      visible: true,
+      variation: false,
+    });
+  };
+
+  const handleAssignGlobalAttribute = async (e) => {
+    e.preventDefault();
+    if (!selectedGlobalAttribute || !selectedProductId) return;
+
+    if (!assignFormData.value.trim()) {
+      toast.error("Attribute value is required");
+      return;
     }
-  }, [selectedProductId]);
-
-  const fetchAttributes = async () => {
-    if (!selectedProductId) return;
-
-    setLoading(true);
-    setError(null);
 
     try {
-      const data = await productAttributeService.getAll(selectedProductId);
-      // Handle different possible response shapes
-      const attributesList = Array.isArray(data)
-        ? data
-        : data?.data || data?.attributes || [];
-      setAttributes(attributesList);
-    } catch (err) {
-      setError(err.message || "Failed to load attributes");
-      toast.error(err.message || "Failed to load attributes");
-    } finally {
-      setLoading(false);
+      await bulkAssign([
+        {
+          globalAttributeId: selectedGlobalAttribute.id,
+          value: assignFormData.value.trim(),
+          position: assignFormData.position,
+          visible: assignFormData.visible,
+          variation: assignFormData.variation,
+        },
+      ]);
+      handleCloseAssignModal();
+    } catch (error) {
+      // Error handled in hook
     }
   };
 
-  const handleAddAttribute = async () => {
-    if (!selectedProductId) {
-      toast.error("Please select a product first");
-      return;
-    }
-
-    if (!newAttributeName.trim()) {
-      toast.error("Attribute name is required");
-      return;
-    }
-
-    // Check if attribute already exists
-    if (attributes.includes(newAttributeName.trim())) {
-      toast.error("Attribute already exists");
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const updatedAttributes = [...attributes, newAttributeName.trim()];
-      await productAttributeService.upsert(
-        selectedProductId,
-        updatedAttributes
-      );
-      setAttributes(updatedAttributes);
-      setNewAttributeName("");
-      toast.success("Attribute added successfully");
-    } catch (err) {
-      toast.error(err.message || "Failed to add attribute");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleDeleteClick = (attributeName) => {
-    setAttributeToDelete(attributeName);
+  const handleDeleteClick = (attribute) => {
+    setAttributeToDelete(attribute);
     setDeleteDialogOpen(true);
   };
 
   const handleDeleteConfirm = async () => {
     if (!attributeToDelete || !selectedProductId) return;
 
-    setLoading(true);
     try {
-      await productAttributeService.delete(
-        selectedProductId,
-        attributeToDelete
-      );
-      setAttributes(attributes.filter((attr) => attr !== attributeToDelete));
+      await removeAttribute(attributeToDelete.globalAttributeId);
       setDeleteDialogOpen(false);
       setAttributeToDelete(null);
-      toast.success("Attribute deleted successfully");
-    } catch (err) {
-      toast.error(err.message || "Failed to delete attribute");
-    } finally {
-      setLoading(false);
+    } catch (error) {
+      // Error handled in hook
     }
   };
 
@@ -126,26 +126,62 @@ export default function ProductAttributes() {
     setAttributeToDelete(null);
   };
 
-  // Filter attributes by search term
-  const filteredAttributes = attributes.filter((attr) =>
-    attr.toLowerCase().includes(searchTerm.toLowerCase())
+  // Filter available global attributes (not yet assigned)
+  const availableGlobalAttributes = globalAttributesList.filter(
+    (ga) =>
+      !productGlobalAttributes.some((pga) => pga.globalAttributeId === ga.id)
   );
+
+  const filteredAvailableAttributes = availableGlobalAttributes.filter(
+    (attr) => {
+      const searchLower = searchTerm.toLowerCase();
+      return (
+        attr.name?.toLowerCase().includes(searchLower) ||
+        attr.slug?.toLowerCase().includes(searchLower) ||
+        attr.description?.toLowerCase().includes(searchLower)
+      );
+    }
+  );
+
+  // Filter assigned global attributes
+  const filteredAssignedAttributes = productGlobalAttributes.filter((attr) => {
+    const searchLower = searchTerm.toLowerCase();
+    const globalAttr = attr.globalAttribute || {};
+    const name = globalAttr.name || "";
+    const value = attr.value || "";
+    return (
+      name.toLowerCase().includes(searchLower) ||
+      value.toLowerCase().includes(searchLower)
+    );
+  });
 
   const selectedProduct = products.find((p) => p.id === selectedProductId);
 
   return (
     <PageContainer>
       <PageHeader
-        title="Products Attributes"
-        description="Manage attributes for products"
+        title="Product Attributes"
+        description="Manage global attributes for products"
         action={
-          <CustomButton
-            variant="outline"
-            onClick={() => router.push("/dashboard/products")}
-            size="sm"
-          >
-            Back to Products
-          </CustomButton>
+          <div className="flex gap-2">
+            <CustomButton
+              variant="outline"
+              onClick={() =>
+                router.push("/dashboard/products/global-attributes")
+              }
+              size="sm"
+            >
+              <Globe className="h-4 w-4 mr-2" />
+              Manage Global Attributes
+            </CustomButton>
+            <CustomButton
+              variant="outline"
+              onClick={() => router.push("/dashboard/products")}
+              size="sm"
+            >
+              Back to Products
+            </CustomButton>
+          </div>
         }
       />
 
@@ -207,46 +243,108 @@ export default function ProductAttributes() {
         </CustomCard>
       ) : (
         <>
-          {/* Add Attribute Section */}
+          {/* Assign Global Attribute Section */}
           <CustomCard className="mb-6">
             <CustomCardContent className="pt-6">
-              <h3 className="text-lg font-semibold mb-4">Add New Attribute</h3>
-              <div className="flex gap-2">
-                <CustomInput
-                  type="text"
-                  placeholder="Enter attribute name (e.g., Color, Size)"
-                  value={newAttributeName}
-                  onChange={(e) => setNewAttributeName(e.target.value)}
-                  onKeyPress={(e) => {
-                    if (e.key === "Enter") {
-                      handleAddAttribute();
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold">
+                  Available Global Attributes
+                </h3>
+                <div className="flex gap-2">
+                  <div className="relative flex-1 max-w-md">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <CustomInput
+                      type="text"
+                      placeholder="Search attributes..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
+                  <CustomButton
+                    onClick={() =>
+                      router.push("/dashboard/products/global-attributes")
                     }
-                  }}
-                  disabled={loading}
-                  className="flex-1"
-                />
-                <CustomButton
-                  onClick={handleAddAttribute}
-                  disabled={loading || !newAttributeName.trim()}
-                  className="flex items-center gap-2"
-                >
-                  <Plus className="h-4 w-4" />
-                  Add Attribute
-                </CustomButton>
+                    variant="outline"
+                    size="sm"
+                  >
+                    <Globe className="h-4 w-4 mr-2" />
+                    Manage Global Attributes
+                  </CustomButton>
+                </div>
               </div>
+              {globalAttributesLoading ? (
+                <LoadingState message="Loading global attributes..." />
+              ) : globalAttributesList.length === 0 ? (
+                <div className="text-center py-6">
+                  <p className="text-sm text-muted-foreground mb-4">
+                    No global attributes available. Create one first.
+                  </p>
+                  <CustomButton
+                    onClick={() =>
+                      router.push("/dashboard/products/global-attributes")
+                    }
+                  >
+                    Create Global Attribute
+                  </CustomButton>
+                </div>
+              ) : filteredAvailableAttributes.length === 0 ? (
+                <div className="text-center py-6">
+                  <p className="text-sm text-muted-foreground">
+                    {searchTerm
+                      ? "No matching attributes found"
+                      : "All global attributes have been assigned to this product"}
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {filteredAvailableAttributes.map((globalAttr) => (
+                    <div
+                      key={globalAttr.id}
+                      className="p-3 border border-border rounded-lg hover:bg-accent transition-colors"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <div className="font-medium">{globalAttr.name}</div>
+                          {globalAttr.description && (
+                            <div className="text-xs text-muted-foreground mt-1">
+                              {globalAttr.description}
+                            </div>
+                          )}
+                          {globalAttr.slug && (
+                            <div className="text-xs text-muted-foreground mt-1">
+                              Slug: {globalAttr.slug}
+                            </div>
+                          )}
+                        </div>
+                        <IconButton
+                          icon={Link2}
+                          label="Assign"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleOpenAssignModal(globalAttr)}
+                          disabled={productGlobalAttributesLoading}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </CustomCardContent>
           </CustomCard>
 
-          {/* Attributes List */}
+          {/* Assigned Global Attributes List */}
           <CustomCard>
             <CustomCardContent className="pt-6">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold">Attributes</h3>
+                <h3 className="text-lg font-semibold">
+                  Assigned Global Attributes
+                </h3>
                 <div className="relative flex-1 max-w-md ml-4">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <CustomInput
                     type="text"
-                    placeholder="Search attributes..."
+                    placeholder="Search assigned attributes..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="pl-10"
@@ -254,59 +352,99 @@ export default function ProductAttributes() {
                 </div>
               </div>
 
-              {loading && !attributes.length ? (
-                <LoadingState message="Loading attributes..." />
-              ) : error ? (
+              {productGlobalAttributesLoading &&
+              !productGlobalAttributes.length ? (
+                <LoadingState message="Loading assigned attributes..." />
+              ) : globalError ? (
                 <ErrorState
                   title="Error loading attributes"
-                  message={error}
+                  message={globalError}
                   action={
-                    <CustomButton onClick={fetchAttributes}>Retry</CustomButton>
+                    <CustomButton onClick={() => window.location.reload()}>
+                      Retry
+                    </CustomButton>
                   }
                 />
-              ) : filteredAttributes.length === 0 ? (
+              ) : filteredAssignedAttributes.length === 0 ? (
                 <div className="text-center py-12">
-                  <Tag className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+                  <Globe className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
                   <h3 className="text-lg font-semibold mb-2">
-                    {searchTerm ? "No attributes found" : "No attributes"}
+                    {searchTerm
+                      ? "No attributes found"
+                      : "No global attributes assigned"}
                   </h3>
                   <p className="text-sm text-muted-foreground">
                     {searchTerm
                       ? "Try adjusting your search term"
-                      : "Add your first attribute above"}
+                      : "Assign a global attribute from above"}
                   </p>
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {filteredAttributes.map((attribute, index) => (
-                    <div
-                      key={index}
-                      className="flex items-center justify-between p-3 border border-border rounded-lg hover:bg-accent transition-colors"
-                    >
-                      <div className="flex items-center gap-2">
-                        <Tag className="h-4 w-4 text-muted-foreground" />
-                        <span className="font-medium text-foreground">
-                          {attribute}
-                        </span>
+                  {filteredAssignedAttributes.map((attr) => {
+                    const globalAttr = attr.globalAttribute || {};
+                    return (
+                      <div
+                        key={attr.id}
+                        className="flex items-center justify-between p-3 border border-border rounded-lg hover:bg-accent transition-colors"
+                      >
+                        <div className="flex items-center gap-2 flex-1">
+                          <Globe className="h-4 w-4 text-muted-foreground" />
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium text-foreground">
+                                {globalAttr.name || "Unknown"}
+                              </span>
+                              {attr.value && (
+                                <span className="text-sm text-muted-foreground">
+                                  : {attr.value}
+                                </span>
+                              )}
+                              <div className="flex gap-2 ml-2">
+                                {attr.visible && (
+                                  <CustomBadge variant="success" size="sm">
+                                    Visible
+                                  </CustomBadge>
+                                )}
+                                {attr.variation && (
+                                  <CustomBadge variant="info" size="sm">
+                                    Variation
+                                  </CustomBadge>
+                                )}
+                              </div>
+                            </div>
+                            {globalAttr.description && (
+                              <p className="text-xs text-muted-foreground mt-1">
+                                {globalAttr.description}
+                              </p>
+                            )}
+                            {attr.position !== undefined && (
+                              <p className="text-xs text-muted-foreground mt-1">
+                                Position: {attr.position}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        <IconButton
+                          icon={Trash2}
+                          label="Remove"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDeleteClick(attr)}
+                          className="text-red-600 hover:text-red-700 dark:text-red-400"
+                          disabled={productGlobalAttributesLoading}
+                        />
                       </div>
-                      <IconButton
-                        icon={Trash2}
-                        label="Delete"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDeleteClick(attribute)}
-                        className="text-red-600 hover:text-red-700 dark:text-red-400"
-                        disabled={loading}
-                      />
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
 
-              {attributes.length > 0 && (
+              {productGlobalAttributes.length > 0 && (
                 <div className="mt-4 text-sm text-muted-foreground">
-                  Total: {attributes.length} attribute
-                  {attributes.length !== 1 ? "s" : ""}
+                  Total: {filteredAssignedAttributes.length} of{" "}
+                  {productGlobalAttributes.length} attribute
+                  {productGlobalAttributes.length !== 1 ? "s" : ""}
                 </div>
               )}
             </CustomCardContent>
@@ -314,14 +452,109 @@ export default function ProductAttributes() {
         </>
       )}
 
+      {/* Assign Global Attribute Modal */}
+      <CustomModal
+        isOpen={assignModalOpen}
+        onClose={handleCloseAssignModal}
+        title={`Assign "${selectedGlobalAttribute?.name}" to Product`}
+        size="md"
+      >
+        <form onSubmit={handleAssignGlobalAttribute} className="space-y-4">
+          <div>
+            <CustomLabel htmlFor="assignValue">Value *</CustomLabel>
+            <CustomInput
+              id="assignValue"
+              type="text"
+              placeholder={`Enter value for ${selectedGlobalAttribute?.name}`}
+              value={assignFormData.value}
+              onChange={(e) =>
+                setAssignFormData((prev) => ({
+                  ...prev,
+                  value: e.target.value,
+                }))
+              }
+              required
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              The specific value for this product (e.g., &quot;Blue&quot; for
+              Color)
+            </p>
+          </div>
+
+          <div>
+            <CustomLabel htmlFor="assignPosition">Position</CustomLabel>
+            <CustomInput
+              id="assignPosition"
+              type="number"
+              placeholder="0"
+              value={assignFormData.position}
+              onChange={(e) =>
+                setAssignFormData((prev) => ({
+                  ...prev,
+                  position: parseInt(e.target.value) || 0,
+                }))
+              }
+              min="0"
+            />
+          </div>
+
+          <div className="flex items-center gap-6">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={assignFormData.visible}
+                onChange={(e) =>
+                  setAssignFormData((prev) => ({
+                    ...prev,
+                    visible: e.target.checked,
+                  }))
+                }
+                className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              />
+              <span className="text-sm font-medium">Visible</span>
+            </label>
+
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={assignFormData.variation}
+                onChange={(e) =>
+                  setAssignFormData((prev) => ({
+                    ...prev,
+                    variation: e.target.checked,
+                  }))
+                }
+                className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              />
+              <span className="text-sm font-medium">Used for Variations</span>
+            </label>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-4">
+            <CustomButton
+              type="button"
+              variant="outline"
+              onClick={handleCloseAssignModal}
+            >
+              Cancel
+            </CustomButton>
+            <CustomButton type="submit" disabled={globalLoading}>
+              Assign Attribute
+            </CustomButton>
+          </div>
+        </form>
+      </CustomModal>
+
       {/* Delete Confirmation Dialog */}
       <CustomConfirmationDialog
         isOpen={deleteDialogOpen}
         onClose={handleDeleteCancel}
         onConfirm={handleDeleteConfirm}
-        title="Delete Attribute"
-        description={`Are you sure you want to delete the attribute "${attributeToDelete}"? This action cannot be undone.`}
-        confirmText="Delete"
+        title="Remove Global Attribute"
+        description={`Are you sure you want to remove the global attribute "${
+          attributeToDelete?.globalAttribute?.name || "this attribute"
+        }" from this product? This action cannot be undone.`}
+        confirmText="Remove"
         cancelText="Cancel"
         variant="danger"
       />

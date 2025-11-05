@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Save, Plus, Trash2, X, Package } from "lucide-react";
 import {
@@ -13,12 +13,20 @@ import {
   CustomLabel,
   CustomInput,
   LoadingState,
-  FileUpload,
+  SingleImageUpload,
+  MultiImageUpload,
 } from "@/components/ui";
 import { useProductForm } from "../hooks/useProductForm";
 import { useCategories } from "@/features/categories/hooks/useCategories";
-import { useProductAttributes } from "../hooks/useProductAttributes";
+import {
+  useGlobalAttributes,
+  useProductGlobalAttributes,
+} from "@/features/attributes";
 import { cn } from "@/utils/cn";
+import { toast } from "react-toastify";
+import { Globe } from "lucide-react";
+import { productGlobalAttributeService } from "@/features/attributes/services/productGlobalAttributeService";
+import { productAttributeService } from "@/features/products/services/productAttributeService";
 
 const PRODUCT_TYPES = [
   { value: "SIMPLE", label: "Simple Product" },
@@ -57,7 +65,14 @@ export default function ProductForm({ productId = null }) {
   const { loading, fetchLoading, productData, isEditMode, submitForm } =
     useProductForm(productId);
   const { categories } = useCategories();
-  const { allAttributes, fetchAllAttributes } = useProductAttributes();
+  const { attributes: globalAttributes, loading: globalAttributesLoading } =
+    useGlobalAttributes({ autoFetch: true });
+
+  // For editing: fetch existing product global attributes
+  const {
+    attributes: fetchedProductGlobalAttributes,
+    refetch: refetchProductGlobalAttributes,
+  } = useProductGlobalAttributes(isEditMode ? productId : null);
 
   // Form state
   const [formValues, setFormValues] = useState({
@@ -100,17 +115,17 @@ export default function ProductForm({ productId = null }) {
     metaDescription: "",
   });
 
-  const [images, setImages] = useState([]);
-  const [attributes, setAttributes] = useState([]);
+  const [featuredImage, setFeaturedImage] = useState(null);
+  const [galleryImages, setGalleryImages] = useState([]);
+  const [attributes, setAttributes] = useState([]); // For variable products variant generation
+  const [productGlobalAttributes, setProductGlobalAttributes] = useState([]); // Selected global attributes with values
   const [variants, setVariants] = useState([]);
   const [categoryIds, setCategoryIds] = useState([]);
   const [metadata, setMetadata] = useState([]);
   const [errors, setErrors] = useState({});
 
-  // Fetch all available attributes on mount
-  useEffect(() => {
-    fetchAllAttributes();
-  }, [fetchAllAttributes]);
+  // Ref to track if attributes have been loaded to prevent infinite loops
+  const attributesLoadedRef = useRef(false);
 
   // Load product data in edit mode
   useEffect(() => {
@@ -153,22 +168,206 @@ export default function ProductForm({ productId = null }) {
         metaDescription: productData.metaDescription || "",
       });
 
-      if (productData.images) setImages(productData.images);
-      if (productData.attributes) setAttributes(productData.attributes);
+      // Handle images - if it's an array, first image is featured, rest are gallery
+      if (productData.images && Array.isArray(productData.images)) {
+        if (productData.images.length > 0) {
+          const firstImage = productData.images[0];
+          setFeaturedImage(
+            typeof firstImage === "string" ? firstImage : firstImage.url
+          );
+          if (productData.images.length > 1) {
+            setGalleryImages(
+              productData.images
+                .slice(1)
+                .map((img) => (typeof img === "string" ? img : img.url))
+            );
+          }
+        }
+      }
+      // Load inline attributes
+      if (productData.attributes) {
+        setAttributes(productData.attributes);
+      }
+
+      // Note: Global attributes will be loaded separately via useProductGlobalAttributes hook
+      // and merged into the display when they're fetched
+
       if (productData.variants) setVariants(productData.variants);
-      if (productData.categoryIds) setCategoryIds(productData.categoryIds);
+
+      // Handle categories - API returns categories array with categoryId field
+      if (productData.categories && Array.isArray(productData.categories)) {
+        setCategoryIds(productData.categories.map((c) => c.categoryId));
+      } else if (productData.categoryIds) {
+        setCategoryIds(productData.categoryIds);
+      }
+
       if (productData.metadata) setMetadata(productData.metadata);
     }
   }, [productData, isEditMode]);
 
-  // Generate slug from name
-  const generateSlug = (name) => {
-    return name
-      .toLowerCase()
-      .trim()
-      .replace(/[^\w\s-]/g, "")
-      .replace(/[\s_-]+/g, "-")
-      .replace(/^-+|-+$/g, "");
+  // Reset attributes loaded flag when productId changes
+  useEffect(() => {
+    attributesLoadedRef.current = false;
+  }, [productId]);
+
+  // Load product global attributes when productId changes (edit mode)
+  useEffect(() => {
+    if (isEditMode && productId) {
+      // Reset flag when productId changes
+      attributesLoadedRef.current = false;
+      refetchProductGlobalAttributes();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isEditMode, productId]);
+
+  // Load product global attributes when they're fetched
+  useEffect(() => {
+    if (isEditMode && Array.isArray(fetchedProductGlobalAttributes)) {
+      // Always update when we have fresh data from the API
+      const newAttributes = fetchedProductGlobalAttributes.map((attr) => ({
+        globalAttributeId: attr.globalAttributeId,
+        globalAttribute: attr.globalAttribute || {},
+        value: attr.value || "",
+        position: attr.position || 0,
+        visible: attr.visible !== undefined ? attr.visible : true,
+        variation: attr.variation !== undefined ? attr.variation : false,
+      }));
+
+      // Compare JSON strings to detect any changes (IDs, values, or count)
+      const currentData = JSON.stringify(
+        productGlobalAttributes
+          .map((a) => ({
+            id: a.globalAttributeId,
+            value: a.value,
+          }))
+          .sort((a, b) => a.id.localeCompare(b.id))
+      );
+      const newData = JSON.stringify(
+        newAttributes
+          .map((a) => ({
+            id: a.globalAttributeId,
+            value: a.value,
+          }))
+          .sort((a, b) => a.id.localeCompare(b.id))
+      );
+
+      // Update if data has changed or if this is the initial load
+      if (currentData !== newData || !attributesLoadedRef.current) {
+        setProductGlobalAttributes(newAttributes);
+        attributesLoadedRef.current = true;
+
+        // Also merge global attributes (used for variations) into the attributes array
+        // so they appear in the variant attributes section when editing
+        if (
+          isEditMode &&
+          (formValues.type === "VARIABLE" ||
+            formValues.type === "VARIABLE_SUBSCRIPTION")
+        ) {
+          setAttributes((prevAttributes) => {
+            // Get existing attributes that aren't from global attributes
+            const globalAttrNames = newAttributes
+              .filter((attr) => attr.variation)
+              .map((attr) => (attr.globalAttribute?.name || "").toLowerCase());
+
+            const existingNonGlobal = prevAttributes.filter(
+              (attr) =>
+                !globalAttrNames.includes(attr.name?.toLowerCase() || "")
+            );
+
+            // Add global attributes that are used for variations
+            const globalAttrsForVariants = newAttributes
+              .filter(
+                (attr) => attr.variation && attr.value && attr.value.trim()
+              )
+              .map((attr) => {
+                const globalAttr = attr.globalAttribute || {};
+                return {
+                  name: globalAttr.name || "",
+                  value: attr.value.trim(),
+                  slug:
+                    globalAttr.slug ||
+                    globalAttr.name?.toLowerCase().replace(/\s+/g, "-") ||
+                    "",
+                  position: attr.position || 0,
+                  visible: attr.visible !== undefined ? attr.visible : true,
+                  variation: true,
+                };
+              });
+
+            // Combine, ensuring no duplicates
+            const combined = [...existingNonGlobal];
+            globalAttrsForVariants.forEach((globalAttr) => {
+              if (
+                !combined.some(
+                  (a) =>
+                    a.name?.toLowerCase() === globalAttr.name?.toLowerCase()
+                )
+              ) {
+                combined.push(globalAttr);
+              }
+            });
+
+            return combined;
+          });
+        }
+      }
+    } else if (isEditMode && fetchedProductGlobalAttributes === null) {
+      // If explicitly null (no attributes), clear the list
+      if (productGlobalAttributes.length > 0) {
+        setProductGlobalAttributes([]);
+      }
+      attributesLoadedRef.current = true;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fetchedProductGlobalAttributes, isEditMode, formValues.type]);
+
+  // Add global attribute to product
+  const handleAddGlobalAttribute = (globalAttributeId) => {
+    const globalAttr = globalAttributes.find(
+      (ga) => ga.id === globalAttributeId
+    );
+    if (!globalAttr) {
+      toast.error("Attribute not found");
+      return;
+    }
+
+    // Check if already added
+    if (
+      productGlobalAttributes.some(
+        (pga) => pga.globalAttributeId === globalAttributeId
+      )
+    ) {
+      toast.error("This attribute is already added");
+      return;
+    }
+
+    setProductGlobalAttributes((prev) => [
+      ...prev,
+      {
+        globalAttributeId: globalAttributeId,
+        globalAttribute: globalAttr,
+        value: "",
+        position: prev.length,
+        visible: true,
+        variation: globalAttr.variation || false,
+      },
+    ]);
+
+    toast.success(`${globalAttr.name} added successfully`);
+  };
+
+  // Update global attribute value
+  const handleUpdateGlobalAttribute = (index, field, value) => {
+    setProductGlobalAttributes((prev) => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], [field]: value };
+      return updated;
+    });
+  };
+
+  // Remove global attribute
+  const handleRemoveGlobalAttribute = (index) => {
+    setProductGlobalAttributes((prev) => prev.filter((_, i) => i !== index));
   };
 
   // Handle input change
@@ -207,64 +406,7 @@ export default function ProductForm({ productId = null }) {
     );
   };
 
-  // Add/Update/Remove helpers
-  const addImage = () => {
-    setImages((prev) => [
-      ...prev,
-      { url: "", altText: "", name: "", sortOrder: prev.length },
-    ]);
-  };
-
-  const updateImage = (index, field, value) => {
-    setImages((prev) => {
-      const updated = [...prev];
-      updated[index] = { ...updated[index], [field]: value };
-      return updated;
-    });
-  };
-
-  const removeImage = (index) => {
-    setImages((prev) => prev.filter((_, i) => i !== index));
-  };
-
-  // Handle image upload completion
-  const handleImageUploadComplete = (index, uploadedFiles) => {
-    if (!uploadedFiles || uploadedFiles.length === 0) {
-      console.warn("No files were uploaded");
-      return;
-    }
-
-    try {
-      // Get the first uploaded file
-      const fileData = uploadedFiles[0];
-
-      // Extract URL - response may have url, path, or fileUrl property
-      const imageUrl =
-        fileData.url ||
-        fileData.path ||
-        fileData.fileUrl ||
-        fileData.location ||
-        (typeof fileData === "string" ? fileData : "");
-
-      if (imageUrl) {
-        updateImage(index, "url", imageUrl);
-        // Set default alt text if empty
-        const currentImage = images[index];
-        if (!currentImage?.altText) {
-          const altText =
-            fileData.originalName ||
-            fileData.name ||
-            fileData.filename ||
-            `Product image ${index + 1}`;
-          updateImage(index, "altText", altText);
-        }
-      } else {
-        console.warn("Uploaded file does not contain a URL:", fileData);
-      }
-    } catch (error) {
-      console.error("Error processing uploaded image:", error);
-    }
-  };
+  // Image handlers - now using separate featured and gallery images
 
   const addAttribute = () => {
     setAttributes((prev) => [
@@ -283,6 +425,57 @@ export default function ProductForm({ productId = null }) {
 
   const removeAttribute = (index) => {
     setAttributes((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  // Add global attribute to variant attributes list
+  const handleAddGlobalToVariants = (globalAttrIndex) => {
+    const globalAttr = productGlobalAttributes[globalAttrIndex];
+    if (!globalAttr || !globalAttr.value || !globalAttr.value.trim()) {
+      toast.error("Please enter a value for the attribute first");
+      return;
+    }
+
+    const globalAttributeDef = globalAttr.globalAttribute || {};
+    const attributeName = globalAttributeDef.name || "";
+    const attributeValue = globalAttr.value.trim();
+
+    // Check if attribute with same name already exists in variant attributes
+    const existingIndex = attributes.findIndex(
+      (attr) => attr.name.toLowerCase() === attributeName.toLowerCase()
+    );
+
+    if (existingIndex >= 0) {
+      // Merge values if attribute already exists
+      const existing = attributes[existingIndex];
+      const existingValues = existing.value
+        .split(",")
+        .map((v) => v.trim())
+        .filter(Boolean);
+      const newValues = attributeValue
+        .split(",")
+        .map((v) => v.trim())
+        .filter(Boolean);
+      const combinedValues = [...new Set([...existingValues, ...newValues])];
+
+      updateAttribute(existingIndex, "value", combinedValues.join(", "));
+      toast.success(`Updated "${attributeName}" with new values`);
+    } else {
+      // Add new attribute to variant attributes
+      setAttributes((prev) => [
+        ...prev,
+        {
+          name: attributeName,
+          value: attributeValue,
+          slug:
+            globalAttributeDef.slug ||
+            attributeName.toLowerCase().replace(/\s+/g, "-"),
+          position: prev.length,
+          visible: globalAttr.visible !== undefined ? globalAttr.visible : true,
+          variation: true,
+        },
+      ]);
+      toast.success(`Added "${attributeName}" to variant attributes`);
+    }
   };
 
   const addVariant = () => {
@@ -403,8 +596,16 @@ export default function ProductForm({ productId = null }) {
       if (formValues.width) submitData.width = parseFloat(formValues.width);
       if (formValues.height) submitData.height = parseFloat(formValues.height);
 
-      if (images.length > 0) {
-        submitData.images = images.filter((img) => img.url);
+      // Combine featured image and gallery images
+      const allImages = [];
+      if (featuredImage) {
+        allImages.push({ url: featuredImage, altText: "", sortOrder: 0 });
+      }
+      galleryImages.forEach((url, index) => {
+        allImages.push({ url, altText: "", sortOrder: index + 1 });
+      });
+      if (allImages.length > 0) {
+        submitData.images = allImages;
       }
 
       if (categoryIds.length > 0) {
@@ -419,10 +620,177 @@ export default function ProductForm({ productId = null }) {
         formValues.type === "VARIABLE" ||
         formValues.type === "VARIABLE_SUBSCRIPTION"
       ) {
-        submitData.attributes = attributes.filter(
-          (attr) => attr.name && attr.value
-        );
-        submitData.variants = variants.filter((variant) => variant.name);
+        // Clean attributes - only include allowed properties
+        const inlineAttributes = attributes
+          .filter((attr) => attr.name && attr.value)
+          .map((attr) => ({
+            name: attr.name,
+            value: attr.value,
+            slug: attr.slug || attr.name.toLowerCase().replace(/\s+/g, "-"),
+            position: attr.position || 0,
+            visible: attr.visible !== undefined ? attr.visible : true,
+            variation: attr.variation !== undefined ? attr.variation : false,
+          }));
+
+        // Merge global attributes (that are used for variations) into attributes array
+        console.log("🔍 Product Global Attributes:", productGlobalAttributes);
+        const globalAttributesForVariants = productGlobalAttributes
+          .filter((attr) => {
+            const hasVariation = attr.variation === true;
+            const hasValue = attr.value && attr.value.trim();
+            console.log(
+              `  - ${attr.globalAttribute?.name || "Unknown"}: variation=${
+                attr.variation
+              }, value=${attr.value}, included=${hasVariation && hasValue}`
+            );
+            return hasVariation && hasValue;
+          })
+          .map((attr) => {
+            const globalAttr = attr.globalAttribute || {};
+            // Generate slug from name (not from global attribute slug which might be outdated)
+            const attributeName = globalAttr.name || "";
+            const slug = attributeName.toLowerCase().replace(/\s+/g, "-");
+            return {
+              name: attributeName,
+              value: attr.value.trim(),
+              slug: slug,
+              position: attr.position || 0,
+              visible: attr.visible !== undefined ? attr.visible : true,
+              variation: true,
+            };
+          });
+
+        // Combine inline and global attributes, handling duplicates intelligently
+        const allAttributes = [...inlineAttributes];
+        globalAttributesForVariants.forEach((globalAttr) => {
+          // Check if attribute with same name already exists
+          const existingIndex = allAttributes.findIndex(
+            (a) => a.name.toLowerCase() === globalAttr.name.toLowerCase()
+          );
+
+          if (existingIndex >= 0) {
+            // If exists, merge values (combine comma-separated values)
+            const existing = allAttributes[existingIndex];
+            const existingValues = existing.value
+              .split(",")
+              .map((v) => v.trim())
+              .filter(Boolean);
+            const newValues = globalAttr.value
+              .split(",")
+              .map((v) => v.trim())
+              .filter(Boolean);
+            const combinedValues = [
+              ...new Set([...existingValues, ...newValues]),
+            ];
+            allAttributes[existingIndex] = {
+              ...existing,
+              value: combinedValues.join(", "),
+              variation: true, // Ensure variation is true if global attribute has it
+            };
+          } else {
+            // If doesn't exist, add it
+            allAttributes.push(globalAttr);
+          }
+        });
+
+        submitData.attributes = allAttributes;
+
+        // Debug log to verify attributes are being merged
+        console.log("📦 Merged attributes for submission:", {
+          inline: inlineAttributes.length,
+          global: globalAttributesForVariants.length,
+          total: allAttributes.length,
+          attributes: allAttributes,
+        });
+
+        // Ensure attributes array is always sent (even if empty for variable products)
+        if (
+          (formValues.type === "VARIABLE" ||
+            formValues.type === "VARIABLE_SUBSCRIPTION") &&
+          (!submitData.attributes || submitData.attributes.length === 0)
+        ) {
+          console.warn("⚠️ No attributes found for variable product!");
+        }
+
+        // Clean variants - only include allowed properties
+        submitData.variants = variants
+          .filter((variant) => variant.name)
+          .map((variant) => {
+            const cleaned = {
+              name: variant.name,
+            };
+
+            if (variant.sku) cleaned.sku = variant.sku;
+            if (variant.price) cleaned.price = parseFloat(variant.price);
+            if (variant.salePrice)
+              cleaned.salePrice = parseFloat(variant.salePrice);
+            if (variant.stockQuantity !== undefined)
+              cleaned.stockQuantity = parseInt(variant.stockQuantity) || 0;
+            if (variant.manageStock !== undefined)
+              cleaned.manageStock = variant.manageStock;
+            if (variant.imageUrl) cleaned.imageUrl = variant.imageUrl;
+
+            // Subscription fields for variable subscription products
+            if (formValues.type === "VARIABLE_SUBSCRIPTION") {
+              if (variant.subscriptionPeriod)
+                cleaned.subscriptionPeriod = variant.subscriptionPeriod;
+              if (variant.subscriptionInterval !== undefined)
+                cleaned.subscriptionInterval =
+                  parseInt(variant.subscriptionInterval) || 1;
+              if (variant.subscriptionLength !== undefined)
+                cleaned.subscriptionLength =
+                  parseInt(variant.subscriptionLength) || 0;
+              if (variant.subscriptionSignUpFee !== undefined)
+                cleaned.subscriptionSignUpFee =
+                  parseFloat(variant.subscriptionSignUpFee) || 0;
+              if (variant.subscriptionTrialLength !== undefined)
+                cleaned.subscriptionTrialLength =
+                  parseInt(variant.subscriptionTrialLength) || 0;
+              if (variant.subscriptionTrialPeriod)
+                cleaned.subscriptionTrialPeriod =
+                  variant.subscriptionTrialPeriod;
+            }
+
+            // Only include attributes if they exist and are valid
+            if (
+              variant.attributes &&
+              Array.isArray(variant.attributes) &&
+              variant.attributes.length > 0
+            ) {
+              // Parse variant name to extract attribute values
+              // Format: "color: red | size: xl | heelo: lool | material: coton"
+              const variantNameParts = variant.name
+                .split("|")
+                .map((part) => part.trim())
+                .filter(Boolean);
+
+              cleaned.attributes = variant.attributes.map((attr) => {
+                // Find the value for this attribute from the variant name
+                const attrPart = variantNameParts.find((part) =>
+                  part.toLowerCase().startsWith(attr.name.toLowerCase() + ":")
+                );
+
+                let value = "";
+                if (attrPart) {
+                  // Extract value after the colon
+                  const colonIndex = attrPart.indexOf(":");
+                  if (colonIndex >= 0) {
+                    value = attrPart.substring(colonIndex + 1).trim();
+                  }
+                } else if (attr.value) {
+                  // Fallback to attr.value if available
+                  value = attr.value;
+                }
+
+                return {
+                  name: attr.name,
+                  value: value || attr.name, // Fallback to name if no value found
+                };
+              });
+            }
+
+            return cleaned;
+          });
       }
 
       if (
@@ -443,7 +811,102 @@ export default function ProductForm({ productId = null }) {
         submitData.subscriptionTrialPeriod = formValues.subscriptionTrialPeriod;
       }
 
-      await submitForm(submitData);
+      const savedProduct = await submitForm(submitData);
+
+      // After product is saved, we need to:
+      // 1. Save attributes via the separate attributes endpoint (if variable product)
+      // 2. Assign/update global attributes via global attributes endpoint
+      // Note: savedProduct might be undefined if redirect happens before return
+      // So we use productId for edit mode or savedProduct.id if available
+      const productIdToUse = isEditMode ? productId : savedProduct?.id;
+
+      if (productIdToUse) {
+        // Save inline attributes via the separate attributes endpoint
+        // This ensures all attributes (including merged global ones) are saved
+        if (
+          (formValues.type === "VARIABLE" ||
+            formValues.type === "VARIABLE_SUBSCRIPTION") &&
+          submitData.attributes &&
+          submitData.attributes.length > 0
+        ) {
+          try {
+            console.log(
+              "💾 Saving attributes via attributes endpoint:",
+              submitData.attributes
+            );
+            await productAttributeService.upsert(
+              productIdToUse,
+              submitData.attributes
+            );
+            console.log("✅ Attributes saved successfully");
+          } catch (error) {
+            console.error("Failed to save attributes:", error);
+            toast.error("Product saved but failed to save some attributes");
+          }
+        }
+        try {
+          // Prepare attributes to assign (only those with values)
+          const attributesToAssign = productGlobalAttributes
+            .filter((attr) => attr.value && attr.value.trim())
+            .map((attr) => ({
+              globalAttributeId: attr.globalAttributeId,
+              value: attr.value.trim(),
+              position: attr.position,
+              visible: attr.visible,
+              variation: attr.variation,
+            }));
+
+          if (isEditMode) {
+            // For updates: Get current attributes and determine what to remove/add
+            const currentAttributes = fetchedProductGlobalAttributes || [];
+            const currentIds = currentAttributes.map(
+              (a) => a.globalAttributeId
+            );
+            const newIds = attributesToAssign.map((a) => a.globalAttributeId);
+
+            // Remove attributes that are no longer in the list
+            const toRemove = currentIds.filter((id) => !newIds.includes(id));
+            for (const globalAttributeId of toRemove) {
+              try {
+                await productGlobalAttributeService.remove(
+                  productIdToUse,
+                  globalAttributeId
+                );
+              } catch (error) {
+                console.error(
+                  `Failed to remove attribute ${globalAttributeId}:`,
+                  error
+                );
+              }
+            }
+
+            // Assign/update all attributes (bulkAssign will update existing ones)
+            if (attributesToAssign.length > 0) {
+              await productGlobalAttributeService.bulkAssign(productIdToUse, {
+                attributes: attributesToAssign,
+              });
+            }
+
+            // Refetch product global attributes to sync with backend after save
+            await refetchProductGlobalAttributes();
+            // Reset the loaded flag so attributes reload properly
+            attributesLoadedRef.current = false;
+          } else {
+            // For new products: Just assign all attributes
+            if (attributesToAssign.length > 0) {
+              await productGlobalAttributeService.bulkAssign(productIdToUse, {
+                attributes: attributesToAssign,
+              });
+            }
+          }
+        } catch (error) {
+          console.error("Failed to assign global attributes:", error);
+          toast.error("Product saved but failed to assign some attributes");
+        }
+      }
+
+      // Redirect to products list after everything is saved
+      router.push("/dashboard/products");
     } catch (error) {
       console.error("Form submission error:", error);
     }
@@ -811,13 +1274,182 @@ export default function ProductForm({ productId = null }) {
               </CustomCard>
             )}
 
-            {/* Attributes (for variable products) */}
+            {/* Global Attributes */}
+            <CustomCard>
+              <CustomCardContent className="pt-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-foreground">
+                    Global Attributes
+                  </h3>
+                </div>
+
+                <div className="space-y-4">
+                  {/* Add Global Attribute */}
+                  <div className="space-y-2">
+                    <CustomLabel>Add Global Attribute</CustomLabel>
+                    <div className="flex gap-2">
+                      <select
+                        value=""
+                        onChange={(e) => {
+                          if (e.target.value) {
+                            handleAddGlobalAttribute(e.target.value);
+                            e.target.value = "";
+                          }
+                        }}
+                        disabled={loading || globalAttributesLoading}
+                        className={cn(
+                          "flex-1 h-10 rounded-md border px-3 py-2 text-sm transition-colors",
+                          "bg-white text-gray-900 border-gray-300",
+                          "dark:bg-gray-800 dark:text-gray-100 dark:border-gray-600",
+                          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
+                          "focus-visible:ring-blue-500 dark:focus-visible:ring-blue-400",
+                          "disabled:cursor-not-allowed disabled:opacity-50"
+                        )}
+                      >
+                        <option value="">Select a global attribute...</option>
+                        {globalAttributes
+                          .filter(
+                            (ga) =>
+                              !productGlobalAttributes.some(
+                                (pga) => pga.globalAttributeId === ga.id
+                              )
+                          )
+                          .map((attr) => (
+                            <option key={attr.id} value={attr.id}>
+                              {attr.name}
+                              {attr.description && ` - ${attr.description}`}
+                            </option>
+                          ))}
+                      </select>
+                    </div>
+                    {globalAttributes.length === 0 && (
+                      <p className="text-sm text-muted-foreground">
+                        No global attributes available. Go to Global Attributes
+                        page to create one.
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Selected Global Attributes */}
+                  <div className="space-y-3">
+                    <CustomLabel>Assigned Attributes</CustomLabel>
+                    {productGlobalAttributes.length === 0 ? (
+                      <p className="text-sm text-muted-foreground py-4 text-center">
+                        No attributes assigned yet. Select an attribute from the
+                        dropdown above.
+                      </p>
+                    ) : (
+                      productGlobalAttributes.map((attr, index) => {
+                        const globalAttr = attr.globalAttribute || {};
+                        return (
+                          <div
+                            key={`${attr.globalAttributeId}-${index}`}
+                            className="p-3 border border-border rounded-lg space-y-2"
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <Globe className="h-4 w-4 text-muted-foreground" />
+                                <span className="font-medium">
+                                  {globalAttr.name || "Unknown"}
+                                </span>
+                                {globalAttr.description && (
+                                  <span className="text-xs text-muted-foreground">
+                                    ({globalAttr.description})
+                                  </span>
+                                )}
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleRemoveGlobalAttribute(index)
+                                }
+                                disabled={loading}
+                                className="p-1 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-red-600"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </div>
+                            <CustomInput
+                              placeholder={`Enter value for ${globalAttr.name}`}
+                              value={attr.value}
+                              onChange={(e) =>
+                                handleUpdateGlobalAttribute(
+                                  index,
+                                  "value",
+                                  e.target.value
+                                )
+                              }
+                              disabled={loading}
+                            />
+                            <div className="flex items-center gap-4 text-sm">
+                              <label className="flex items-center gap-2 cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={attr.visible}
+                                  onChange={(e) =>
+                                    handleUpdateGlobalAttribute(
+                                      index,
+                                      "visible",
+                                      e.target.checked
+                                    )
+                                  }
+                                  className="h-4 w-4 rounded border-gray-300"
+                                  disabled={loading}
+                                />
+                                <span>Visible</span>
+                              </label>
+                              <label className="flex items-center gap-2 cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={attr.variation}
+                                  onChange={(e) =>
+                                    handleUpdateGlobalAttribute(
+                                      index,
+                                      "variation",
+                                      e.target.checked
+                                    )
+                                  }
+                                  className="h-4 w-4 rounded border-gray-300"
+                                  disabled={loading}
+                                />
+                                <span>Used for Variations</span>
+                              </label>
+                            </div>
+                            {isVariableProduct &&
+                              attr.variation &&
+                              attr.value &&
+                              attr.value.trim() && (
+                                <div className="mt-2">
+                                  <CustomButton
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() =>
+                                      handleAddGlobalToVariants(index)
+                                    }
+                                    disabled={loading}
+                                  >
+                                    <Plus className="h-4 w-4 mr-2" />
+                                    Add to Variant Attributes
+                                  </CustomButton>
+                                </div>
+                              )}
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              </CustomCardContent>
+            </CustomCard>
+
+            {/* Attributes (for variable products variant generation) */}
             {isVariableProduct && (
               <CustomCard>
                 <CustomCardContent className="pt-6">
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-lg font-semibold text-foreground">
-                      Attributes
+                      Variant Attributes (for variant generation)
                     </h3>
                     <div className="flex items-center gap-2">
                       <CustomButton
@@ -830,7 +1462,7 @@ export default function ProductForm({ productId = null }) {
                         <Plus className="h-4 w-4 mr-2" />
                         Add Attribute
                       </CustomButton>
-                      {isVariableSubscription && (
+                      {isVariableProduct && (
                         <CustomButton
                           type="button"
                           size="sm"
@@ -841,7 +1473,6 @@ export default function ProductForm({ productId = null }) {
                               .map((a) => ({
                                 name: a.name.trim(),
                                 values: a.value
-                                  // Support comma, pipe, or slash separators
                                   .split(/[,|/]+/)
                                   .map((v) => v.trim())
                                   .filter(Boolean),
@@ -850,7 +1481,6 @@ export default function ProductForm({ productId = null }) {
 
                             if (parsed.length === 0) return;
 
-                            // Merge rows with same attribute name and de-duplicate values
                             const mergedMap = parsed.reduce((map, p) => {
                               const key = p.name.toLowerCase();
                               const set = map.get(key) || new Set();
@@ -869,7 +1499,6 @@ export default function ProductForm({ productId = null }) {
                               })
                             );
 
-                            // Clean values: remove accidental "name:" prefixes from each value
                             const cleaned = merged.map((p) => ({
                               name: p.name,
                               values: p.values.map((v) =>
@@ -882,7 +1511,6 @@ export default function ProductForm({ productId = null }) {
                               ),
                             }));
 
-                            // Cartesian product of values only
                             const valueLists = cleaned.map((p) => p.values);
                             const combos = valueLists.reduce(
                               (acc, vals) =>
@@ -890,27 +1518,36 @@ export default function ProductForm({ productId = null }) {
                               [[]]
                             );
 
-                            const newVariants = combos.map((values, idx) => ({
-                              name: values
-                                .map((v, i) => `${cleaned[i].name}: ${v}`)
-                                .join(" | "),
-                              sku: "",
-                              price: "",
-                              salePrice: "",
-                              // initialize per-variant subscription fields (editable later)
-                              subscriptionPeriod: formValues.subscriptionPeriod,
-                              subscriptionInterval: 1,
-                              subscriptionLength: 0,
-                              subscriptionSignUpFee: "0",
-                              subscriptionTrialLength: 0,
-                              subscriptionTrialPeriod:
-                                formValues.subscriptionTrialPeriod,
-                              manageStock: true,
-                              stockQuantity: 0,
-                              attributes: cleaned.map((p) => ({
-                                name: p.name,
-                              })),
-                            }));
+                            // Generate variants - include subscription fields only for VARIABLE_SUBSCRIPTION
+                            const newVariants = combos.map((values, idx) => {
+                              const baseVariant = {
+                                name: values
+                                  .map((v, i) => `${cleaned[i].name}: ${v}`)
+                                  .join(" | "),
+                                sku: "",
+                                price: "",
+                                salePrice: "",
+                                manageStock: true,
+                                stockQuantity: 0,
+                                attributes: cleaned.map((p) => ({
+                                  name: p.name,
+                                })),
+                              };
+
+                              // Add subscription fields only for VARIABLE_SUBSCRIPTION
+                              if (isVariableSubscription) {
+                                baseVariant.subscriptionPeriod =
+                                  formValues.subscriptionPeriod;
+                                baseVariant.subscriptionInterval = 1;
+                                baseVariant.subscriptionLength = 0;
+                                baseVariant.subscriptionSignUpFee = "0";
+                                baseVariant.subscriptionTrialLength = 0;
+                                baseVariant.subscriptionTrialPeriod =
+                                  formValues.subscriptionTrialPeriod;
+                              }
+
+                              return baseVariant;
+                            });
 
                             setVariants(newVariants);
                           }}
@@ -932,30 +1569,14 @@ export default function ProductForm({ productId = null }) {
                     {attributes.map((attribute, index) => (
                       <div key={index} className="flex gap-2 items-start">
                         <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-2">
-                          <div>
-                            <input
-                              list={`attribute-list-${index}`}
-                              placeholder="Attribute name (e.g., Size, Color)"
-                              value={attribute.name}
-                              onChange={(e) =>
-                                updateAttribute(index, "name", e.target.value)
-                              }
-                              disabled={loading}
-                              className={cn(
-                                "flex h-10 w-full rounded-md border px-3 py-2 text-sm transition-colors",
-                                "bg-white text-gray-900 border-gray-300",
-                                "dark:bg-gray-800 dark:text-gray-100 dark:border-gray-600",
-                                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
-                                "focus-visible:ring-blue-500 dark:focus-visible:ring-blue-400",
-                                "disabled:cursor-not-allowed disabled:opacity-50"
-                              )}
-                            />
-                            <datalist id={`attribute-list-${index}`}>
-                              {allAttributes.map((attr) => (
-                                <option key={attr} value={attr} />
-                              ))}
-                            </datalist>
-                          </div>
+                          <CustomInput
+                            placeholder="Attribute name (e.g., Size, Color)"
+                            value={attribute.name}
+                            onChange={(e) =>
+                              updateAttribute(index, "name", e.target.value)
+                            }
+                            disabled={loading}
+                          />
                           <CustomInput
                             placeholder="Values (comma-separated: S, M, L)"
                             value={attribute.value}
@@ -1504,115 +2125,31 @@ export default function ProductForm({ productId = null }) {
 
           {/* Sidebar */}
           <div className="space-y-6">
-            {/* Product Images */}
+            {/* Featured Image */}
             <CustomCard>
               <CustomCardContent className="pt-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-foreground">
-                    Product Images
-                  </h3>
-                  <CustomButton
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={addImage}
-                    disabled={loading}
-                  >
-                    <Plus className="h-4 w-4" />
-                  </CustomButton>
-                </div>
+                <h3 className="text-lg font-semibold text-foreground mb-4">
+                  Featured Image
+                </h3>
+                <SingleImageUpload
+                  value={featuredImage}
+                  onChange={setFeaturedImage}
+                />
+              </CustomCardContent>
+            </CustomCard>
 
-                <div className="space-y-3">
-                  {images.map((image, index) => (
-                    <div
-                      key={index}
-                      className="p-3 border border-border rounded-lg space-y-3"
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium">
-                          Image {index + 1}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => removeImage(index)}
-                          disabled={loading}
-                          className="p-1 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-red-600"
-                        >
-                          <X className="h-4 w-4" />
-                        </button>
-                      </div>
-
-                      {/* Image Preview */}
-                      {image.url && (
-                        <div className="relative w-full h-32 bg-gray-100 dark:bg-gray-800 rounded-lg overflow-hidden border border-border">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={image.url}
-                            alt={image.altText || `Product image ${index + 1}`}
-                            className="w-full h-full object-cover"
-                            onError={(e) => {
-                              e.target.style.display = "none";
-                            }}
-                          />
-                          <div className="hidden absolute inset-0 items-center justify-center text-muted-foreground">
-                            <Package className="h-8 w-8" />
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Upload Section */}
-                      <div className="space-y-2">
-                        <FileUpload
-                          multiple={false}
-                          accept="image/*"
-                          onUploadComplete={(uploadedFiles) =>
-                            handleImageUploadComplete(index, uploadedFiles)
-                          }
-                          className="border-0"
-                        />
-                        <div className="text-xs text-center text-muted-foreground">
-                          or enter URL manually below
-                        </div>
-                      </div>
-
-                      {/* Manual URL Input */}
-                      <div className="space-y-2">
-                        <CustomLabel
-                          htmlFor={`image-url-${index}`}
-                          className="text-xs"
-                        >
-                          Image URL
-                        </CustomLabel>
-                        <CustomInput
-                          id={`image-url-${index}`}
-                          placeholder="https://example.com/image.jpg"
-                          value={image.url}
-                          onChange={(e) =>
-                            updateImage(index, "url", e.target.value)
-                          }
-                          disabled={loading}
-                          className="text-sm"
-                        />
-                        <CustomInput
-                          placeholder="Alt text (for accessibility)"
-                          value={image.altText}
-                          onChange={(e) =>
-                            updateImage(index, "altText", e.target.value)
-                          }
-                          disabled={loading}
-                          className="text-sm"
-                        />
-                      </div>
-                    </div>
-                  ))}
-
-                  {images.length === 0 && (
-                    <div className="text-center py-8 text-muted-foreground">
-                      <Package className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                      <p className="text-sm">No images added yet</p>
-                    </div>
-                  )}
-                </div>
+            {/* Gallery Images */}
+            <CustomCard>
+              <CustomCardContent className="pt-6">
+                <h3 className="text-lg font-semibold text-foreground mb-4">
+                  Gallery Images
+                </h3>
+                <MultiImageUpload
+                  value={galleryImages}
+                  onChange={setGalleryImages}
+                  maxImages={20}
+                  helperText="Upload multiple images for the product gallery"
+                />
               </CustomCardContent>
             </CustomCard>
 
@@ -1748,7 +2285,7 @@ export default function ProductForm({ productId = null }) {
             </CustomCard>
 
             {/* Actions */}
-            <CustomCard>
+            <CustomCard className="md:sticky md:top-4">
               <CustomCardContent className="pt-6">
                 <div className="space-y-3">
                   <CustomButton
