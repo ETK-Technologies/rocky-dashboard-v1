@@ -3,13 +3,18 @@
 import { useEffect, useState } from "react";
 import {
   Folder,
-  FileText,
-  Image as ImageIcon,
   Package,
-  ShoppingCart,
-  TrendingUp,
   MoreHorizontal,
   MoreVertical,
+  Upload,
+  Settings,
+  GitBranch,
+  Globe,
+  DollarSign,
+  ShoppingCart,
+  Users,
+  CreditCard,
+  TrendingUp,
 } from "lucide-react";
 import { authStorage } from "@/features/auth";
 import { DashboardCard, QuickAccessCard } from "./DashboardCard";
@@ -21,50 +26,171 @@ import {
   IconButton,
 } from "@/components/ui";
 import { useRouter } from "next/navigation";
+import { useOverviewAnalytics } from "@/features/analytics";
 
 export default function DashboardMain() {
   const [user, setUser] = useState(null);
   const [viewMode, setViewMode] = useState("grid"); // grid or list
+  const [counts, setCounts] = useState({
+    products: null,
+    categories: null,
+    media: null,
+    globalAttributes: null,
+  });
+  const [loading, setLoading] = useState(true);
   const router = useRouter();
+
+  // Get current date range for analytics (last 30 days)
+  const getDateRange = () => {
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - 30);
+
+    return {
+      startDate: startDate.toISOString(),
+      endDate: endDate.toISOString(),
+    };
+  };
+
+  // Fetch analytics overview
+  const {
+    data: analyticsData,
+    loading: analyticsLoading,
+    error: analyticsError,
+  } = useOverviewAnalytics(
+    {
+      ...getDateRange(),
+      groupBy: "day",
+    },
+    true
+  );
 
   useEffect(() => {
     const userData = authStorage.getUser();
     setUser(userData);
   }, []);
 
+  // Fetch counts for cards
+  useEffect(() => {
+    const fetchCounts = async () => {
+      // Dynamic imports to avoid SSR issues
+      const [
+        { productService },
+        { categoryService },
+        { uploadService },
+        { globalAttributeService },
+      ] = await Promise.all([
+        import("@/features/products/services/productService"),
+        import("@/features/categories/services/categoryService"),
+        import("@/features/uploads/services/uploadService"),
+        import("@/features/attributes/services/globalAttributeService"),
+      ]);
+
+      try {
+        setLoading(true);
+        const [productsRes, categoriesRes, mediaRes, globalAttributesRes] =
+          await Promise.allSettled([
+            productService.getAll({ limit: 1 }),
+            categoryService.getAll(),
+            uploadService.getUploads({ limit: 1 }),
+            globalAttributeService.getAll(),
+          ]);
+
+        const newCounts = {
+          products:
+            productsRes.status === "fulfilled"
+              ? productsRes.value?.pagination?.total ||
+                productsRes.value?.total ||
+                null
+              : null,
+          categories:
+            categoriesRes.status === "fulfilled"
+              ? Array.isArray(categoriesRes.value)
+                ? categoriesRes.value.length
+                : categoriesRes.value?.length || null
+              : null,
+          media:
+            mediaRes.status === "fulfilled"
+              ? mediaRes.value?.pagination?.total ||
+                mediaRes.value?.total ||
+                null
+              : null,
+          globalAttributes:
+            globalAttributesRes.status === "fulfilled"
+              ? Array.isArray(globalAttributesRes.value)
+                ? globalAttributesRes.value.length
+                : globalAttributesRes.value?.length || null
+              : null,
+        };
+
+        setCounts(newCounts);
+      } catch (error) {
+        console.error("Error fetching counts:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCounts();
+  }, []);
+
+  // Format count for display
+  const formatCount = (count) => {
+    if (count === null) return "Loading...";
+    if (count === 0) return "0 items";
+    return `${count} ${count === 1 ? "item" : "items"}`;
+  };
+
+  // Format currency
+  const formatCurrency = (amount) => {
+    if (amount === null || amount === undefined) return "—";
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(amount);
+  };
+
+  // Format number
+  const formatNumber = (num) => {
+    if (num === null || num === undefined) return "—";
+    return new Intl.NumberFormat("en-US").format(num);
+  };
+
   // Quick access folders
   const quickAccessItems = [
     {
-      title: "Studio Work",
-      size: "2.3 GB",
-      itemCount: "23 items",
+      title: "Products",
+      itemCount: formatCount(counts.products),
+      icon: Package,
+      iconColor: "text-purple-600 dark:text-purple-400",
+      bgColor: "bg-purple-50 dark:bg-purple-950/30",
+      onClick: () => router.push("/dashboard/products"),
+    },
+    {
+      title: "Categories",
+      itemCount: formatCount(counts.categories),
       icon: Folder,
       iconColor: "text-blue-600 dark:text-blue-400",
       bgColor: "bg-blue-50 dark:bg-blue-950/30",
+      onClick: () => router.push("/dashboard/categories"),
     },
     {
-      title: "Source",
-      size: "1.2 MB",
-      itemCount: "1 item",
-      icon: Folder,
-      iconColor: "text-blue-600 dark:text-blue-400",
-      bgColor: "bg-blue-50 dark:bg-blue-950/30",
+      title: "Media",
+      itemCount: formatCount(counts.media),
+      icon: Upload,
+      iconColor: "text-green-600 dark:text-green-400",
+      bgColor: "bg-green-50 dark:bg-green-950/30",
+      onClick: () => router.push("/dashboard/super-admin/uploads"),
     },
     {
-      title: "Brand Assets",
-      size: "241 MB",
-      itemCount: "8 items",
-      icon: Folder,
-      iconColor: "text-blue-600 dark:text-blue-400",
-      bgColor: "bg-blue-50 dark:bg-blue-950/30",
-    },
-    {
-      title: "Great Studios Pitch...",
-      size: "12.3 MB",
-      itemCount: "pptx",
-      icon: FileText,
+      title: "Global Attributes",
+      itemCount: formatCount(counts.globalAttributes),
+      icon: Globe,
       iconColor: "text-orange-600 dark:text-orange-400",
       bgColor: "bg-orange-50 dark:bg-orange-950/30",
+      onClick: () => router.push("/dashboard/products/global-attributes"),
     },
   ];
 
@@ -72,53 +198,89 @@ export default function DashboardMain() {
   const folders = [
     {
       title: "Products",
-      size: "2.5 GB",
-      itemCount: "45 items",
+      itemCount: formatCount(counts.products),
       icon: Package,
       iconColor: "text-purple-600 dark:text-purple-400",
       bgColor: "bg-purple-50 dark:bg-purple-950/30",
       onClick: () => router.push("/dashboard/products"),
     },
     {
-      title: "Orders",
-      size: "512 MB",
-      itemCount: "128 items",
-      icon: ShoppingCart,
-      iconColor: "text-green-600 dark:text-green-400",
-      bgColor: "bg-green-50 dark:bg-green-950/30",
-      onClick: () => router.push("/dashboard/orders"),
+      title: "Categories",
+      itemCount: formatCount(counts.categories),
+      icon: Folder,
+      iconColor: "text-blue-600 dark:text-blue-400",
+      bgColor: "bg-blue-50 dark:bg-blue-950/30",
+      onClick: () => router.push("/dashboard/categories"),
     },
     {
-      title: "Analytics",
-      size: "45 MB",
-      itemCount: "12 items",
-      icon: TrendingUp,
+      title: "Media",
+      itemCount: formatCount(counts.media),
+      icon: Upload,
+      iconColor: "text-green-600 dark:text-green-400",
+      bgColor: "bg-green-50 dark:bg-green-950/30",
+      onClick: () => router.push("/dashboard/super-admin/uploads"),
+    },
+    {
+      title: "Global Attributes",
+      itemCount: formatCount(counts.globalAttributes),
+      icon: Globe,
+      iconColor: "text-orange-600 dark:text-orange-400",
+      bgColor: "bg-orange-50 dark:bg-orange-950/30",
+      onClick: () => router.push("/dashboard/products/global-attributes"),
+    },
+    {
+      title: "Builder",
+      icon: GitBranch,
+      iconColor: "text-indigo-600 dark:text-indigo-400",
+      bgColor: "bg-indigo-50 dark:bg-indigo-950/30",
+      onClick: () => router.push("/dashboard/builder"),
+    },
+    {
+      title: "Flow",
+      icon: GitBranch,
+      iconColor: "text-cyan-600 dark:text-cyan-400",
+      bgColor: "bg-cyan-50 dark:bg-cyan-950/30",
+      onClick: () => router.push("/dashboard/flow"),
+    },
+    {
+      title: "Settings",
+      icon: Settings,
+      iconColor: "text-gray-600 dark:text-gray-400",
+      bgColor: "bg-gray-50 dark:bg-gray-950/30",
+      onClick: () => router.push("/dashboard/settings"),
+    },
+  ];
+
+  // Analytics stats cards
+  const analyticsStats = [
+    {
+      title: "Total Revenue",
+      value: formatCurrency(analyticsData?.sales?.totalRevenue),
+      icon: DollarSign,
+      iconColor: "text-green-600 dark:text-green-400",
+      bgColor: "bg-green-50 dark:bg-green-950/30",
+      trend: analyticsData?.sales?.growth,
+    },
+    {
+      title: "Total Orders",
+      value: formatNumber(analyticsData?.sales?.orderCount),
+      icon: ShoppingCart,
       iconColor: "text-blue-600 dark:text-blue-400",
       bgColor: "bg-blue-50 dark:bg-blue-950/30",
     },
     {
-      title: "Documents",
-      size: "1.8 GB",
-      itemCount: "234 items",
-      icon: FileText,
-      iconColor: "text-yellow-600 dark:text-yellow-400",
-      bgColor: "bg-yellow-50 dark:bg-yellow-950/30",
+      title: "Total Customers",
+      value: formatNumber(analyticsData?.customers?.totalCustomers),
+      icon: Users,
+      iconColor: "text-purple-600 dark:text-purple-400",
+      bgColor: "bg-purple-50 dark:bg-purple-950/30",
     },
     {
-      title: "Images",
-      size: "3.2 GB",
-      itemCount: "567 items",
-      icon: ImageIcon,
-      iconColor: "text-pink-600 dark:text-pink-400",
-      bgColor: "bg-pink-50 dark:bg-pink-950/30",
-    },
-    {
-      title: "Designs",
-      size: "892 MB",
-      itemCount: "89 items",
-      icon: Folder,
-      iconColor: "text-indigo-600 dark:text-indigo-400",
-      bgColor: "bg-indigo-50 dark:bg-indigo-950/30",
+      title: "Active Subscriptions",
+      value: formatNumber(analyticsData?.subscriptions?.activeCount),
+      icon: CreditCard,
+      iconColor: "text-orange-600 dark:text-orange-400",
+      bgColor: "bg-orange-50 dark:bg-orange-950/30",
     },
   ];
 
@@ -137,6 +299,79 @@ export default function DashboardMain() {
             </CustomButton>
           </div>
         </div>
+      </div>
+
+      {/* Analytics Overview Section */}
+      <div className="mb-8">
+        <SectionHeader
+          title="Analytics Overview"
+          action={
+            <IconButton
+              icon={TrendingUp}
+              label="View full analytics"
+              variant="ghost"
+              onClick={() => router.push("/dashboard/super-admin/analytics")}
+            />
+          }
+        />
+
+        {analyticsLoading ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {[1, 2, 3, 4].map((i) => (
+              <div
+                key={i}
+                className="bg-card rounded-xl border border-border p-5 animate-pulse"
+              >
+                <div className="h-4 bg-muted rounded w-3/4 mb-3"></div>
+                <div className="h-8 bg-muted rounded w-1/2"></div>
+              </div>
+            ))}
+          </div>
+        ) : analyticsError ? (
+          <div className="bg-card rounded-xl border border-border p-5 text-center text-sm text-muted-foreground">
+            {analyticsError.statusCode === 403
+              ? "Analytics require admin access"
+              : `Failed to load analytics: ${analyticsError.message}`}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {analyticsStats.map((stat, index) => {
+              const Icon = stat.icon;
+              return (
+                <div
+                  key={index}
+                  className="bg-card rounded-xl border border-border p-5 hover:shadow-md transition-shadow"
+                >
+                  <div className="flex items-start justify-between mb-3">
+                    <div
+                      className={`w-10 h-10 rounded-lg flex items-center justify-center ${stat.bgColor}`}
+                    >
+                      <Icon className={`h-5 w-5 ${stat.iconColor}`} />
+                    </div>
+                    {stat.trend !== undefined && stat.trend !== null && (
+                      <div
+                        className={`text-xs font-medium ${
+                          stat.trend >= 0
+                            ? "text-green-600 dark:text-green-400"
+                            : "text-red-600 dark:text-red-400"
+                        }`}
+                      >
+                        {stat.trend >= 0 ? "+" : ""}
+                        {stat.trend.toFixed(1)}%
+                      </div>
+                    )}
+                  </div>
+                  <div className="text-xs text-muted-foreground mb-1">
+                    {stat.title}
+                  </div>
+                  <div className="text-2xl font-semibold text-foreground">
+                    {stat.value}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Quick Access Section */}
@@ -169,10 +404,7 @@ export default function DashboardMain() {
                 Name
               </button>
               <button className="hover:text-foreground transition-colors">
-                Size
-              </button>
-              <button className="hover:text-foreground transition-colors">
-                Modified
+                Items
               </button>
             </div>
           }
@@ -191,9 +423,6 @@ export default function DashboardMain() {
                 <tr>
                   <th className="text-left text-xs font-medium text-muted-foreground uppercase tracking-wider px-6 py-3">
                     Name
-                  </th>
-                  <th className="text-left text-xs font-medium text-muted-foreground uppercase tracking-wider px-6 py-3">
-                    Size
                   </th>
                   <th className="text-left text-xs font-medium text-muted-foreground uppercase tracking-wider px-6 py-3">
                     Items
@@ -223,10 +452,7 @@ export default function DashboardMain() {
                         </div>
                       </td>
                       <td className="px-6 py-4 text-sm text-muted-foreground">
-                        {folder.size}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-muted-foreground">
-                        {folder.itemCount}
+                        {folder.itemCount || "-"}
                       </td>
                       <td className="px-6 py-4">
                         <button className="p-1 hover:bg-accent rounded-lg transition-colors">

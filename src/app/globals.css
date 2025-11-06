@@ -12,7 +12,7 @@
     --popover: 0 0% 100%;
     --popover-foreground: 17 24 39;
 
-    --primary: 221 83% 53%;
+    --primary: 27 38% 51%;
     --primary-foreground: 0 0% 100%;
 
     --secondary: 220 13% 95%;
@@ -21,7 +21,7 @@
     --muted: 220 13% 95%;
     --muted-foreground: 215 16% 47%;
 
-    --accent: 221 83% 53%;
+    --accent: 27 38% 51%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 84% 60%;
@@ -29,7 +29,7 @@
 
     --border: 220 13% 91%;
     --input: 220 13% 91%;
-    --ring: 221 83% 53%;
+    --ring: 27 38% 51%;
 
     --radius: 0.75rem;
 
@@ -45,7 +45,7 @@
     --popover: 222 47% 11%;
     --popover-foreground: 210 40% 98%;
 
-    --primary: 217 91% 60%;
+    --primary: 27 35% 60%;
     --primary-foreground: 222 47% 11%;
 
     --secondary: 217 33% 17%;
@@ -54,7 +54,7 @@
     --muted: 217 33% 17%;
     --muted-foreground: 215 20% 65%;
 
-    --accent: 217 33% 17%;
+    --accent: 27 35% 60%;
     --accent-foreground: 210 40% 98%;
 
     --destructive: 0 63% 31%;
@@ -62,7 +62,7 @@
 
     --border: 217 33% 17%;
     --input: 217 33% 17%;
-    --ring: 217 91% 60%;
+    --ring: 27 35% 60%;
 
     --background: 222 47% 8%;
   }
@@ -133,7 +133,7 @@ input:focus,
 input:focus-visible {
   border-color: hsl(var(--ring)) !important;
   outline: none !important;
-  box-shadow: 0 0 0 2px hsla(207, 69%, 44%, 0.2) !important;
+  box-shadow: 0 0 0 2px hsla(27, 38%, 51%, 0.2) !important;
 }
 
 /* Completely remove yellow/amber highlights on autofill */
@@ -161,13 +161,13 @@ input:-webkit-autofill:active {
 
 input:-webkit-autofill:focus {
   -webkit-box-shadow: 0 0 0 1000px white inset,
-    0 0 0 2px hsla(207, 69%, 44%, 0.2) !important;
+    0 0 0 2px hsla(27, 38%, 51%, 0.2) !important;
   border-color: hsl(var(--ring)) !important;
 }
 
 .dark input:-webkit-autofill:focus {
   -webkit-box-shadow: 0 0 0 1000px hsl(var(--card)) inset,
-    0 0 0 2px hsla(217, 91%, 60%, 0.2) !important;
+    0 0 0 2px hsla(27, 35%, 60%, 0.2) !important;
   border-color: hsl(var(--ring)) !important;
 }
 

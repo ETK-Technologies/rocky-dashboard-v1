@@ -2,10 +2,12 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { productService } from "../services/productService";
+import { searchService } from "@/features/search";
 import { toast } from "react-toastify";
 
 /**
  * Hook for fetching and managing products list with filtering
+ * Uses search API when search query is present, otherwise uses regular products API
  * @param {Object} initialFilters - Initial filter values
  * @returns {Object} Products state and methods
  */
@@ -27,61 +29,106 @@ export function useProducts(initialFilters = {}) {
 
   /**
    * Fetch products with current filters
+   * Uses search API if search query is present, otherwise uses regular products API
    */
   const fetchProducts = useCallback(async () => {
     setLoading(true);
     setError(null);
 
     try {
-      const response = await productService.getAll(filters);
+      let response;
+      const hasSearchQuery = filters.search && filters.search.trim() !== "";
 
-      // Normalize various possible API shapes
-      // Supported shapes:
-      // 1) { data: [...], pagination: {...} }
-      // 2) { items: [...], meta: { page, limit, total, totalPages } }
-      // 3) { results: [...], page, limit, total, totalPages }
-      // 4) { products: [...], pagination: { page, limit, total, pages } }
-      // 5) [...]
-      let list = [];
-      let paginationData = null;
-
-      if (Array.isArray(response)) {
-        list = response;
-      } else if (response?.data && Array.isArray(response.data)) {
-        list = response.data;
-        paginationData =
-          response.pagination || response.meta || response.data?.pagination;
-      } else if (Array.isArray(response?.products)) {
-        // Backend shape provided: { products, pagination: { page, limit, total, pages } }
-        list = response.products;
-        const p = response.pagination || {};
-        paginationData = {
-          page: p.page ?? filters.page,
-          limit: p.limit ?? filters.limit,
-          total: p.total ?? (Array.isArray(list) ? list.length : 0),
-          totalPages: p.totalPages ?? p.pages ?? 1,
+      if (hasSearchQuery) {
+        // Use search API when search query is present
+        const searchParams = {
+          q: filters.search,
+          limit: filters.limit || 20,
+          offset: ((filters.page || 1) - 1) * (filters.limit || 20),
         };
-      } else if (Array.isArray(response?.data?.items)) {
-        list = response.data.items;
-        paginationData = response.data.pagination || response.meta;
-      } else if (Array.isArray(response?.items)) {
-        list = response.items;
-        paginationData = response.meta || response.pagination;
-      } else if (Array.isArray(response?.results)) {
-        list = response.results;
-        const { page, limit, total, totalPages } = response;
-        paginationData = { page, limit, total, totalPages };
-      }
 
-      setProducts(Array.isArray(list) ? list : []);
-      setPagination(
-        paginationData || {
-          page: filters.page,
-          limit: filters.limit,
-          total: Array.isArray(list) ? list.length : 0,
-          totalPages: 1,
+        // Add filters that are compatible with search API
+        if (filters.type) searchParams.type = filters.type;
+        if (filters.categoryIds) searchParams.categoryIds = filters.categoryIds;
+        if (filters.minPrice) searchParams.minPrice = filters.minPrice;
+        if (filters.maxPrice) searchParams.maxPrice = filters.maxPrice;
+        if (filters.inStock !== undefined && filters.inStock !== null) {
+          searchParams.inStock = filters.inStock;
         }
-      );
+        if (filters.sort) searchParams.sort = filters.sort;
+
+        response = await searchService.searchProducts(searchParams);
+
+        // Transform search API response to match expected format
+        const totalHits = response.totalHits || 0;
+        const limit = filters.limit || 20;
+        const page = filters.page || 1;
+
+        setProducts(Array.isArray(response.hits) ? response.hits : []);
+        setPagination({
+          page,
+          limit,
+          total: totalHits,
+          totalPages: Math.ceil(totalHits / limit),
+        });
+      } else {
+        // Use regular products API when no search query
+        // Filter out undefined values to avoid sending them to the API
+        const cleanFilters = Object.fromEntries(
+          Object.entries(filters).filter(
+            ([_, value]) => value !== undefined && value !== null
+          )
+        );
+        response = await productService.getAll(cleanFilters);
+
+        // Normalize various possible API shapes
+        // Supported shapes:
+        // 1) { data: [...], pagination: {...} }
+        // 2) { items: [...], meta: { page, limit, total, totalPages } }
+        // 3) { results: [...], page, limit, total, totalPages }
+        // 4) { products: [...], pagination: { page, limit, total, pages } }
+        // 5) [...]
+        let list = [];
+        let paginationData = null;
+
+        if (Array.isArray(response)) {
+          list = response;
+        } else if (response?.data && Array.isArray(response.data)) {
+          list = response.data;
+          paginationData =
+            response.pagination || response.meta || response.data?.pagination;
+        } else if (Array.isArray(response?.products)) {
+          // Backend shape provided: { products, pagination: { page, limit, total, pages } }
+          list = response.products;
+          const p = response.pagination || {};
+          paginationData = {
+            page: p.page ?? filters.page,
+            limit: p.limit ?? filters.limit,
+            total: p.total ?? (Array.isArray(list) ? list.length : 0),
+            totalPages: p.totalPages ?? p.pages ?? 1,
+          };
+        } else if (Array.isArray(response?.data?.items)) {
+          list = response.data.items;
+          paginationData = response.data.pagination || response.meta;
+        } else if (Array.isArray(response?.items)) {
+          list = response.items;
+          paginationData = response.meta || response.pagination;
+        } else if (Array.isArray(response?.results)) {
+          list = response.results;
+          const { page, limit, total, totalPages } = response;
+          paginationData = { page, limit, total, totalPages };
+        }
+
+        setProducts(Array.isArray(list) ? list : []);
+        setPagination(
+          paginationData || {
+            page: filters.page,
+            limit: filters.limit,
+            total: Array.isArray(list) ? list.length : 0,
+            totalPages: 1,
+          }
+        );
+      }
     } catch (err) {
       setError(err.message || "Failed to fetch products");
       setProducts([]); // Ensure products is an empty array on error
