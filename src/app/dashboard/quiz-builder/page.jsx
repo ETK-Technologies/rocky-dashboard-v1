@@ -1025,7 +1025,7 @@ export default function QuizBuilderPage() {
                                     {data.results.map((r, idx) => (
                                         <div
                                             key={r.id || idx}
-                                            className="bg-muted/50 p-4 rounded-lg"
+                                            className="bg-muted/50 p-4 rounded-lg space-y-4"
                                         >
                                             <div className="flex items-center gap-2 mb-2">
                                                 <span className="font-semibold">
@@ -1042,53 +1042,115 @@ export default function QuizBuilderPage() {
                                             {r.title && (
                                                 <div className="mb-2">
                                                     <span className="font-semibold text-sm">
-                                                        Title:
+                                                        Result Title:
                                                     </span>{" "}
                                                     <span className="ml-2">
                                                         {r.title}
                                                     </span>
                                                 </div>
                                             )}
-                                            {r.description && (
-                                                <div className="mb-2">
+                                            
+                                            {/* Continue Popup and Add-ons */}
+                                            <div className="space-y-2">
+                                                <div className="flex items-center gap-2">
                                                     <span className="font-semibold text-sm">
-                                                        Description:
-                                                    </span>{" "}
-                                                    <div className="ml-2 mt-1 text-sm text-muted-foreground">
-                                                        {r.description}
-                                                    </div>
-                                                </div>
-                                            )}
-                                            {r.note && (
-                                                <div className="mb-2">
-                                                    <span className="font-semibold text-sm">
-                                                        Note:
-                                                    </span>{" "}
-                                                    <div className="ml-2 mt-1 text-sm text-muted-foreground">
-                                                        {r.note}
-                                                    </div>
-                                                </div>
-                                            )}
-                                            {r.image && (
-                                                <div className="mt-3">
-                                                    <span className="font-semibold text-sm block mb-2">
-                                                        Image:
+                                                        Continue Popup:
                                                     </span>
-                                                    <img
-                                                        src={r.image}
-                                                        alt={
-                                                            r.title || "Result"
-                                                        }
-                                                        className="max-w-full h-auto max-h-64 rounded-md border border-input object-contain"
-                                                        onError={(e) => {
-                                                            e.target.style.display =
-                                                                "none";
-                                                        }}
-                                                    />
-                                                    <div className="text-xs text-muted-foreground mt-1">
-                                                        {r.imageType === "link"
-                                                            ? `Link: ${r.image}`
-                                                            : "Uploaded image"}
+                                                    <span className={`px-2 py-1 rounded text-xs ${
+                                                        r.continuePopup 
+                                                            ? "bg-green-500/10 text-green-500" 
+                                                            : "bg-gray-500/10 text-gray-500"
+                                                    }`}>
+                                                        {r.continuePopup ? "Yes" : "No"}
+                                                    </span>
+                                                </div>
+                                                {r.continuePopup && (
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="font-semibold text-sm">
+                                                            Add-ons:
+                                                        </span>
+                                                        <span className={`px-2 py-1 rounded text-xs ${
+                                                            r.addons 
+                                                                ? "bg-green-500/10 text-green-500" 
+                                                                : "bg-gray-500/10 text-gray-500"
+                                                        }`}>
+                                                            {r.addons ? "Yes" : "No"}
+                                                        </span>
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {/* Products */}
+                                            {r.products && Array.isArray(r.products) && r.products.length > 0 && (
+                                                <div className="mt-4">
+                                                    <span className="font-semibold text-sm block mb-3">
+                                                        Products ({r.products.length}):
+                                                    </span>
+                                                    <div className="space-y-3">
+                                                        {r.products.map((product, productIdx) => {
+                                                            const productId = product.id || product._id;
+                                                            const productName = product.name || product.title || "Unnamed Product";
+                                                            const productPrice = product.basePrice || product.price || product.amount || "0.00";
+                                                            const productDescription = product.description || product.shortDescription || "";
+                                                            const productImage = product.images && product.images.length > 0 
+                                                                ? product.images[0].url || product.images[0].src 
+                                                                : null;
+                                                            const isPrimary = product.isPrimary || false;
+
+                                                            return (
+                                                                <div
+                                                                    key={productId || productIdx}
+                                                                    className="border rounded-lg p-3 bg-background"
+                                                                >
+                                                                    <div className="flex gap-3">
+                                                                        <div className="w-20 h-20 rounded-md border border-input flex items-center justify-center bg-muted shrink-0 relative overflow-hidden">
+                                                                            {productImage ? (
+                                                                                <img
+                                                                                    src={productImage}
+                                                                                    alt={productName}
+                                                                                    className="w-full h-full object-cover rounded-md"
+                                                                                    onError={(e) => {
+                                                                                        e.target.style.display = "none";
+                                                                                        const placeholder = e.target.parentElement.querySelector(".no-image-placeholder");
+                                                                                        if (placeholder) {
+                                                                                            placeholder.style.display = "flex";
+                                                                                        }
+                                                                                    }}
+                                                                                />
+                                                                            ) : null}
+                                                                            <div
+                                                                                className="no-image-placeholder w-full h-full flex items-center justify-center text-xs text-muted-foreground"
+                                                                                style={{
+                                                                                    display: productImage ? "none" : "flex"
+                                                                                }}
+                                                                            >
+                                                                                No Image
+                                                                            </div>
+                                                                        </div>
+                                                                        <div className="flex-1 space-y-1">
+                                                                            <div className="flex items-center gap-2 flex-wrap">
+                                                                                <span className="font-semibold">
+                                                                                    {productName}
+                                                                                </span>
+                                                                                {isPrimary && (
+                                                                                    <span className="px-2 py-1 bg-primary text-primary-foreground rounded-full text-xs font-medium">
+                                                                                        Primary
+                                                                                    </span>
+                                                                                )}
+                                                                                <span className="text-lg font-bold text-primary">
+                                                                                    ${productPrice}
+                                                                                </span>
+                                                                            </div>
+                                                                            {productDescription && (
+                                                                                <p className="text-sm text-muted-foreground line-clamp-2">
+                                                                                    {productDescription}
+                                                                                </p>
+                                                                            )}
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            );
+                                                        })}
                                                     </div>
                                                 </div>
                                             )}
