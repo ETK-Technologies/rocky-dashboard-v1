@@ -9,8 +9,6 @@ import {
     ChevronUp,
     CheckCircle2,
     XCircle,
-    Link2,
-    X,
     ChevronsUpDown,
     ChevronsDownUp,
 } from "lucide-react";
@@ -20,8 +18,7 @@ import {
     CustomLabel,
     FormField,
 } from "@/components/ui";
-import { cn } from "@/utils/cn";
-import { SingleImageUpload } from "../SingleImageUpload";
+import { useProducts } from "@/features/products/hooks/useProducts";
 
 export default function ResultsStep({
     onComplete,
@@ -36,6 +33,11 @@ export default function ResultsStep({
     const useDefaultForAllLogics =
         data?.quizDetails?.useDefaultForAllLogics || false;
 
+    // Fetch all products once - useProducts hook will fetch on mount with initial filters
+    const { products: allProducts, loading: productsLoading } = useProducts({
+        limit: 100, // Get all products
+    });
+
     // Initialize results with default if empty
     const results = useMemo(() => {
         const existingResults = data?.results || [];
@@ -45,10 +47,10 @@ export default function ResultsStep({
                     id: 1,
                     isDefault: true,
                     title: "",
-                    description: "",
-                    note: "",
-                    image: "",
-                    imageType: "upload",
+                    continuePopup: false,
+                    addons: false,
+                    products: [],
+                    selectedProductId: "",
                 },
             ];
         }
@@ -60,11 +62,7 @@ export default function ResultsStep({
                   ...r,
                   isDefault: index === 0,
               }));
-        // Ensure all results have imageType
-        return normalizedResults.map((r) => ({
-            ...r,
-            imageType: r.imageType || "upload",
-        }));
+        return normalizedResults;
     }, [data?.results]);
 
     // Sort results: default first, then others
@@ -80,11 +78,29 @@ export default function ResultsStep({
 
     // Check if a result is complete
     const isResultComplete = (result) => {
-        return (
-            result.title?.trim() &&
-            result.description?.trim() &&
-            result.image?.trim()
+        // Title is required
+        if (!result.title?.trim()) {
+            return false;
+        }
+
+        // At least one product is required
+        if (
+            !result.products ||
+            !Array.isArray(result.products) ||
+            result.products.length === 0
+        ) {
+            return false;
+        }
+
+        // At least one product must be primary
+        const hasPrimaryProduct = result.products.some(
+            (p) => p.isPrimary === true
         );
+        if (!hasPrimaryProduct) {
+            return false;
+        }
+
+        return true;
     };
 
     // Validate all results
@@ -154,10 +170,10 @@ export default function ResultsStep({
             id: newResultId,
             isDefault: false,
             title: "",
-            description: "",
-            note: "",
-            image: "",
-            imageType: "upload",
+            continuePopup: false,
+            addons: false,
+            products: [],
+            selectedProductId: "",
         };
         setResults([...results, newResult]);
         // Expand the new result
@@ -191,6 +207,12 @@ export default function ResultsStep({
                 id: newResultId,
                 isDefault: false,
                 title: `${resultToDuplicate.title || "Result"} (Copy)`,
+                continuePopup: resultToDuplicate.continuePopup || false,
+                addons: resultToDuplicate.addons || false,
+                products: resultToDuplicate.products
+                    ? [...resultToDuplicate.products]
+                    : [],
+                selectedProductId: "",
             };
             setResults([...results, newResult]);
             // Expand the duplicated result
@@ -229,14 +251,6 @@ export default function ResultsStep({
     const updateResult = (id, field, value) => {
         setResults(
             results.map((r) => (r.id === id ? { ...r, [field]: value } : r))
-        );
-    };
-
-    const updateResultImageType = (id, imageType) => {
-        setResults(
-            results.map((r) =>
-                r.id === id ? { ...r, imageType: imageType || "upload" } : r
-            )
         );
     };
 
@@ -443,7 +457,7 @@ export default function ResultsStep({
                                 <div className="space-y-4 pt-4 border-t">
                                     <FormField
                                         id={`title-${result.id}`}
-                                        label="Title"
+                                        label="Result Title"
                                         required
                                         value={result.title || ""}
                                         onChange={(e) =>
@@ -456,166 +470,447 @@ export default function ResultsStep({
                                         placeholder="e.g., Excellent, Good, Needs Improvement"
                                     />
 
-                                    <div className="space-y-2">
-                                        <CustomLabel
-                                            htmlFor={`description-${result.id}`}
-                                        >
-                                            Description
-                                            <span className="text-red-600 dark:text-red-400 ml-1">
-                                                *
-                                            </span>
-                                        </CustomLabel>
-                                        <textarea
-                                            id={`description-${result.id}`}
-                                            value={result.description || ""}
-                                            onChange={(e) =>
-                                                updateResult(
-                                                    result.id,
-                                                    "description",
-                                                    e.target.value
-                                                )
-                                            }
-                                            placeholder="Enter result description"
-                                            rows={4}
-                                            className="w-full px-3 py-2 border border-input rounded-md bg-background dark:bg-gray-800 text-white dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-                                        />
-                                    </div>
-
-                                    <div className="space-y-2">
-                                        <CustomLabel
-                                            htmlFor={`note-${result.id}`}
-                                        >
-                                            Note
-                                        </CustomLabel>
-                                        <textarea
-                                            id={`note-${result.id}`}
-                                            value={result.note || ""}
-                                            onChange={(e) =>
-                                                updateResult(
-                                                    result.id,
-                                                    "note",
-                                                    e.target.value
-                                                )
-                                            }
-                                            placeholder="Enter additional notes (optional)"
-                                            rows={3}
-                                            className="w-full px-3 py-2 border border-input rounded-md bg-background dark:bg-gray-800 text-white dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-                                        />
-                                    </div>
-
-                                    <div className="space-y-2">
-                                        <div className="flex items-center gap-2">
+                                    {/* Continue Popup Toggle */}
+                                    <div className="border px-4 py-3 rounded-md space-y-3">
+                                        <div className="flex items-center justify-between">
                                             <CustomLabel>
-                                                Image
-                                                <span className="text-red-600 dark:text-red-400 ml-1">
+                                                Continue Popup
+                                            </CustomLabel>
+                                            <label className="relative inline-flex items-center cursor-pointer">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={
+                                                        result.continuePopup ||
+                                                        false
+                                                    }
+                                                    onChange={(e) => {
+                                                        const isChecked =
+                                                            e.target.checked;
+                                                        setResults(
+                                                            results.map((r) =>
+                                                                r.id ===
+                                                                result.id
+                                                                    ? {
+                                                                          ...r,
+                                                                          continuePopup:
+                                                                              isChecked,
+                                                                          // If Continue Popup is turned off, also turn off Add-ons
+                                                                          addons: isChecked
+                                                                              ? r.addons
+                                                                              : false,
+                                                                      }
+                                                                    : r
+                                                            )
+                                                        );
+                                                    }}
+                                                    className="sr-only peer"
+                                                />
+                                                <div className="w-11 h-6 bg-gray-300 dark:bg-gray-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                                            </label>
+                                        </div>
+
+                                        {/* Add-ons Toggle - Only show if Continue Popup is active */}
+                                        {result.continuePopup && (
+                                            <div className="flex items-center justify-between pt-2 border-t">
+                                                <CustomLabel>
+                                                    Add-ons
+                                                </CustomLabel>
+                                                <label className="relative inline-flex items-center cursor-pointer">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={
+                                                            result.addons ||
+                                                            false
+                                                        }
+                                                        onChange={(e) =>
+                                                            updateResult(
+                                                                result.id,
+                                                                "addons",
+                                                                e.target.checked
+                                                            )
+                                                        }
+                                                        className="sr-only peer"
+                                                    />
+                                                    <div className="w-11 h-6 bg-gray-300 dark:bg-gray-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                                                </label>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Products Section */}
+                                    <div className="space-y-4">
+                                        <div>
+                                            <CustomLabel
+                                                htmlFor={`products-${result.id}`}
+                                            >
+                                                Products{" "}
+                                                <span className="text-sm text-red-500">
                                                     *
                                                 </span>
                                             </CustomLabel>
-                                            <div className="flex items-center gap-2">
-                                                <button
-                                                    type="button"
-                                                    onClick={() =>
-                                                        updateResultImageType(
-                                                            result.id,
-                                                            "upload"
-                                                        )
-                                                    }
-                                                    className={cn(
-                                                        "px-2 py-1 text-xs rounded transition-colors",
-                                                        result.imageType ===
-                                                            "upload"
-                                                            ? "bg-primary text-primary-foreground"
-                                                            : "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700"
-                                                    )}
-                                                >
-                                                    Upload
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    onClick={() =>
-                                                        updateResultImageType(
-                                                            result.id,
-                                                            "link"
-                                                        )
-                                                    }
-                                                    className={cn(
-                                                        "px-2 py-1 text-xs rounded transition-colors flex items-center gap-1",
-                                                        result.imageType ===
-                                                            "link"
-                                                            ? "bg-primary text-primary-foreground"
-                                                            : "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700"
-                                                    )}
-                                                >
-                                                    <Link2 className="h-3 w-3" />
-                                                    Link
-                                                </button>
-                                            </div>
+                                            <p
+                                                className={`text-xs mt-1 ${
+                                                    !result.products ||
+                                                    !Array.isArray(
+                                                        result.products
+                                                    ) ||
+                                                    result.products.length === 0
+                                                        ? "text-red-500"
+                                                        : "text-muted-foreground"
+                                                }`}
+                                            >
+                                                At least one product is required
+                                            </p>
                                         </div>
-                                        {result.imageType === "upload" ? (
-                                            <SingleImageUpload
-                                                label=""
-                                                value={result.image || ""}
-                                                onChange={(url) =>
+                                        <div className="flex gap-2 items-center">
+                                            <select
+                                                id={`products-${result.id}`}
+                                                value={
+                                                    result.selectedProductId ||
+                                                    ""
+                                                }
+                                                onChange={(e) => {
+                                                    const selectedProductId =
+                                                        e.target.value;
                                                     updateResult(
                                                         result.id,
-                                                        "image",
-                                                        url || ""
+                                                        "selectedProductId",
+                                                        selectedProductId
+                                                    );
+                                                }}
+                                                className="flex-1 px-3 py-2 !mt-1 border border-input rounded-md bg-background dark:bg-gray-800 dark:text-gray-100 text-black focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                                                disabled={productsLoading}
+                                            >
+                                                <option value="">
+                                                    Select a product...
+                                                </option>
+                                                {productsLoading ? (
+                                                    <option disabled>
+                                                        Loading products...
+                                                    </option>
+                                                ) : allProducts.length === 0 ? (
+                                                    <option disabled>
+                                                        No products available
+                                                    </option>
+                                                ) : (
+                                                    allProducts.map(
+                                                        (product) => {
+                                                            const productId =
+                                                                product.id ||
+                                                                product._id;
+                                                            const productName =
+                                                                product.name ||
+                                                                product.title ||
+                                                                "Unnamed Product";
+                                                            const productPrice =
+                                                                product.basePrice ||
+                                                                product.price ||
+                                                                product.amount ||
+                                                                "0.00";
+                                                            const currentProducts =
+                                                                result.products ||
+                                                                [];
+                                                            const isAlreadyAdded =
+                                                                currentProducts.some(
+                                                                    (p) =>
+                                                                        (p.id ||
+                                                                            p._id) ===
+                                                                        productId
+                                                                );
+                                                            return (
+                                                                <option
+                                                                    key={
+                                                                        productId
+                                                                    }
+                                                                    value={
+                                                                        productId
+                                                                    }
+                                                                    disabled={
+                                                                        isAlreadyAdded
+                                                                    }
+                                                                >
+                                                                    {
+                                                                        productName
+                                                                    }{" "}
+                                                                    - $
+                                                                    {
+                                                                        productPrice
+                                                                    }
+                                                                    {isAlreadyAdded
+                                                                        ? " (Already added)"
+                                                                        : ""}
+                                                                </option>
+                                                            );
+                                                        }
                                                     )
-                                                }
-                                                onRemove={() =>
-                                                    updateResult(
-                                                        result.id,
-                                                        "image",
-                                                        ""
-                                                    )
-                                                }
-                                                className="md:w-[70%] w-full"
-                                            />
-                                        ) : (
-                                            <div className="space-y-2">
-                                                <FormField
-                                                    id={`image-link-${result.id}`}
-                                                    label=""
-                                                    value={result.image || ""}
-                                                    onChange={(e) =>
-                                                        updateResult(
-                                                            result.id,
-                                                            "image",
-                                                            e.target.value || ""
-                                                        )
-                                                    }
-                                                    placeholder="https://example.com/image.jpg"
-                                                    type="url"
-                                                />
-                                                {result.image && (
-                                                    <div className="relative inline-block">
-                                                        <img
-                                                            src={result.image}
-                                                            alt="Result preview"
-                                                            className="max-w-full h-auto max-h-32 rounded-md border border-input object-contain"
-                                                            onError={(e) => {
-                                                                e.target.style.display =
-                                                                    "none";
-                                                            }}
-                                                        />
-                                                        <button
-                                                            type="button"
-                                                            onClick={() =>
-                                                                updateResult(
-                                                                    result.id,
-                                                                    "image",
-                                                                    ""
-                                                                )
-                                                            }
-                                                            className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
-                                                            title="Remove image"
-                                                        >
-                                                            <X className="h-3 w-3" />
-                                                        </button>
-                                                    </div>
                                                 )}
-                                            </div>
-                                        )}
+                                            </select>
+                                            <CustomButton
+                                                onClick={() => {
+                                                    const selectedProduct =
+                                                        allProducts.find(
+                                                            (p) =>
+                                                                (p.id ||
+                                                                    p._id) ===
+                                                                result.selectedProductId
+                                                        );
+                                                    if (selectedProduct) {
+                                                        const currentProducts =
+                                                            result.products ||
+                                                            [];
+                                                        const newProducts = [
+                                                            ...currentProducts,
+                                                            selectedProduct,
+                                                        ];
+                                                        setResults(
+                                                            results.map((r) =>
+                                                                r.id ===
+                                                                result.id
+                                                                    ? {
+                                                                          ...r,
+                                                                          products:
+                                                                              newProducts,
+                                                                          selectedProductId:
+                                                                              "",
+                                                                      }
+                                                                    : r
+                                                            )
+                                                        );
+                                                    }
+                                                }}
+                                                disabled={
+                                                    !result.selectedProductId ||
+                                                    (
+                                                        result.products || []
+                                                    ).some(
+                                                        (p) =>
+                                                            (p.id || p._id) ===
+                                                            result.selectedProductId
+                                                    )
+                                                }
+                                                className="flex items-center gap-2"
+                                            >
+                                                <Plus className="h-4 w-4" />
+                                                Add Product
+                                            </CustomButton>
+                                        </div>
+                                        <p
+                                            className={`text-xs ${
+                                                !result.products ||
+                                                !Array.isArray(
+                                                    result.products
+                                                ) ||
+                                                result.products.length === 0 ||
+                                                !result.products.some(
+                                                    (p) => p.isPrimary === true
+                                                )
+                                                    ? "text-red-500"
+                                                    : "text-muted-foreground"
+                                            } ${
+                                                !result.products ||
+                                                !Array.isArray(
+                                                    result.products
+                                                ) ||
+                                                result?.products?.length === 0
+                                                    ? "hidden"
+                                                    : ""
+                                            }`}
+                                        >
+                                            Mark one product as primary
+                                        </p>
+
+                                        {/* Product Cards */}
+                                        {Array.isArray(result.products) &&
+                                            result.products.length > 0 && (
+                                                <div className="space-y-3">
+                                                    {result.products.map(
+                                                        (
+                                                            product,
+                                                            productIndex
+                                                        ) => {
+                                                            const productId =
+                                                                product.id ||
+                                                                product._id;
+                                                            const productName =
+                                                                product.name ||
+                                                                product.title ||
+                                                                "Unnamed Product";
+                                                            const productPrice =
+                                                                product.basePrice ||
+                                                                product.price ||
+                                                                product.amount ||
+                                                                "0.00";
+                                                            const productDescription =
+                                                                product.description ||
+                                                                product.shortDescription ||
+                                                                "";
+                                                            const productImage =
+                                                                product.images &&
+                                                                product.images
+                                                                    .length > 0
+                                                                    ? product
+                                                                          .images[0]
+                                                                          .url ||
+                                                                      product
+                                                                          .images[0]
+                                                                          .src
+                                                                    : null;
+                                                            const isPrimary =
+                                                                product.isPrimary ||
+                                                                false;
+
+                                                            return (
+                                                                <div
+                                                                    key={
+                                                                        productId ||
+                                                                        productIndex
+                                                                    }
+                                                                    className="border rounded-lg p-4 bg-card space-y-3"
+                                                                >
+                                                                    <div className="flex gap-4">
+                                                                        <div className="w-24 h-24 rounded-md border border-input flex items-center justify-center bg-muted shrink-0 relative overflow-hidden">
+                                                                            {productImage ? (
+                                                                                <img
+                                                                                    src={
+                                                                                        productImage
+                                                                                    }
+                                                                                    alt={
+                                                                                        productName
+                                                                                    }
+                                                                                    className="w-full h-full object-cover rounded-md"
+                                                                                    onError={(
+                                                                                        e
+                                                                                    ) => {
+                                                                                        e.target.style.display =
+                                                                                            "none";
+                                                                                        const placeholder =
+                                                                                            e.target.parentElement.querySelector(
+                                                                                                ".no-image-placeholder"
+                                                                                            );
+                                                                                        if (
+                                                                                            placeholder
+                                                                                        ) {
+                                                                                            placeholder.style.display =
+                                                                                                "flex";
+                                                                                        }
+                                                                                    }}
+                                                                                />
+                                                                            ) : null}
+                                                                            <div
+                                                                                className="no-image-placeholder w-full h-full flex items-center justify-center text-xs text-muted-foreground"
+                                                                                style={{
+                                                                                    display:
+                                                                                        productImage
+                                                                                            ? "none"
+                                                                                            : "flex",
+                                                                                }}
+                                                                            >
+                                                                                No
+                                                                                Image
+                                                                            </div>
+                                                                        </div>
+                                                                        <div className="flex-1 space-y-2">
+                                                                            <div className="flex items-start justify-between">
+                                                                                <div className="flex-1">
+                                                                                    <div className="flex items-center gap-2 flex-wrap">
+                                                                                        <h4 className="font-semibold text-lg">
+                                                                                            {
+                                                                                                productName
+                                                                                            }
+                                                                                        </h4>
+                                                                                        {isPrimary && (
+                                                                                            <span className="px-2 py-1 bg-primary text-primary-foreground rounded-full text-xs font-medium">
+                                                                                                Primary
+                                                                                            </span>
+                                                                                        )}
+                                                                                    </div>
+                                                                                    <p className="text-lg font-bold text-primary">
+                                                                                        $
+                                                                                        {
+                                                                                            productPrice
+                                                                                        }
+                                                                                    </p>
+                                                                                </div>
+                                                                                <div className="flex items-center gap-2">
+                                                                                    <CustomButton
+                                                                                        onClick={() => {
+                                                                                            const currentProducts =
+                                                                                                result.products ||
+                                                                                                [];
+                                                                                            const newProducts =
+                                                                                                currentProducts.map(
+                                                                                                    (
+                                                                                                        p,
+                                                                                                        idx
+                                                                                                    ) => ({
+                                                                                                        ...p,
+                                                                                                        isPrimary:
+                                                                                                            idx ===
+                                                                                                            productIndex
+                                                                                                                ? !isPrimary
+                                                                                                                : false,
+                                                                                                    })
+                                                                                                );
+                                                                                            updateResult(
+                                                                                                result.id,
+                                                                                                "products",
+                                                                                                newProducts
+                                                                                            );
+                                                                                        }}
+                                                                                        variant={
+                                                                                            isPrimary
+                                                                                                ? "outline"
+                                                                                                : "outline"
+                                                                                        }
+                                                                                        size="sm"
+                                                                                    >
+                                                                                        {isPrimary
+                                                                                            ? "Unmark Primary"
+                                                                                            : "Mark Primary"}
+                                                                                    </CustomButton>
+                                                                                    <CustomButton
+                                                                                        variant="ghost"
+                                                                                        size="sm"
+                                                                                        onClick={() => {
+                                                                                            const currentProducts =
+                                                                                                result.products ||
+                                                                                                [];
+                                                                                            const newProducts =
+                                                                                                currentProducts.filter(
+                                                                                                    (
+                                                                                                        _,
+                                                                                                        idx
+                                                                                                    ) =>
+                                                                                                        idx !==
+                                                                                                        productIndex
+                                                                                                );
+                                                                                            updateResult(
+                                                                                                result.id,
+                                                                                                "products",
+                                                                                                newProducts
+                                                                                            );
+                                                                                        }}
+                                                                                        className="text-destructive hover:text-white dark:text-red-500"
+                                                                                    >
+                                                                                        <Trash2 className="h-4 w-4" />
+                                                                                    </CustomButton>
+                                                                                </div>
+                                                                            </div>
+                                                                            {productDescription && (
+                                                                                <p className="text-sm text-muted-foreground line-clamp-2">
+                                                                                    {
+                                                                                        productDescription
+                                                                                    }
+                                                                                </p>
+                                                                            )}
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            );
+                                                        }
+                                                    )}
+                                                </div>
+                                            )}
                                     </div>
                                 </div>
                             )}

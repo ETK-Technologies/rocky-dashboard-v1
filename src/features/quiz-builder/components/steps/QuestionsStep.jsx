@@ -37,6 +37,8 @@ const DEFAULT_QUESTION = {
     correctAnswer: null,
     maxLength: null,
     placeholder: "",
+    minValue: null,
+    maxValue: null,
 };
 
 // Helper function to normalize options (convert string to object if needed)
@@ -327,6 +329,8 @@ export default function QuestionsStep({
                 correctAnswer: null,
                 maxLength: null,
                 placeholder: "",
+                minValue: null,
+                maxValue: null,
             },
         ]);
         // Open the new question
@@ -416,6 +420,36 @@ export default function QuestionsStep({
                         field === "type" &&
                         q.type === "true-false" &&
                         value !== "true-false"
+                    ) {
+                        updated.options = [
+                            {
+                                text: "Option 1",
+                                image: "",
+                                imageType: "upload",
+                                hasImage: false,
+                            },
+                            {
+                                text: "Option 2",
+                                image: "",
+                                imageType: "upload",
+                                hasImage: false,
+                            },
+                        ];
+                        updated.correctAnswer = null;
+                    }
+                    // If changing to counter, clear options
+                    if (field === "type" && value === "counter") {
+                        updated.options = [];
+                        updated.correctAnswer = null;
+                    }
+                    // If changing from counter to another type that needs options, reset options
+                    if (
+                        field === "type" &&
+                        q.type === "counter" &&
+                        (value === "single-choice" ||
+                            value === "multiple-choice" ||
+                            value === "dropdown-list" ||
+                            value === "true-false")
                     ) {
                         updated.options = [
                             {
@@ -786,6 +820,9 @@ export default function QuestionsStep({
                                                         : question.type ===
                                                           "date"
                                                         ? "Date"
+                                                        : question.type ===
+                                                          "counter"
+                                                        ? "Counter"
                                                         : question.type}
                                                 </span>
                                             </div>
@@ -888,6 +925,9 @@ export default function QuestionsStep({
                                                 </option> */}
                                                 <option value="date">
                                                     Date
+                                                </option>
+                                                <option value="counter">
+                                                    Counter
                                                 </option>
                                             </select>
                                         </div>
@@ -1004,6 +1044,83 @@ export default function QuestionsStep({
                                                     }
                                                     placeholder="e.g., 500"
                                                     helperText="Optional - Maximum character/byte limit"
+                                                />
+                                                <FormField
+                                                    id={`placeholder-${question.id}`}
+                                                    label="Placeholder"
+                                                    value={
+                                                        question.placeholder ||
+                                                        ""
+                                                    }
+                                                    onChange={(e) =>
+                                                        updateQuestion(
+                                                            question.id,
+                                                            "placeholder",
+                                                            e.target.value
+                                                        )
+                                                    }
+                                                    placeholder="Enter placeholder text"
+                                                    helperText="Optional - Hint text for the input"
+                                                />
+                                            </div>
+                                        )}
+
+                                        {/* Min Value, Max Value, and Placeholder for counter */}
+                                        {question.type === "counter" && (
+                                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                                <FormField
+                                                    id={`minValue-${question.id}`}
+                                                    label="Min Value"
+                                                    type="number"
+                                                    value={
+                                                        question.minValue !==
+                                                            null &&
+                                                        question.minValue !==
+                                                            undefined
+                                                            ? question.minValue
+                                                            : ""
+                                                    }
+                                                    onChange={(e) =>
+                                                        updateQuestion(
+                                                            question.id,
+                                                            "minValue",
+                                                            e.target.value
+                                                                ? parseInt(
+                                                                      e.target
+                                                                          .value
+                                                                  )
+                                                                : null
+                                                        )
+                                                    }
+                                                    placeholder="e.g., 0"
+                                                    helperText="Optional - Minimum counter value"
+                                                />
+                                                <FormField
+                                                    id={`maxValue-${question.id}`}
+                                                    label="Max Value"
+                                                    type="number"
+                                                    value={
+                                                        question.maxValue !==
+                                                            null &&
+                                                        question.maxValue !==
+                                                            undefined
+                                                            ? question.maxValue
+                                                            : ""
+                                                    }
+                                                    onChange={(e) =>
+                                                        updateQuestion(
+                                                            question.id,
+                                                            "maxValue",
+                                                            e.target.value
+                                                                ? parseInt(
+                                                                      e.target
+                                                                          .value
+                                                                  )
+                                                                : null
+                                                        )
+                                                    }
+                                                    placeholder="e.g., 100"
+                                                    helperText="Optional - Maximum counter value"
                                                 />
                                                 <FormField
                                                     id={`placeholder-${question.id}`}
