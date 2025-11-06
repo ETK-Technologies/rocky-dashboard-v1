@@ -225,13 +225,31 @@ export function Sidebar({ isOpen, onClose }) {
                     </button>
                 </div>
 
-                {/* Navigation */}
-                <nav className="mt-4 sm:mt-6 px-4 flex flex-col h-[calc(100vh-100px)] sm:h-[calc(100vh-120px)]">
-                    <ul className="space-y-1 flex-1">
-                        {/* Main Navigation */}
-                        {navigation.map((item) => (
-                            <NavItem key={item.name} item={item} />
-                        ))}
+      {/* Sidebar */}
+      <aside
+        className={cn(
+          "fixed left-0 top-0 h-full bg-card border-r border-border w-64 z-40 transition-all duration-300 ease-in-out",
+          "lg:translate-x-0 shadow-sm",
+          isOpen ? "translate-x-0" : "-translate-x-full"
+        )}
+      >
+        {/* Logo */}
+        <div className="flex items-center justify-between h-14 sm:h-16 px-4 sm:px-6 border-b border-border">
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 sm:w-8 sm:h-8 bg-gradient-to-br from-[#af7f56] to-[#9d6f46] rounded-lg flex items-center justify-center">
+              <FileText className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
+            </div>
+            <h1 className="text-base sm:text-lg font-semibold text-foreground">
+              Rocky Dashboard
+            </h1>
+          </div>
+          <button
+            onClick={onClose}
+            className="lg:hidden text-muted-foreground hover:text-foreground transition-colors p-1"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
 
                         {/* Admin Navigation Section */}
                         {isAuthorized(["admin", "super_admin"]) && (

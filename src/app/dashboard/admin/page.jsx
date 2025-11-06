@@ -53,14 +53,14 @@ export default function AdminPage() {
         />
 
         {/* User Info Card */}
-        <div className="mb-8 p-6 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg shadow-lg text-white">
+        <div className="mb-8 p-6 bg-gradient-to-r from-[#af7f56] to-purple-600 rounded-lg shadow-lg text-white">
           <div className="flex items-center gap-4">
             <div className="p-3 bg-white/20 rounded-full">
               <Shield className="w-8 h-8" />
             </div>
             <div>
               <h2 className="text-2xl font-bold">{getUserFullName()}</h2>
-              <p className="text-blue-100">
+              <p className="text-white/90">
                 Role: {getRoleDisplayName()} • Email: {user?.email}
               </p>
             </div>
