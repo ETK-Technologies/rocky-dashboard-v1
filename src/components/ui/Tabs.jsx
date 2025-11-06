@@ -12,10 +12,24 @@ const TabsContext = createContext({
 export function Tabs({
   children,
   defaultValue,
+  value,
+  onValueChange,
   className,
   variant = "default",
 }) {
-  const [activeTab, setActiveTab] = useState(defaultValue || "");
+  const [internalActiveTab, setInternalActiveTab] = useState(
+    defaultValue || ""
+  );
+
+  // Use controlled value if provided, otherwise use internal state
+  const activeTab = value !== undefined ? value : internalActiveTab;
+  const setActiveTab = (newValue) => {
+    if (onValueChange) {
+      onValueChange(newValue);
+    } else {
+      setInternalActiveTab(newValue);
+    }
+  };
 
   return (
     <TabsContext.Provider value={{ activeTab, setActiveTab, variant }}>

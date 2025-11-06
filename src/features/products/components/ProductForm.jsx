@@ -151,6 +151,7 @@ export default function ProductForm({ productId = null }) {
   const [categoryIds, setCategoryIds] = useState([]);
   const [metadata, setMetadata] = useState([]);
   const [errors, setErrors] = useState({});
+  const [activeTab, setActiveTab] = useState("basic");
 
   // Ref to track if attributes have been loaded to prevent infinite loops
   const attributesLoadedRef = useRef(false);
@@ -249,7 +250,71 @@ export default function ProductForm({ productId = null }) {
       // Note: Global attributes will be loaded separately via useProductGlobalAttributes hook
       // and merged into the display when they're fetched
 
-      if (productData.variants) setVariants(productData.variants);
+      if (productData.variants) {
+        // Parse variant names to extract attribute selections
+        const parsedVariants = productData.variants.map((variant) => {
+          const parsed = { ...variant };
+
+          // First try to get from variant.attributes array (preferred)
+          if (
+            variant.attributes &&
+            Array.isArray(variant.attributes) &&
+            variant.attributes.length > 0
+          ) {
+            // Get first attribute
+            if (variant.attributes[0]) {
+              parsed.attribute1Name = variant.attributes[0].name || "";
+              parsed.attribute1Value = variant.attributes[0].value || "";
+            }
+            // Get second attribute
+            if (variant.attributes[1]) {
+              parsed.attribute2Name = variant.attributes[1].name || "";
+              parsed.attribute2Value = variant.attributes[1].value || "";
+            }
+          } else if (variant.name) {
+            // Fallback: Parse variant name format: "Attribute1: Value1 | Attribute2: Value2"
+            const parts = variant.name
+              .split("|")
+              .map((part) => part.trim())
+              .filter(Boolean);
+
+            if (parts.length > 0) {
+              const part1 = parts[0];
+              const colonIndex1 = part1.indexOf(":");
+              if (colonIndex1 >= 0) {
+                parsed.attribute1Name = part1.substring(0, colonIndex1).trim();
+                parsed.attribute1Value = part1
+                  .substring(colonIndex1 + 1)
+                  .trim();
+              }
+
+              if (parts.length > 1) {
+                const part2 = parts[1];
+                const colonIndex2 = part2.indexOf(":");
+                if (colonIndex2 >= 0) {
+                  parsed.attribute2Name = part2
+                    .substring(0, colonIndex2)
+                    .trim();
+                  parsed.attribute2Value = part2
+                    .substring(colonIndex2 + 1)
+                    .trim();
+                }
+              }
+            }
+          }
+
+          // Ensure default values for settings
+          if (!parsed.status) parsed.status = "DRAFT";
+          if (parsed.featured === undefined) parsed.featured = false;
+          if (parsed.virtual === undefined) parsed.virtual = false;
+          if (parsed.downloadable === undefined) parsed.downloadable = false;
+          if (parsed.reviewsAllowed === undefined) parsed.reviewsAllowed = true;
+
+          return parsed;
+        });
+
+        setVariants(parsedVariants);
+      }
 
       // Handle categories - API returns categories array with categoryId field
       if (productData.categories && Array.isArray(productData.categories)) {
@@ -435,7 +500,7 @@ export default function ProductForm({ productId = null }) {
       },
     ]);
 
-    toast.success(`${globalAttr.name} added successfully`);
+    // Removed toast - attribute is added silently
   };
 
   // Update global attribute value
@@ -571,14 +636,96 @@ export default function ProductForm({ productId = null }) {
         stockQuantity: 0,
         manageStock: false,
         attributes: [],
+        // Per-variant settings
+        status: formValues.status || "DRAFT",
+        featured: false,
+        virtual: false,
+        downloadable: false,
+        reviewsAllowed: true,
+        // For variant name selection
+        attribute1Name: "",
+        attribute1Value: "",
+        attribute2Name: "",
+        attribute2Value: "",
       },
     ]);
+  };
+
+  // Get variation attributes (those marked for variations)
+  const getVariationAttributes = () => {
+    const variationAttrs = [];
+
+    // Get from inline attributes
+    attributes
+      .filter((attr) => attr.variation && attr.name && attr.value)
+      .forEach((attr) => {
+        const values = attr.value
+          .split(",")
+          .map((v) => v.trim())
+          .filter(Boolean);
+        if (values.length > 0) {
+          variationAttrs.push({
+            name: attr.name,
+            values: values,
+            source: "inline",
+          });
+        }
+      });
+
+    // Get from global attributes
+    productGlobalAttributes
+      .filter((attr) => attr.variation && attr.value)
+      .forEach((attr) => {
+        const globalAttr = attr.globalAttribute || {};
+        const values = attr.value
+          .split(",")
+          .map((v) => v.trim())
+          .filter(Boolean);
+        if (values.length > 0) {
+          variationAttrs.push({
+            name: globalAttr.name || attr.name,
+            values: values,
+            source: "global",
+          });
+        }
+      });
+
+    // Merge attributes with same name
+    const mergedMap = new Map();
+    variationAttrs.forEach((attr) => {
+      const key = attr.name.toLowerCase();
+      if (!mergedMap.has(key)) {
+        mergedMap.set(key, { name: attr.name, values: new Set() });
+      }
+      attr.values.forEach((v) => mergedMap.get(key).values.add(v));
+    });
+
+    return Array.from(mergedMap.values()).map((attr) => ({
+      name: attr.name,
+      values: Array.from(attr.values),
+    }));
   };
 
   const updateVariant = (index, field, value) => {
     setVariants((prev) => {
       const updated = [...prev];
       updated[index] = { ...updated[index], [field]: value };
+
+      // Auto-generate variant name when attribute selections change
+      if (field.startsWith("attribute")) {
+        const variant = updated[index];
+        const parts = [];
+
+        if (variant.attribute1Name && variant.attribute1Value) {
+          parts.push(`${variant.attribute1Name}: ${variant.attribute1Value}`);
+        }
+        if (variant.attribute2Name && variant.attribute2Value) {
+          parts.push(`${variant.attribute2Name}: ${variant.attribute2Value}`);
+        }
+
+        updated[index].name = parts.join(" | ");
+      }
+
       return updated;
     });
   };
@@ -825,6 +972,17 @@ export default function ProductForm({ productId = null }) {
               cleaned.manageStock = variant.manageStock;
             if (variant.imageUrl) cleaned.imageUrl = variant.imageUrl;
 
+            // Per-variant settings
+            if (variant.status) cleaned.status = variant.status;
+            if (variant.featured !== undefined)
+              cleaned.featured = variant.featured;
+            if (variant.virtual !== undefined)
+              cleaned.virtual = variant.virtual;
+            if (variant.downloadable !== undefined)
+              cleaned.downloadable = variant.downloadable;
+            if (variant.reviewsAllowed !== undefined)
+              cleaned.reviewsAllowed = variant.reviewsAllowed;
+
             // Subscription fields for variable subscription products
             if (formValues.type === "VARIABLE_SUBSCRIPTION") {
               if (variant.subscriptionPeriod)
@@ -1062,9 +1220,9 @@ export default function ProductForm({ productId = null }) {
   const isVariableProduct =
     formValues.type === "VARIABLE" ||
     formValues.type === "VARIABLE_SUBSCRIPTION";
-  const hasSubscription =
-    formValues.type === "SUBSCRIPTION" ||
-    formValues.type === "VARIABLE_SUBSCRIPTION";
+  // Only show subscription tab for SUBSCRIPTION type, not VARIABLE_SUBSCRIPTION
+  // (VARIABLE_SUBSCRIPTION subscription data is handled in variants)
+  const hasSubscription = formValues.type === "SUBSCRIPTION";
   const isVariableSubscription = formValues.type === "VARIABLE_SUBSCRIPTION";
 
   return (
@@ -1094,7 +1252,11 @@ export default function ProductForm({ productId = null }) {
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           {/* Main Content with Tabs */}
           <div className="lg:col-span-3">
-            <Tabs defaultValue="basic" className="w-full">
+            <Tabs
+              value={activeTab}
+              onValueChange={setActiveTab}
+              className="w-full"
+            >
               <div className="flex flex-col lg:flex-row gap-6">
                 {/* Left Sidebar - Tabs List */}
                 <div className="lg:w-[200px] flex-shrink-0 lg:sticky lg:top-6 lg:self-start">
@@ -1642,8 +1804,9 @@ export default function ProductForm({ productId = null }) {
                               <div className="space-y-2">
                                 <CustomLabel>Dimensions (cm)</CustomLabel>
                                 <div className="grid grid-cols-3 gap-2">
-                                  <CustomInput
-                                    placeholder="Length"
+                                  <FormField
+                                    id="length"
+                                    label="Length"
                                     type="number"
                                     step="0.01"
                                     name="length"
@@ -1651,8 +1814,9 @@ export default function ProductForm({ productId = null }) {
                                     onChange={handleInputChange}
                                     disabled={loading}
                                   />
-                                  <CustomInput
-                                    placeholder="Width"
+                                  <FormField
+                                    id="width"
+                                    label="Width"
                                     type="number"
                                     step="0.01"
                                     name="width"
@@ -1660,8 +1824,9 @@ export default function ProductForm({ productId = null }) {
                                     onChange={handleInputChange}
                                     disabled={loading}
                                   />
-                                  <CustomInput
-                                    placeholder="Height"
+                                  <FormField
+                                    id="height"
+                                    label="Height"
                                     type="number"
                                     step="0.01"
                                     name="height"
@@ -1783,8 +1948,9 @@ export default function ProductForm({ productId = null }) {
                                         <Trash2 className="h-4 w-4" />
                                       </button>
                                     </div>
-                                    <CustomInput
-                                      placeholder={`Enter value for ${globalAttr.name}`}
+                                    <FormField
+                                      id={`global-attr-${index}-value`}
+                                      label={`Value for ${globalAttr.name}`}
                                       value={attr.value}
                                       onChange={(e) =>
                                         handleUpdateGlobalAttribute(
@@ -1839,31 +2005,37 @@ export default function ProductForm({ productId = null }) {
                                   key={`inline-${index}`}
                                   className="p-3 border border-border rounded-lg space-y-2"
                                 >
-                                  <div className="flex items-center justify-between">
-                                    <CustomInput
-                                      placeholder="Attribute name (e.g., Size, Color)"
-                                      value={attribute.name}
-                                      onChange={(e) =>
-                                        updateAttribute(
-                                          index,
-                                          "name",
-                                          e.target.value
-                                        )
-                                      }
-                                      disabled={loading}
-                                      className="flex-1"
-                                    />
+                                  <div className="flex items-center justify-between gap-2">
+                                    <div className="flex-1">
+                                      <FormField
+                                        id={`attr-${index}-name`}
+                                        label="Attribute Name"
+                                        placeholder="e.g., Size, Color"
+                                        value={attribute.name}
+                                        onChange={(e) =>
+                                          updateAttribute(
+                                            index,
+                                            "name",
+                                            e.target.value
+                                          )
+                                        }
+                                        disabled={loading}
+                                      />
+                                    </div>
                                     <button
                                       type="button"
                                       onClick={() => removeAttribute(index)}
                                       disabled={loading}
-                                      className="p-1 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-red-600 ml-2"
+                                      className="p-1 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-red-600 mt-6"
                                     >
                                       <Trash2 className="h-4 w-4" />
                                     </button>
                                   </div>
-                                  <CustomInput
-                                    placeholder="Enter values (comma-separated: S, M, L)"
+                                  <FormField
+                                    id={`attr-${index}-value`}
+                                    label="Attribute Values"
+                                    placeholder="Comma-separated: S, M, L"
+                                    helperText="Enter values separated by commas"
                                     value={attribute.value}
                                     onChange={(e) =>
                                       updateAttribute(
@@ -2026,10 +2198,12 @@ export default function ProductForm({ productId = null }) {
 
                             // Generate variants - include subscription fields only for VARIABLE_SUBSCRIPTION
                             const newVariants = combos.map((values, idx) => {
+                              const nameParts = values
+                                .map((v, i) => `${cleaned[i].name}: ${v}`)
+                                .join(" | ");
+
                               const baseVariant = {
-                                name: values
-                                  .map((v, i) => `${cleaned[i].name}: ${v}`)
-                                  .join(" | "),
+                                name: nameParts,
                                 sku: "",
                                 price: "",
                                 salePrice: "",
@@ -2038,6 +2212,17 @@ export default function ProductForm({ productId = null }) {
                                 attributes: cleaned.map((p) => ({
                                   name: p.name,
                                 })),
+                                // Per-variant settings
+                                status: formValues.status || "DRAFT",
+                                featured: false,
+                                virtual: false,
+                                downloadable: false,
+                                reviewsAllowed: true,
+                                // Set first two attributes for the select boxes
+                                attribute1Name: cleaned[0]?.name || "",
+                                attribute1Value: values[0] || "",
+                                attribute2Name: cleaned[1]?.name || "",
+                                attribute2Value: values[1] || "",
                               };
 
                               // Add subscription fields only for VARIABLE_SUBSCRIPTION
@@ -2059,6 +2244,8 @@ export default function ProductForm({ productId = null }) {
                             toast.success(
                               `Generated ${newVariants.length} variant(s)`
                             );
+                            // Automatically switch to variants tab
+                            setActiveTab("variants");
                           }}
                           disabled={
                             loading ||
@@ -2106,7 +2293,7 @@ export default function ProductForm({ productId = null }) {
                             {variants.map((variant, index) => (
                               <div
                                 key={index}
-                                className="p-4 border border-border rounded-lg space-y-3"
+                                className="p-4 border border-border rounded-lg space-y-3 bg-[#0b111e]"
                               >
                                 <div className="flex items-center justify-between">
                                   <h4 className="font-medium">
@@ -2122,21 +2309,194 @@ export default function ProductForm({ productId = null }) {
                                   </button>
                                 </div>
 
+                                {/* Variant Name - 2 Select Boxes */}
+                                {(() => {
+                                  const variationAttrs =
+                                    getVariationAttributes();
+                                  const attr1 = variationAttrs.find(
+                                    (a) => a.name === variant.attribute1Name
+                                  );
+                                  const attr2 = variationAttrs.find(
+                                    (a) => a.name === variant.attribute2Name
+                                  );
+
+                                  return (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                                      {/* First Attribute */}
+                                      {/* <div className="space-y-2">
+                                        <CustomLabel
+                                          htmlFor={`variant-${index}-attr1-name`}
+                                        >
+                                          Attribute 1
+                                        </CustomLabel>
+                                        <select
+                                          id={`variant-${index}-attr1-name`}
+                                          value={variant.attribute1Name || ""}
+                                          onChange={(e) => {
+                                            updateVariant(
+                                              index,
+                                              "attribute1Name",
+                                              e.target.value
+                                            );
+                                            updateVariant(
+                                              index,
+                                              "attribute1Value",
+                                              ""
+                                            );
+                                          }}
+                                          disabled={loading}
+                                          className={cn(
+                                            "flex h-10 w-full rounded-md border px-3 py-2 text-sm transition-colors",
+                                            "bg-white text-gray-900 border-gray-300",
+                                            "dark:bg-gray-800 dark:text-gray-100 dark:border-gray-600",
+                                            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
+                                            "focus-visible:ring-blue-500 dark:focus-visible:ring-blue-400"
+                                          )}
+                                        >
+                                          <option value="">
+                                            Select Attribute
+                                          </option>
+                                          {variationAttrs.map((attr) => (
+                                            <option
+                                              key={attr.name}
+                                              value={attr.name}
+                                            >
+                                              {attr.name}
+                                            </option>
+                                          ))}
+                                        </select>
+                                      </div> */}
+                                      <div className="space-y-2">
+                                        {/* <CustomLabel
+                                          htmlFor={`variant-${index}-attr1-value`}
+                                        >
+                                          Value 1
+                                        </CustomLabel> */}
+                                        <select
+                                          id={`variant-${index}-attr1-value`}
+                                          value={variant.attribute1Value || ""}
+                                          onChange={(e) =>
+                                            updateVariant(
+                                              index,
+                                              "attribute1Value",
+                                              e.target.value
+                                            )
+                                          }
+                                          disabled={
+                                            loading || !variant.attribute1Name
+                                          }
+                                          className={cn(
+                                            "flex h-10 w-full rounded-md border px-3 py-2 text-sm transition-colors",
+                                            "bg-white text-gray-900 border-gray-300",
+                                            "dark:bg-gray-800 dark:text-gray-100 dark:border-gray-600",
+                                            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
+                                            "focus-visible:ring-blue-500 dark:focus-visible:ring-blue-400",
+                                            "disabled:opacity-50 disabled:cursor-not-allowed"
+                                          )}
+                                        >
+                                          <option value="">Select Value</option>
+                                          {attr1?.values.map((val) => (
+                                            <option key={val} value={val}>
+                                              {val}
+                                            </option>
+                                          ))}
+                                        </select>
+                                      </div>
+
+                                      {/* Second Attribute */}
+                                      {/* <div className="space-y-2">
+                                        <CustomLabel
+                                          htmlFor={`variant-${index}-attr2-name`}
+                                        >
+                                          Attribute 2
+                                        </CustomLabel>
+                                        <select
+                                          id={`variant-${index}-attr2-name`}
+                                          value={variant.attribute2Name || ""}
+                                          onChange={(e) => {
+                                            updateVariant(
+                                              index,
+                                              "attribute2Name",
+                                              e.target.value
+                                            );
+                                            updateVariant(
+                                              index,
+                                              "attribute2Value",
+                                              ""
+                                            );
+                                          }}
+                                          disabled={loading}
+                                          className={cn(
+                                            "flex h-10 w-full rounded-md border px-3 py-2 text-sm transition-colors",
+                                            "bg-white text-gray-900 border-gray-300",
+                                            "dark:bg-gray-800 dark:text-gray-100 dark:border-gray-600",
+                                            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
+                                            "focus-visible:ring-blue-500 dark:focus-visible:ring-blue-400"
+                                          )}
+                                        >
+                                          <option value="">
+                                            Select Attribute
+                                          </option>
+                                          {variationAttrs
+                                            .filter(
+                                              (attr) =>
+                                                attr.name !==
+                                                variant.attribute1Name
+                                            )
+                                            .map((attr) => (
+                                              <option
+                                                key={attr.name}
+                                                value={attr.name}
+                                              >
+                                                {attr.name}
+                                              </option>
+                                            ))}
+                                        </select>
+                                      </div> */}
+                                      <div className="space-y-2">
+                                        {/* <CustomLabel
+                                          htmlFor={`variant-${index}-attr2-value`}
+                                        >
+                                          Value 2
+                                        </CustomLabel> */}
+                                        <select
+                                          id={`variant-${index}-attr2-value`}
+                                          value={variant.attribute2Value || ""}
+                                          onChange={(e) =>
+                                            updateVariant(
+                                              index,
+                                              "attribute2Value",
+                                              e.target.value
+                                            )
+                                          }
+                                          disabled={
+                                            loading || !variant.attribute2Name
+                                          }
+                                          className={cn(
+                                            "flex h-10 w-full rounded-md border px-3 py-2 text-sm transition-colors",
+                                            "bg-white text-gray-900 border-gray-300",
+                                            "dark:bg-gray-800 dark:text-gray-100 dark:border-gray-600",
+                                            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
+                                            "focus-visible:ring-blue-500 dark:focus-visible:ring-blue-400",
+                                            "disabled:opacity-50 disabled:cursor-not-allowed"
+                                          )}
+                                        >
+                                          <option value="">Select Value</option>
+                                          {attr2?.values.map((val) => (
+                                            <option key={val} value={val}>
+                                              {val}
+                                            </option>
+                                          ))}
+                                        </select>
+                                      </div>
+                                    </div>
+                                  );
+                                })()}
+
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                  <CustomInput
-                                    placeholder="Variant name"
-                                    value={variant.name}
-                                    onChange={(e) =>
-                                      updateVariant(
-                                        index,
-                                        "name",
-                                        e.target.value
-                                      )
-                                    }
-                                    disabled={loading}
-                                  />
-                                  <CustomInput
-                                    placeholder="SKU"
+                                  <FormField
+                                    id={`variant-${index}-sku`}
+                                    label="SKU"
                                     value={variant.sku}
                                     onChange={(e) =>
                                       updateVariant(
@@ -2147,10 +2507,11 @@ export default function ProductForm({ productId = null }) {
                                     }
                                     disabled={loading}
                                   />
-                                  <CustomInput
+                                  <FormField
+                                    id={`variant-${index}-price`}
+                                    label="Price"
                                     type="number"
                                     step="0.01"
-                                    placeholder="Price"
                                     value={variant.price}
                                     onChange={(e) =>
                                       updateVariant(
@@ -2161,10 +2522,11 @@ export default function ProductForm({ productId = null }) {
                                     }
                                     disabled={loading}
                                   />
-                                  <CustomInput
+                                  <FormField
+                                    id={`variant-${index}-sale-price`}
+                                    label="Sale Price"
                                     type="number"
                                     step="0.01"
-                                    placeholder="Sale Price"
                                     value={variant.salePrice}
                                     onChange={(e) =>
                                       updateVariant(
@@ -2175,21 +2537,23 @@ export default function ProductForm({ productId = null }) {
                                     }
                                     disabled={loading}
                                   />
-                                  <CustomInput
-                                    placeholder="Image URL"
-                                    value={variant.imageUrl || ""}
-                                    onChange={(e) =>
-                                      updateVariant(
-                                        index,
-                                        "imageUrl",
-                                        e.target.value
-                                      )
-                                    }
-                                    disabled={loading}
-                                  />
-                                  <CustomInput
+                                  <div className="md:col-span-2">
+                                    <SingleImageUpload
+                                      label="Variant Image"
+                                      value={variant.imageUrl || ""}
+                                      onChange={(url) =>
+                                        updateVariant(index, "imageUrl", url)
+                                      }
+                                      onRemove={() =>
+                                        updateVariant(index, "imageUrl", "")
+                                      }
+                                      disabled={loading}
+                                    />
+                                  </div>
+                                  <FormField
+                                    id={`variant-${index}-stock`}
+                                    label="Stock Quantity"
                                     type="number"
-                                    placeholder="Stock Quantity"
                                     value={variant.stockQuantity ?? 0}
                                     onChange={(e) =>
                                       updateVariant(
@@ -2200,6 +2564,161 @@ export default function ProductForm({ productId = null }) {
                                     }
                                     disabled={loading}
                                   />
+                                </div>
+
+                                {/* Per-Variant Settings */}
+                                <div className="border-t border-border pt-4 mt-4">
+                                  <h5 className="text-sm font-semibold text-foreground mb-3">
+                                    Variant Settings
+                                  </h5>
+                                  <div className="grid grid-cols-1  gap-4">
+                                    {/* Status */}
+                                    <div className="space-y-2">
+                                      <CustomLabel
+                                        htmlFor={`variant-${index}-status`}
+                                      >
+                                        Status
+                                      </CustomLabel>
+                                      <select
+                                        id={`variant-${index}-status`}
+                                        value={variant.status || "DRAFT"}
+                                        onChange={(e) =>
+                                          updateVariant(
+                                            index,
+                                            "status",
+                                            e.target.value
+                                          )
+                                        }
+                                        disabled={loading}
+                                        className={cn(
+                                          "flex h-10 w-full rounded-md border px-3 py-2 text-sm transition-colors",
+                                          "bg-white text-gray-900 border-gray-300",
+                                          "dark:bg-gray-800 dark:text-gray-100 dark:border-gray-600",
+                                          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
+                                          "focus-visible:ring-blue-500 dark:focus-visible:ring-blue-400"
+                                        )}
+                                      >
+                                        {PRODUCT_STATUSES.map((status) => (
+                                          <option
+                                            key={status.value}
+                                            value={status.value}
+                                          >
+                                            {status.label}
+                                          </option>
+                                        ))}
+                                      </select>
+                                    </div>
+
+                                    {/* Featured */}
+                                    <div className="flex items-center justify-between">
+                                      <CustomLabel
+                                        htmlFor={`variant-${index}-featured`}
+                                      >
+                                        Featured
+                                      </CustomLabel>
+                                      <label className="relative inline-flex items-center cursor-pointer">
+                                        <input
+                                          type="checkbox"
+                                          id={`variant-${index}-featured`}
+                                          checked={variant.featured || false}
+                                          onChange={(e) =>
+                                            updateVariant(
+                                              index,
+                                              "featured",
+                                              e.target.checked
+                                            )
+                                          }
+                                          disabled={loading}
+                                          className="sr-only peer"
+                                        />
+                                        <div className="w-11 h-6 bg-gray-300 dark:bg-gray-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                                      </label>
+                                    </div>
+
+                                    {/* Virtual */}
+                                    <div className="flex items-center justify-between">
+                                      <CustomLabel
+                                        htmlFor={`variant-${index}-virtual`}
+                                      >
+                                        Virtual
+                                      </CustomLabel>
+                                      <label className="relative inline-flex items-center cursor-pointer">
+                                        <input
+                                          type="checkbox"
+                                          id={`variant-${index}-virtual`}
+                                          checked={variant.virtual || false}
+                                          onChange={(e) =>
+                                            updateVariant(
+                                              index,
+                                              "virtual",
+                                              e.target.checked
+                                            )
+                                          }
+                                          disabled={loading}
+                                          className="sr-only peer"
+                                        />
+                                        <div className="w-11 h-6 bg-gray-300 dark:bg-gray-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                                      </label>
+                                    </div>
+
+                                    {/* Downloadable */}
+                                    <div className="flex items-center justify-between">
+                                      <CustomLabel
+                                        htmlFor={`variant-${index}-downloadable`}
+                                      >
+                                        Downloadable
+                                      </CustomLabel>
+                                      <label className="relative inline-flex items-center cursor-pointer">
+                                        <input
+                                          type="checkbox"
+                                          id={`variant-${index}-downloadable`}
+                                          checked={
+                                            variant.downloadable || false
+                                          }
+                                          onChange={(e) =>
+                                            updateVariant(
+                                              index,
+                                              "downloadable",
+                                              e.target.checked
+                                            )
+                                          }
+                                          disabled={loading}
+                                          className="sr-only peer"
+                                        />
+                                        <div className="w-11 h-6 bg-gray-300 dark:bg-gray-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                                      </label>
+                                    </div>
+
+                                    {/* Enable Reviews */}
+                                    <div className="flex items-center justify-between">
+                                      <CustomLabel
+                                        htmlFor={`variant-${index}-reviews`}
+                                      >
+                                        Enable Reviews
+                                      </CustomLabel>
+                                      <label className="relative inline-flex items-center cursor-pointer">
+                                        <input
+                                          type="checkbox"
+                                          id={`variant-${index}-reviews`}
+                                          checked={
+                                            variant.reviewsAllowed !== undefined
+                                              ? variant.reviewsAllowed
+                                              : true
+                                          }
+                                          onChange={(e) =>
+                                            updateVariant(
+                                              index,
+                                              "reviewsAllowed",
+                                              e.target.checked
+                                            )
+                                          }
+                                          disabled={loading}
+                                          className="sr-only peer"
+                                        />
+                                        <div className="w-11 h-6 bg-gray-300 dark:bg-gray-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                                      </label>
+                                    </div>
+                                  </div>
                                 </div>
 
                                 {isVariableSubscription && (
@@ -2530,16 +3049,18 @@ export default function ProductForm({ productId = null }) {
                           {metadata.map((meta, index) => (
                             <div key={index} className="flex gap-2 items-start">
                               <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-2">
-                                <CustomInput
-                                  placeholder="Key"
+                                <FormField
+                                  id={`meta-${index}-key`}
+                                  label="Key"
                                   value={meta.key}
                                   onChange={(e) =>
                                     updateMetadata(index, "key", e.target.value)
                                   }
                                   disabled={loading}
                                 />
-                                <CustomInput
-                                  placeholder="Value"
+                                <FormField
+                                  id={`meta-${index}-value`}
+                                  label="Value"
                                   value={meta.value}
                                   onChange={(e) =>
                                     updateMetadata(
@@ -2688,104 +3209,107 @@ export default function ProductForm({ productId = null }) {
               </CustomCardContent>
             </CustomCard>
 
-            {/* Settings */}
-            <CustomCard>
-              <CustomCardContent className="pt-6">
-                <h3 className="text-lg font-semibold text-foreground mb-4">
-                  Settings
-                </h3>
+            {/* Settings - Only show for non-variable products */}
+            {formValues.type !== "VARIABLE" &&
+              formValues.type !== "VARIABLE_SUBSCRIPTION" && (
+                <CustomCard>
+                  <CustomCardContent className="pt-6">
+                    <h3 className="text-lg font-semibold text-foreground mb-4">
+                      Settings
+                    </h3>
 
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <CustomLabel htmlFor="status">Status</CustomLabel>
-                    <select
-                      id="status"
-                      name="status"
-                      value={formValues.status}
-                      onChange={handleInputChange}
-                      disabled={loading}
-                      className={cn(
-                        "flex h-10 w-full rounded-md border px-3 py-2 text-sm transition-colors",
-                        "bg-white text-gray-900 border-gray-300",
-                        "dark:bg-gray-800 dark:text-gray-100 dark:border-gray-600",
-                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
-                        "focus-visible:ring-blue-500 dark:focus-visible:ring-blue-400"
-                      )}
-                    >
-                      {PRODUCT_STATUSES.map((status) => (
-                        <option key={status.value} value={status.value}>
-                          {status.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <CustomLabel htmlFor="status">Status</CustomLabel>
+                        <select
+                          id="status"
+                          name="status"
+                          value={formValues.status}
+                          onChange={handleInputChange}
+                          disabled={loading}
+                          className={cn(
+                            "flex h-10 w-full rounded-md border px-3 py-2 text-sm transition-colors",
+                            "bg-white text-gray-900 border-gray-300",
+                            "dark:bg-gray-800 dark:text-gray-100 dark:border-gray-600",
+                            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
+                            "focus-visible:ring-blue-500 dark:focus-visible:ring-blue-400"
+                          )}
+                        >
+                          {PRODUCT_STATUSES.map((status) => (
+                            <option key={status.value} value={status.value}>
+                              {status.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
 
-                  <div className="flex items-center justify-between">
-                    <CustomLabel htmlFor="featured">Featured</CustomLabel>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input
-                        type="checkbox"
-                        id="featured"
-                        name="featured"
-                        checked={formValues.featured}
-                        onChange={handleInputChange}
-                        className="sr-only peer"
-                      />
-                      <div className="w-11 h-6 bg-gray-300 dark:bg-gray-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                    </label>
-                  </div>
+                      <div className="flex items-center justify-between">
+                        <CustomLabel htmlFor="featured">Featured</CustomLabel>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            id="featured"
+                            name="featured"
+                            checked={formValues.featured}
+                            onChange={handleInputChange}
+                            className="sr-only peer"
+                          />
+                          <div className="w-11 h-6 bg-gray-300 dark:bg-gray-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                        </label>
+                      </div>
 
-                  <div className="flex items-center justify-between">
-                    <CustomLabel htmlFor="virtual">Virtual</CustomLabel>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input
-                        type="checkbox"
-                        id="virtual"
-                        name="virtual"
-                        checked={formValues.virtual}
-                        onChange={handleInputChange}
-                        className="sr-only peer"
-                      />
-                      <div className="w-11 h-6 bg-gray-300 dark:bg-gray-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                    </label>
-                  </div>
+                      <div className="flex items-center justify-between">
+                        <CustomLabel htmlFor="virtual">Virtual</CustomLabel>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            id="virtual"
+                            name="virtual"
+                            checked={formValues.virtual}
+                            onChange={handleInputChange}
+                            className="sr-only peer"
+                          />
+                          <div className="w-11 h-6 bg-gray-300 dark:bg-gray-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                        </label>
+                      </div>
 
-                  <div className="flex items-center justify-between">
-                    <CustomLabel htmlFor="downloadable">
-                      Downloadable
-                    </CustomLabel>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input
-                        type="checkbox"
-                        id="downloadable"
-                        name="downloadable"
-                        checked={formValues.downloadable}
-                        onChange={handleInputChange}
-                        className="sr-only peer"
-                      />
-                      <div className="w-11 h-6 bg-gray-300 dark:bg-gray-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                    </label>
-                  </div>
+                      <div className="flex items-center justify-between">
+                        <CustomLabel htmlFor="downloadable">
+                          Downloadable
+                        </CustomLabel>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            id="downloadable"
+                            name="downloadable"
+                            checked={formValues.downloadable}
+                            onChange={handleInputChange}
+                            className="sr-only peer"
+                          />
+                          <div className="w-11 h-6 bg-gray-300 dark:bg-gray-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                        </label>
+                      </div>
 
-                  <div className="flex items-center justify-between">
-                    <CustomLabel htmlFor="reviewsAllowed">
-                      Enable reviews
-                    </CustomLabel>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input
-                        type="checkbox"
-                        id="reviewsAllowed"
-                        name="reviewsAllowed"
-                        checked={formValues.reviewsAllowed}
-                        onChange={handleInputChange}
-                        className="sr-only peer"
-                      />
-                      <div className="w-11 h-6 bg-gray-300 dark:bg-gray-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                    </label>
-                  </div>
-                </div>
-              </CustomCardContent>
-            </CustomCard>
+                      <div className="flex items-center justify-between">
+                        <CustomLabel htmlFor="reviewsAllowed">
+                          Enable reviews
+                        </CustomLabel>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            id="reviewsAllowed"
+                            name="reviewsAllowed"
+                            checked={formValues.reviewsAllowed}
+                            onChange={handleInputChange}
+                            className="sr-only peer"
+                          />
+                          <div className="w-11 h-6 bg-gray-300 dark:bg-gray-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                        </label>
+                      </div>
+                    </div>
+                  </CustomCardContent>
+                </CustomCard>
+              )}
           </div>
         </div>
       </form>

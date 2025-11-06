@@ -21,10 +21,13 @@ import {
   ClipboardList,
   Globe,
   GitBranch,
+  ChevronLeft,
+  ChevronRight as ChevronRightIcon,
 } from "lucide-react";
 import { cn } from "@/utils/cn";
 import { RoleGuard } from "@/components/common/ProtectedRoute";
 import { useAuth } from "@/features/auth/hooks/useAuth";
+import { Tooltip } from "@/components/ui/Tooltip";
 
 const navigation = [
   { name: "Home", href: "/dashboard", icon: LayoutDashboard },
@@ -89,7 +92,12 @@ const bottomNavigation = [
   { name: "Settings", href: "/dashboard/settings", icon: Settings },
 ];
 
-export function Sidebar({ isOpen, onClose }) {
+export function Sidebar({
+  isOpen,
+  onClose,
+  isCollapsed = false,
+  onToggleCollapse,
+}) {
   const pathname = usePathname();
   const { isAuthorized } = useAuth();
   const [expandedItems, setExpandedItems] = useState({});
@@ -101,7 +109,7 @@ export function Sidebar({ isOpen, onClose }) {
     }));
   };
 
-  const NavItem = ({ item }) => {
+  const NavItem = ({ item, isCollapsed }) => {
     const hasChildren = item.children && item.children.length > 0;
     const isExpanded = expandedItems[item.name] ?? true;
     const isActive =
@@ -128,15 +136,30 @@ export function Sidebar({ isOpen, onClose }) {
               "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200",
               isActive
                 ? "bg-primary/10 text-primary"
-                : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                : "text-muted-foreground hover:bg-accent hover:text-foreground",
+              isCollapsed && "justify-center px-2"
             )}
           >
             {/* {!hasChildren && <div className="w-4" />} */}
-            <item.icon className="h-5 w-5" />
-            <Link href={item.href} onClick={onClose} className="flex-1">
-              {item.name}
-            </Link>
-            {hasChildren && (
+            {isCollapsed ? (
+              <Tooltip content={item.name} side="right" usePortal={true}>
+                <Link
+                  href={item.href}
+                  onClick={onClose}
+                  className="flex items-center justify-center w-full"
+                >
+                  <item.icon className="h-5 w-5 flex-shrink-0" />
+                </Link>
+              </Tooltip>
+            ) : (
+              <>
+                <item.icon className="h-5 w-5 flex-shrink-0" />
+                <Link href={item.href} onClick={onClose} className="flex-1">
+                  {item.name}
+                </Link>
+              </>
+            )}
+            {hasChildren && !isCollapsed && (
               <button
                 type="button"
                 className="p-0 m-0 border-0 bg-transparent cursor-pointer"
@@ -153,30 +176,33 @@ export function Sidebar({ isOpen, onClose }) {
               </button>
             )}
           </div>
-          {hasChildren && isExpanded && visibleChildren.length > 0 && (
-            <ul className="ml-4 mt-1 space-y-1">
-              {visibleChildren.map((child) => {
-                const isChildActive = pathname === child.href;
-                return (
-                  <li key={child.name}>
-                    <Link
-                      href={child.href}
-                      onClick={onClose}
-                      className={cn(
-                        "flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all duration-200",
-                        isChildActive
-                          ? "bg-primary/10 text-primary font-medium"
-                          : "text-muted-foreground hover:bg-accent hover:text-foreground"
-                      )}
-                    >
-                      <child.icon className="h-4 w-4" />
-                      {child.name}
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
+          {hasChildren &&
+            isExpanded &&
+            !isCollapsed &&
+            visibleChildren.length > 0 && (
+              <ul className="ml-4 mt-1 space-y-1">
+                {visibleChildren.map((child) => {
+                  const isChildActive = pathname === child.href;
+                  return (
+                    <li key={child.name}>
+                      <Link
+                        href={child.href}
+                        onClick={onClose}
+                        className={cn(
+                          "flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all duration-200",
+                          isChildActive
+                            ? "bg-primary/10 text-primary font-medium"
+                            : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                        )}
+                      >
+                        <child.icon className="h-4 w-4" />
+                        {child.name}
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
         </div>
       </li>
     );
@@ -195,27 +221,52 @@ export function Sidebar({ isOpen, onClose }) {
       {/* Sidebar */}
       <aside
         className={cn(
-          "fixed left-0 top-0 h-full bg-card border-r border-border w-64 z-40 transition-all duration-300 ease-in-out flex flex-col",
-          "lg:translate-x-0 shadow-sm",
-          isOpen ? "translate-x-0" : "-translate-x-full"
+          "fixed left-0 top-0 h-full bg-card border-r border-border z-40 transition-all duration-300 ease-in-out flex flex-col shadow-sm",
+          "lg:translate-x-0",
+          isOpen ? "translate-x-0" : "-translate-x-full",
+          isCollapsed ? "w-16 lg:w-16" : "w-64"
         )}
       >
         {/* Logo */}
         <div className="flex items-center justify-between h-14 sm:h-16 px-4 sm:px-6 border-b border-border">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 sm:w-8 sm:h-8 bg-gradient-to-br from-[#af7f56] to-[#9d6f46] rounded-lg flex items-center justify-center">
+          <div
+            className={cn(
+              "flex items-center gap-2",
+              isCollapsed && "justify-center w-full"
+            )}
+          >
+            <div className="w-7 h-7 sm:w-8 sm:h-8 bg-gradient-to-br from-[#af7f56] to-[#9d6f46] rounded-lg flex items-center justify-center flex-shrink-0">
               <FileText className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
             </div>
-            <h1 className="text-base sm:text-lg font-semibold text-foreground">
-              Rocky Dashboard
-            </h1>
+            {!isCollapsed && (
+              <h1 className="text-base sm:text-lg font-semibold text-foreground whitespace-nowrap">
+                Rocky Dashboard
+              </h1>
+            )}
           </div>
-          <button
-            onClick={onClose}
-            className="lg:hidden text-muted-foreground hover:text-foreground transition-colors p-1"
-          >
-            <X className="h-5 w-5" />
-          </button>
+          <div className="flex items-center gap-1">
+            {/* Desktop collapse toggle */}
+            {onToggleCollapse && (
+              <button
+                onClick={onToggleCollapse}
+                className="hidden lg:flex text-muted-foreground hover:text-foreground transition-colors p-1 rounded hover:bg-accent"
+                title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+              >
+                {isCollapsed ? (
+                  <ChevronRightIcon className="h-5 w-5" />
+                ) : (
+                  <ChevronLeft className="h-5 w-5" />
+                )}
+              </button>
+            )}
+            {/* Mobile close button */}
+            <button
+              onClick={onClose}
+              className="lg:hidden text-muted-foreground hover:text-foreground transition-colors p-1"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
         </div>
 
         {/* Navigation */}
@@ -223,19 +274,25 @@ export function Sidebar({ isOpen, onClose }) {
           <ul className="space-y-1 px-2">
             {/* Main Navigation */}
             {navigation.map((item) => (
-              <NavItem key={item.name} item={item} />
+              <NavItem key={item.name} item={item} isCollapsed={isCollapsed} />
             ))}
 
             {/* Admin Navigation Section */}
             {isAuthorized(["admin", "super_admin"]) && (
               <>
-                <li className="pt-4 pb-2">
-                  <div className="px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                    Administration
-                  </div>
-                </li>
+                {!isCollapsed && (
+                  <li className="pt-4 pb-2">
+                    <div className="px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                      Administration
+                    </div>
+                  </li>
+                )}
                 {adminNavigation.map((item) => (
-                  <NavItem key={item.name} item={item} />
+                  <NavItem
+                    key={item.name}
+                    item={item}
+                    isCollapsed={isCollapsed}
+                  />
                 ))}
               </>
             )}
@@ -245,7 +302,11 @@ export function Sidebar({ isOpen, onClose }) {
           <div className="border-t border-border pt-4 pb-4 mt-4">
             <ul className="space-y-1 px-2">
               {bottomNavigation.map((item) => (
-                <NavItem key={item.name} item={item} />
+                <NavItem
+                  key={item.name}
+                  item={item}
+                  isCollapsed={isCollapsed}
+                />
               ))}
             </ul>
           </div>
