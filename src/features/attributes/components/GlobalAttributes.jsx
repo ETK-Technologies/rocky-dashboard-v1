@@ -399,7 +399,7 @@ export default function GlobalAttributes() {
             </p>
           </div>
 
-          <div className="flex items-center gap-6">
+          {/* <div className="flex items-center gap-6">
             <label className="flex items-center gap-2 cursor-pointer">
               <input
                 type="checkbox"
@@ -429,7 +429,7 @@ export default function GlobalAttributes() {
               />
               <span className="text-sm font-medium">Used for Variations</span>
             </label>
-          </div>
+          </div> */}
 
           <div className="flex justify-end gap-2 pt-4">
             <CustomButton

@@ -27,19 +27,20 @@ import { RoleGuard } from "@/components/common/ProtectedRoute";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 
 const navigation = [
-  { name: "Files", href: "/dashboard", icon: LayoutDashboard },
-  {
-    name: "Categories",
-    href: "/dashboard/categories",
-    icon: Folder,
-    roles: ["admin", "super_admin"],
-  },
+  { name: "Home", href: "/dashboard", icon: LayoutDashboard },
+
   {
     name: "Products",
     href: "/dashboard/products",
     icon: Package,
     roles: ["admin", "super_admin"],
     children: [
+      {
+        name: "Categories",
+        href: "/dashboard/categories",
+        icon: Folder,
+        roles: ["admin", "super_admin"],
+      },
       {
         name: "Global Attributes",
         href: "/dashboard/products/global-attributes",
@@ -130,6 +131,11 @@ export function Sidebar({ isOpen, onClose }) {
                 : "text-muted-foreground hover:bg-accent hover:text-foreground"
             )}
           >
+            {/* {!hasChildren && <div className="w-4" />} */}
+            <item.icon className="h-5 w-5" />
+            <Link href={item.href} onClick={onClose} className="flex-1">
+              {item.name}
+            </Link>
             {hasChildren && (
               <button
                 type="button"
@@ -146,11 +152,6 @@ export function Sidebar({ isOpen, onClose }) {
                 )}
               </button>
             )}
-            {!hasChildren && <div className="w-4" />}
-            <item.icon className="h-5 w-5" />
-            <Link href={item.href} onClick={onClose} className="flex-1">
-              {item.name}
-            </Link>
           </div>
           {hasChildren && isExpanded && visibleChildren.length > 0 && (
             <ul className="ml-4 mt-1 space-y-1">

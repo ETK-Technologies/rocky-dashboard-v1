@@ -30,6 +30,8 @@ export { PageHeader } from "./PageHeader";
 export { SectionHeader } from "./SectionHeader";
 export { SingleImageUpload } from "./SingleImageUpload";
 export { MultiImageUpload } from "./MultiImageUpload";
+export { ImageGalleryModal } from "./ImageGalleryModal";
 export { Tooltip } from "./Tooltip";
 export { ViewToggle } from "./ViewToggle";
+export { Tabs, TabsList, TabsTrigger, TabsContent } from "./Tabs";
 export { FileUpload } from "@/features/uploads/components/FileUpload";
