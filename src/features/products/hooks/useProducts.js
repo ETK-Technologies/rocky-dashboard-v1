@@ -173,6 +173,50 @@ export function useProducts(initialFilters = {}) {
   );
 
   /**
+   * Bulk delete products
+   * @param {Array<string>} ids - Array of product IDs
+   * @returns {Promise<Object>} Response with deletedCount, deletedIds, and missingIds
+   */
+  const bulkDeleteProducts = useCallback(
+    async (ids) => {
+      try {
+        if (!ids || ids.length === 0) {
+          throw new Error("No products selected");
+        }
+
+        const response = await productService.bulkDelete(ids);
+        const deletedCount = response.deletedCount || 0;
+        const missingIds = response.missingIds || [];
+
+        if (deletedCount > 0) {
+          toast.success(
+            `${deletedCount} product${
+              deletedCount > 1 ? "s" : ""
+            } deleted successfully`
+          );
+        }
+
+        if (missingIds.length > 0) {
+          toast.warning(
+            `${missingIds.length} product${
+              missingIds.length > 1 ? "s" : ""
+            } not found`
+          );
+        }
+
+        // Refresh products list
+        await fetchProducts();
+        return response;
+      } catch (err) {
+        toast.error(err.message || "Failed to delete products");
+        console.error("Error bulk deleting products:", err);
+        throw err;
+      }
+    },
+    [fetchProducts]
+  );
+
+  /**
    * Search products
    * @param {string} query - Search query
    */
@@ -203,6 +247,7 @@ export function useProducts(initialFilters = {}) {
     updateFilters,
     fetchProducts,
     deleteProduct,
+    bulkDeleteProducts,
     searchProducts,
   };
 }

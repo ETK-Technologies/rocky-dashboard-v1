@@ -50,6 +50,12 @@ const navigation = [
         icon: Globe,
         roles: ["admin", "super_admin"],
       },
+      {
+        name: "Import Jobs",
+        href: "/dashboard/products/import-jobs",
+        icon: Upload,
+        roles: ["admin", "super_admin"],
+      },
     ],
   },
 ];

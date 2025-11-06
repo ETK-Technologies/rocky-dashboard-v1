@@ -23,6 +23,7 @@ import {
   CustomBadge,
   CustomConfirmationDialog,
   ErrorState,
+  Pagination,
 } from "@/components/ui";
 import { useProducts } from "../hooks/useProducts";
 import { useCategories } from "@/features/categories";
@@ -30,12 +31,21 @@ import { ProductImportModal } from "./ProductImportModal";
 
 export default function Products() {
   const router = useRouter();
-  const { products, loading, error, deleteProduct, pagination, updateFilters } =
-    useProducts();
+  const {
+    products,
+    loading,
+    error,
+    deleteProduct,
+    bulkDeleteProducts,
+    pagination,
+    updateFilters,
+  } = useProducts();
   const { categories } = useCategories();
   const [searchTerm, setSearchTerm] = useState("");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [productToDelete, setProductToDelete] = useState(null);
+  const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false);
+  const [selectedProductIds, setSelectedProductIds] = useState([]);
   const [showFilters, setShowFilters] = useState(false);
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [filterValues, setFilterValues] = useState({
@@ -128,6 +138,34 @@ export default function Products() {
     setProductToDelete(null);
   };
 
+  // Handle bulk delete
+  const handleBulkDeleteClick = () => {
+    if (selectedProductIds.length > 0) {
+      setBulkDeleteDialogOpen(true);
+    }
+  };
+
+  const handleBulkDeleteConfirm = async () => {
+    if (selectedProductIds.length > 0) {
+      try {
+        await bulkDeleteProducts(selectedProductIds);
+        setBulkDeleteDialogOpen(false);
+        setSelectedProductIds([]);
+      } catch (error) {
+        // Error is already handled in the hook
+      }
+    }
+  };
+
+  const handleBulkDeleteCancel = () => {
+    setBulkDeleteDialogOpen(false);
+  };
+
+  // Handle selection change
+  const handleSelectionChange = (selectedIds) => {
+    setSelectedProductIds(selectedIds);
+  };
+
   // Get product type badge variant
   const getTypeBadgeVariant = (type) => {
     switch (type) {
@@ -211,7 +249,7 @@ export default function Products() {
             </div>
           )}
           {product.sku && (
-            <code className="text-xs text-muted-foreground bg-secondary px-1.5 py-0.5 rounded mt-1 inline-block">
+            <code className="text-xs text-muted-foreground bg-secondary px-1.5 py-0.5 rounded mt-1 inline-block w-fit">
               {product.sku}
             </code>
           )}
@@ -590,12 +628,35 @@ export default function Products() {
         </div>
       )}
 
+      {/* Bulk Actions Bar */}
+      {selectedProductIds.length > 0 && (
+        <div className="mb-4 p-3 bg-accent rounded-lg border border-border flex items-center justify-between">
+          <span className="text-sm text-foreground">
+            {selectedProductIds.length} product
+            {selectedProductIds.length > 1 ? "s" : ""} selected
+          </span>
+          <CustomButton
+            onClick={handleBulkDeleteClick}
+            variant="destructive"
+            size="sm"
+            className="flex items-center gap-2"
+          >
+            <Trash2 className="h-4 w-4" />
+            Delete Selected
+          </CustomButton>
+        </div>
+      )}
+
       {/* Products Table */}
       <DataTable
         columns={columns}
         data={Array.isArray(products) ? products : []}
         renderActions={renderActions}
         loading={loading}
+        selectable={true}
+        selectedRows={selectedProductIds}
+        onSelectionChange={handleSelectionChange}
+        getRowId={(row) => row.id}
         emptyState={{
           icon: Package,
           title: "No products found",
@@ -622,11 +683,16 @@ export default function Products() {
         }}
       />
 
-      {/* Pagination Info */}
+      {/* Pagination */}
       {pagination && pagination.total > 0 && (
-        <div className="mt-4 text-sm text-muted-foreground text-center">
-          Showing {products.length} of {pagination.total} products
-        </div>
+        <Pagination
+          currentPage={pagination.page || 1}
+          totalPages={pagination.totalPages || 1}
+          total={pagination.total || 0}
+          limit={pagination.limit || 10}
+          onPageChange={(page) => updateFilters({ page })}
+          disabled={loading}
+        />
       )}
 
       {/* Delete Confirmation Dialog */}
@@ -636,6 +702,22 @@ export default function Products() {
         onConfirm={handleDeleteConfirm}
         title="Delete Product"
         description={`Are you sure you want to delete "${productToDelete?.name}"? This action cannot be undone.`}
+        confirmText="Delete"
+        cancelText="Cancel"
+        variant="danger"
+      />
+
+      {/* Bulk Delete Confirmation Dialog */}
+      <CustomConfirmationDialog
+        isOpen={bulkDeleteDialogOpen}
+        onClose={handleBulkDeleteCancel}
+        onConfirm={handleBulkDeleteConfirm}
+        title="Delete Products"
+        description={`Are you sure you want to delete ${
+          selectedProductIds.length
+        } product${
+          selectedProductIds.length > 1 ? "s" : ""
+        }? This action cannot be undone.`}
         confirmText="Delete"
         cancelText="Cancel"
         variant="danger"

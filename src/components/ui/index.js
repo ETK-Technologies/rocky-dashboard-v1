@@ -6,6 +6,7 @@ export {
 } from "./CustomAvatar";
 export { CustomBadge } from "./CustomBadge";
 export { CustomButton } from "./CustomButton";
+export { Pagination } from "./Pagination";
 export {
   CustomCard,
   CustomCardHeader,
