@@ -2,7 +2,23 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Save, Plus, Trash2, X, Package } from "lucide-react";
+import {
+  ArrowLeft,
+  Save,
+  Plus,
+  Trash2,
+  X,
+  Package,
+  Info,
+  PackageCheck,
+  Truck,
+  Tag,
+  GitBranch,
+  Settings,
+  Repeat,
+  FileText,
+  Check,
+} from "lucide-react";
 import {
   CustomButton,
   PageContainer,
@@ -15,6 +31,11 @@ import {
   LoadingState,
   SingleImageUpload,
   MultiImageUpload,
+  TagsSelector,
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  TabsContent,
 } from "@/components/ui";
 import { useProductForm } from "../hooks/useProductForm";
 import { useCategories } from "@/features/categories/hooks/useCategories";
@@ -28,6 +49,8 @@ import { toast } from "react-toastify";
 import { Globe } from "lucide-react";
 import { productGlobalAttributeService } from "@/features/attributes/services/productGlobalAttributeService";
 import { productAttributeService } from "@/features/products/services/productAttributeService";
+import { tagService } from "@/features/products/services/tagService";
+import Image from "next/image";
 
 const PRODUCT_TYPES = [
   { value: "SIMPLE", label: "Simple Product" },
@@ -53,6 +76,12 @@ const TAX_STATUSES = [
   { value: "TAXABLE", label: "Taxable" },
   { value: "SHIPPING", label: "Shipping Only" },
   { value: "NONE", label: "None" },
+];
+
+const TAX_CLASSES = [
+  { value: "standard", label: "Standard" },
+  { value: "reduced-rate", label: "Reduced rate" },
+  { value: "zero-rate", label: "Zero rate" },
 ];
 
 const BACKORDER_OPTIONS = [
@@ -89,6 +118,8 @@ export default function ProductForm({ productId = null }) {
     trackInventory: false,
     stockQuantity: 0,
     lowStockThreshold: 0,
+    minCartQty: null,
+    maxCartQty: null,
     featured: false,
     virtual: false,
     downloadable: false,
@@ -118,12 +149,14 @@ export default function ProductForm({ productId = null }) {
 
   const [featuredImage, setFeaturedImage] = useState(null);
   const [galleryImages, setGalleryImages] = useState([]);
-  const [attributes, setAttributes] = useState([]); // For variable products variant generation
+  const [selectedTags, setSelectedTags] = useState([]); // Selected tags [{ id, name, slug }]
+  const [attributes, setAttributes] = useState([]); // Product attributes (for all products, used for variant generation in variable products)
   const [productGlobalAttributes, setProductGlobalAttributes] = useState([]); // Selected global attributes with values
   const [variants, setVariants] = useState([]);
   const [categoryIds, setCategoryIds] = useState([]);
   const [metadata, setMetadata] = useState([]);
   const [errors, setErrors] = useState({});
+  const [activeTab, setActiveTab] = useState("basic");
 
   // Ref to track if attributes have been loaded to prevent infinite loops
   const attributesLoadedRef = useRef(false);
@@ -145,6 +178,8 @@ export default function ProductForm({ productId = null }) {
         trackInventory: productData.trackInventory || false,
         stockQuantity: productData.stockQuantity || 0,
         lowStockThreshold: productData.lowStockThreshold || 0,
+        minCartQty: productData.minCartQty ?? null,
+        maxCartQty: productData.maxCartQty ?? null,
         featured: productData.featured || false,
         virtual: productData.virtual || false,
         downloadable: productData.downloadable || false,
@@ -179,26 +214,26 @@ export default function ProductForm({ productId = null }) {
           (img) => !(typeof img === "object" ? img.featured : false)
         );
 
-        // Set featured image (use found featured image or first image)
+        // Set Product image (use found Product image or first image)
         if (featuredImg) {
           setFeaturedImage(
             typeof featuredImg === "string" ? featuredImg : featuredImg.url
           );
         } else if (productData.images.length > 0) {
-          // Fallback to first image if no featured image is set
+          // Fallback to first image if no Product image is set
           const firstImage = productData.images[0];
           setFeaturedImage(
             typeof firstImage === "string" ? firstImage : firstImage.url
           );
         }
 
-        // Set gallery images (all non-featured images)
+        // Set Product gallery (all non-Product images)
         if (galleryImgs.length > 0) {
           setGalleryImages(
             galleryImgs.map((img) => (typeof img === "string" ? img : img.url))
           );
         } else if (featuredImg && productData.images.length > 1) {
-          // If we found a featured image, use the rest as gallery
+          // If we found a Product image, use the rest as gallery
           setGalleryImages(
             productData.images
               .filter((img) => {
@@ -213,6 +248,19 @@ export default function ProductForm({ productId = null }) {
           );
         }
       }
+
+      // Load tags from productData
+      if (productData.tags && Array.isArray(productData.tags)) {
+        // Tags might be in format [{ tag: { id, name, slug } }] or [{ id, name, slug }]
+        const tags = productData.tags.map((tagItem) => {
+          if (tagItem.tag) {
+            return tagItem.tag;
+          }
+          return tagItem;
+        });
+        setSelectedTags(tags);
+      }
+
       // Load inline attributes from productData (may be incomplete)
       // We'll fetch them separately via the dedicated endpoint to ensure completeness
       if (productData.attributes && !inlineAttributesLoadedRef.current) {
@@ -222,7 +270,71 @@ export default function ProductForm({ productId = null }) {
       // Note: Global attributes will be loaded separately via useProductGlobalAttributes hook
       // and merged into the display when they're fetched
 
-      if (productData.variants) setVariants(productData.variants);
+      if (productData.variants) {
+        // Parse variant names to extract attribute selections
+        const parsedVariants = productData.variants.map((variant) => {
+          const parsed = { ...variant };
+
+          // First try to get from variant.attributes array (preferred)
+          if (
+            variant.attributes &&
+            Array.isArray(variant.attributes) &&
+            variant.attributes.length > 0
+          ) {
+            // Get first attribute
+            if (variant.attributes[0]) {
+              parsed.attribute1Name = variant.attributes[0].name || "";
+              parsed.attribute1Value = variant.attributes[0].value || "";
+            }
+            // Get second attribute
+            if (variant.attributes[1]) {
+              parsed.attribute2Name = variant.attributes[1].name || "";
+              parsed.attribute2Value = variant.attributes[1].value || "";
+            }
+          } else if (variant.name) {
+            // Fallback: Parse variant name format: "Attribute1: Value1 | Attribute2: Value2"
+            const parts = variant.name
+              .split("|")
+              .map((part) => part.trim())
+              .filter(Boolean);
+
+            if (parts.length > 0) {
+              const part1 = parts[0];
+              const colonIndex1 = part1.indexOf(":");
+              if (colonIndex1 >= 0) {
+                parsed.attribute1Name = part1.substring(0, colonIndex1).trim();
+                parsed.attribute1Value = part1
+                  .substring(colonIndex1 + 1)
+                  .trim();
+              }
+
+              if (parts.length > 1) {
+                const part2 = parts[1];
+                const colonIndex2 = part2.indexOf(":");
+                if (colonIndex2 >= 0) {
+                  parsed.attribute2Name = part2
+                    .substring(0, colonIndex2)
+                    .trim();
+                  parsed.attribute2Value = part2
+                    .substring(colonIndex2 + 1)
+                    .trim();
+                }
+              }
+            }
+          }
+
+          // Ensure default values for settings
+          if (!parsed.status) parsed.status = "DRAFT";
+          if (parsed.featured === undefined) parsed.featured = false;
+          if (parsed.virtual === undefined) parsed.virtual = false;
+          if (parsed.downloadable === undefined) parsed.downloadable = false;
+          if (parsed.reviewsAllowed === undefined) parsed.reviewsAllowed = true;
+
+          return parsed;
+        });
+
+        setVariants(parsedVariants);
+      }
 
       // Handle categories - API returns categories array with categoryId field
       if (productData.categories && Array.isArray(productData.categories)) {
@@ -408,7 +520,7 @@ export default function ProductForm({ productId = null }) {
       },
     ]);
 
-    toast.success(`${globalAttr.name} added successfully`);
+    // Removed toast - attribute is added silently
   };
 
   // Update global attribute value
@@ -461,12 +573,12 @@ export default function ProductForm({ productId = null }) {
     );
   };
 
-  // Image handlers - now using separate featured and gallery images
+  // Image handlers - now using separate featured and Product gallery
 
   const addAttribute = () => {
     setAttributes((prev) => [
       ...prev,
-      { name: "", value: "", variation: true },
+      { name: "", value: "", visible: true, variation: false },
     ]);
   };
 
@@ -544,14 +656,96 @@ export default function ProductForm({ productId = null }) {
         stockQuantity: 0,
         manageStock: false,
         attributes: [],
+        // Per-variant settings
+        status: formValues.status || "DRAFT",
+        featured: false,
+        virtual: false,
+        downloadable: false,
+        reviewsAllowed: true,
+        // For variant name selection
+        attribute1Name: "",
+        attribute1Value: "",
+        attribute2Name: "",
+        attribute2Value: "",
       },
     ]);
+  };
+
+  // Get variation attributes (those marked for variations)
+  const getVariationAttributes = () => {
+    const variationAttrs = [];
+
+    // Get from inline attributes
+    attributes
+      .filter((attr) => attr.variation && attr.name && attr.value)
+      .forEach((attr) => {
+        const values = attr.value
+          .split(",")
+          .map((v) => v.trim())
+          .filter(Boolean);
+        if (values.length > 0) {
+          variationAttrs.push({
+            name: attr.name,
+            values: values,
+            source: "inline",
+          });
+        }
+      });
+
+    // Get from global attributes
+    productGlobalAttributes
+      .filter((attr) => attr.variation && attr.value)
+      .forEach((attr) => {
+        const globalAttr = attr.globalAttribute || {};
+        const values = attr.value
+          .split(",")
+          .map((v) => v.trim())
+          .filter(Boolean);
+        if (values.length > 0) {
+          variationAttrs.push({
+            name: globalAttr.name || attr.name,
+            values: values,
+            source: "global",
+          });
+        }
+      });
+
+    // Merge attributes with same name
+    const mergedMap = new Map();
+    variationAttrs.forEach((attr) => {
+      const key = attr.name.toLowerCase();
+      if (!mergedMap.has(key)) {
+        mergedMap.set(key, { name: attr.name, values: new Set() });
+      }
+      attr.values.forEach((v) => mergedMap.get(key).values.add(v));
+    });
+
+    return Array.from(mergedMap.values()).map((attr) => ({
+      name: attr.name,
+      values: Array.from(attr.values),
+    }));
   };
 
   const updateVariant = (index, field, value) => {
     setVariants((prev) => {
       const updated = [...prev];
       updated[index] = { ...updated[index], [field]: value };
+
+      // Auto-generate variant name when attribute selections change
+      if (field.startsWith("attribute")) {
+        const variant = updated[index];
+        const parts = [];
+
+        if (variant.attribute1Name && variant.attribute1Value) {
+          parts.push(`${variant.attribute1Name}: ${variant.attribute1Value}`);
+        }
+        if (variant.attribute2Name && variant.attribute2Value) {
+          parts.push(`${variant.attribute2Name}: ${variant.attribute2Value}`);
+        }
+
+        updated[index].name = parts.join(" | ");
+      }
+
       return updated;
     });
   };
@@ -588,8 +782,11 @@ export default function ProductForm({ productId = null }) {
       newErrors.slug = "Slug is required";
     }
 
-    if (!formValues.basePrice || parseFloat(formValues.basePrice) <= 0) {
-      newErrors.basePrice = "Valid base price is required";
+    // Only require base price for SIMPLE and SUBSCRIPTION products
+    if (formValues.type === "SIMPLE" || formValues.type === "SUBSCRIPTION") {
+      if (!formValues.basePrice || parseFloat(formValues.basePrice) <= 0) {
+        newErrors.basePrice = "Valid base price is required";
+      }
     }
 
     // Type-specific validation
@@ -626,6 +823,18 @@ export default function ProductForm({ productId = null }) {
         trackInventory: formValues.trackInventory,
         stockQuantity: parseInt(formValues.stockQuantity) || 0,
         lowStockThreshold: parseInt(formValues.lowStockThreshold) || 0,
+        minCartQty:
+          formValues.minCartQty !== null &&
+          formValues.minCartQty !== "" &&
+          !isNaN(parseInt(formValues.minCartQty))
+            ? parseInt(formValues.minCartQty)
+            : null,
+        maxCartQty:
+          formValues.maxCartQty !== null &&
+          formValues.maxCartQty !== "" &&
+          !isNaN(parseInt(formValues.maxCartQty))
+            ? parseInt(formValues.maxCartQty)
+            : null,
         featured: formValues.featured,
         virtual: formValues.virtual,
         downloadable: formValues.downloadable,
@@ -651,7 +860,7 @@ export default function ProductForm({ productId = null }) {
       if (formValues.width) submitData.width = parseFloat(formValues.width);
       if (formValues.height) submitData.height = parseFloat(formValues.height);
 
-      // Combine featured image and gallery images with featured flag
+      // Combine Product image and Product gallery with featured flag
       const allImages = [];
       if (featuredImage) {
         allImages.push({
@@ -794,6 +1003,17 @@ export default function ProductForm({ productId = null }) {
             if (variant.manageStock !== undefined)
               cleaned.manageStock = variant.manageStock;
             if (variant.imageUrl) cleaned.imageUrl = variant.imageUrl;
+
+            // Per-variant settings
+            if (variant.status) cleaned.status = variant.status;
+            if (variant.featured !== undefined)
+              cleaned.featured = variant.featured;
+            if (variant.virtual !== undefined)
+              cleaned.virtual = variant.virtual;
+            if (variant.downloadable !== undefined)
+              cleaned.downloadable = variant.downloadable;
+            if (variant.reviewsAllowed !== undefined)
+              cleaned.reviewsAllowed = variant.reviewsAllowed;
 
             // Subscription fields for variable subscription products
             if (formValues.type === "VARIABLE_SUBSCRIPTION") {
@@ -1013,6 +1233,27 @@ export default function ProductForm({ productId = null }) {
         }
       }
 
+      // Attach tags to product
+      if (productIdToUse && selectedTags.length > 0) {
+        try {
+          const tagIds = selectedTags.map((tag) => tag.id);
+          await tagService.attachToProduct(productIdToUse, tagIds);
+          console.log("✅ Tags attached successfully");
+        } catch (error) {
+          console.error("Failed to attach tags:", error);
+          toast.error("Product saved but failed to attach tags");
+        }
+      } else if (productIdToUse && selectedTags.length === 0) {
+        // If no tags selected, remove all tags by sending empty array
+        try {
+          await tagService.attachToProduct(productIdToUse, []);
+          console.log("✅ Tags removed successfully");
+        } catch (error) {
+          console.error("Failed to remove tags:", error);
+          // Don't show error for removing tags, it's not critical
+        }
+      }
+
       // Redirect to products list after everything is saved
       router.push("/dashboard/products");
     } catch (error) {
@@ -1032,9 +1273,9 @@ export default function ProductForm({ productId = null }) {
   const isVariableProduct =
     formValues.type === "VARIABLE" ||
     formValues.type === "VARIABLE_SUBSCRIPTION";
-  const hasSubscription =
-    formValues.type === "SUBSCRIPTION" ||
-    formValues.type === "VARIABLE_SUBSCRIPTION";
+  // Only show subscription tab for SUBSCRIPTION type, not VARIABLE_SUBSCRIPTION
+  // (VARIABLE_SUBSCRIPTION subscription data is handled in variants)
+  const hasSubscription = formValues.type === "SUBSCRIPTION";
   const isVariableSubscription = formValues.type === "VARIABLE_SUBSCRIPTION";
 
   return (
@@ -1061,526 +1302,899 @@ export default function ProductForm({ productId = null }) {
       />
 
       <form onSubmit={handleSubmit}>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Main Content */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Basic Information */}
-            <CustomCard>
-              <CustomCardContent className="pt-6">
-                <h3 className="text-lg font-semibold text-foreground mb-4">
-                  Basic Information
-                </h3>
-
-                <div className="space-y-4">
-                  <FormField
-                    id="name"
-                    name="name"
-                    label="Product Name"
-                    value={formValues.name}
-                    onChange={handleInputChange}
-                    error={errors.name}
-                    required
-                    placeholder="Enter product name"
-                    disabled={loading}
-                  />
-
-                  <FormField
-                    id="slug"
-                    name="slug"
-                    label="Slug"
-                    value={formValues.slug}
-                    onChange={handleInputChange}
-                    error={errors.slug}
-                    required
-                    placeholder="product-slug"
-                    helperText="URL-friendly version of the name"
-                    disabled={loading}
-                  />
-
-                  <div className="space-y-2">
-                    <CustomLabel htmlFor="description">Description</CustomLabel>
-                    <textarea
-                      id="description"
-                      name="description"
-                      value={formValues.description}
-                      onChange={handleInputChange}
-                      placeholder="Enter product description"
-                      disabled={loading}
-                      rows={4}
-                      className={cn(
-                        "flex w-full rounded-md border px-3 py-2 text-sm transition-colors",
-                        "bg-white text-gray-900 border-gray-300",
-                        "placeholder:text-gray-500",
-                        "dark:bg-gray-800 dark:text-gray-100 dark:border-gray-600",
-                        "dark:placeholder:text-gray-400",
-                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
-                        "focus-visible:ring-blue-500 dark:focus-visible:ring-blue-400",
-                        "focus-visible:border-blue-500 dark:focus-visible:border-blue-400",
-                        "disabled:cursor-not-allowed disabled:opacity-50"
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          {/* Main Content with Tabs */}
+          <div className="lg:col-span-3">
+            <Tabs
+              value={activeTab}
+              onValueChange={setActiveTab}
+              className="w-full"
+            >
+              <div className="flex flex-col lg:flex-row gap-6">
+                {/* Left Sidebar - Tabs List */}
+                <div className="lg:w-[200px] flex-shrink-0 lg:sticky lg:top-6 lg:self-start">
+                  <TabsList
+                    orientation="vertical"
+                    className="w-full hidden lg:block"
+                  >
+                    <div className="flex flex-col gap-2 w-full">
+                      <TabsTrigger value="basic" icon={Info}>
+                        Basic Info
+                      </TabsTrigger>
+                      <TabsTrigger value="inventory" icon={PackageCheck}>
+                        Inventory
+                      </TabsTrigger>
+                      <TabsTrigger value="shipping" icon={Truck}>
+                        Shipping
+                      </TabsTrigger>
+                      <TabsTrigger value="attributes" icon={Tag}>
+                        Attributes
+                      </TabsTrigger>
+                      {isVariableProduct && (
+                        <TabsTrigger value="variants" icon={GitBranch}>
+                          Variants
+                        </TabsTrigger>
                       )}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <CustomLabel htmlFor="shortDescription">
-                      Short Description
-                    </CustomLabel>
-                    <textarea
-                      id="shortDescription"
-                      name="shortDescription"
-                      value={formValues.shortDescription}
-                      onChange={handleInputChange}
-                      placeholder="Enter short description"
-                      disabled={loading}
-                      rows={2}
-                      className={cn(
-                        "flex w-full rounded-md border px-3 py-2 text-sm transition-colors",
-                        "bg-white text-gray-900 border-gray-300",
-                        "placeholder:text-gray-500",
-                        "dark:bg-gray-800 dark:text-gray-100 dark:border-gray-600",
-                        "dark:placeholder:text-gray-400",
-                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
-                        "focus-visible:ring-blue-500 dark:focus-visible:ring-blue-400",
-                        "focus-visible:border-blue-500 dark:focus-visible:border-blue-400",
-                        "disabled:cursor-not-allowed disabled:opacity-50"
+                      {hasSubscription && (
+                        <TabsTrigger value="subscription" icon={Repeat}>
+                          Subscription
+                        </TabsTrigger>
                       )}
-                    />
-                  </div>
-                </div>
-              </CustomCardContent>
-            </CustomCard>
-
-            {/* Pricing */}
-            <CustomCard>
-              <CustomCardContent className="pt-6">
-                <h3 className="text-lg font-semibold text-foreground mb-4">
-                  Pricing
-                </h3>
-
-                <div className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <FormField
-                      id="basePrice"
-                      name="basePrice"
-                      label="Base Price"
-                      type="number"
-                      step="0.01"
-                      value={formValues.basePrice}
-                      onChange={handleInputChange}
-                      error={errors.basePrice}
-                      required
-                      placeholder="0.00"
-                      disabled={loading}
-                    />
-
-                    <FormField
-                      id="salePrice"
-                      name="salePrice"
-                      label="Sale Price"
-                      type="number"
-                      step="0.01"
-                      value={formValues.salePrice}
-                      onChange={handleInputChange}
-                      placeholder="0.00"
-                      disabled={loading}
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <CustomLabel htmlFor="taxStatus">Tax Status</CustomLabel>
-                      <select
-                        id="taxStatus"
-                        name="taxStatus"
-                        value={formValues.taxStatus}
-                        onChange={handleInputChange}
-                        disabled={loading}
-                        className={cn(
-                          "flex h-10 w-full rounded-md border px-3 py-2 text-sm transition-colors",
-                          "bg-white text-gray-900 border-gray-300",
-                          "dark:bg-gray-800 dark:text-gray-100 dark:border-gray-600",
-                          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
-                          "focus-visible:ring-blue-500 dark:focus-visible:ring-blue-400"
-                        )}
-                      >
-                        {TAX_STATUSES.map((status) => (
-                          <option key={status.value} value={status.value}>
-                            {status.label}
-                          </option>
-                        ))}
-                      </select>
+                      <TabsTrigger value="additional" icon={FileText}>
+                        Additional
+                      </TabsTrigger>
                     </div>
-
-                    <FormField
-                      id="taxClass"
-                      name="taxClass"
-                      label="Tax Class"
-                      value={formValues.taxClass}
-                      onChange={handleInputChange}
-                      placeholder="standard"
-                      disabled={loading}
-                    />
-                  </div>
-                </div>
-              </CustomCardContent>
-            </CustomCard>
-
-            {/* Product Type */}
-            <CustomCard>
-              <CustomCardContent className="pt-6">
-                <h3 className="text-lg font-semibold text-foreground mb-4">
-                  Product Type
-                </h3>
-
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <CustomLabel htmlFor="type" required>
-                      Type
-                    </CustomLabel>
-                    <select
-                      id="type"
-                      name="type"
-                      value={formValues.type}
-                      onChange={handleInputChange}
-                      disabled={loading || isEditMode}
-                      className={cn(
-                        "flex h-10 w-full rounded-md border px-3 py-2 text-sm transition-colors",
-                        "bg-white text-gray-900 border-gray-300",
-                        "dark:bg-gray-800 dark:text-gray-100 dark:border-gray-600",
-                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
-                        "focus-visible:ring-blue-500 dark:focus-visible:ring-blue-400",
-                        "disabled:cursor-not-allowed disabled:opacity-50"
+                  </TabsList>
+                  {/* Mobile: Horizontal tabs */}
+                  <TabsList
+                    orientation="horizontal"
+                    className="w-full lg:hidden mb-4"
+                  >
+                    <div className="flex flex-row gap-2 w-full overflow-x-auto">
+                      <TabsTrigger value="basic" icon={Info}>
+                        Basic
+                      </TabsTrigger>
+                      <TabsTrigger value="inventory" icon={PackageCheck}>
+                        Inventory
+                      </TabsTrigger>
+                      <TabsTrigger value="shipping" icon={Truck}>
+                        Shipping
+                      </TabsTrigger>
+                      <TabsTrigger value="attributes" icon={Tag}>
+                        Attributes
+                      </TabsTrigger>
+                      {isVariableProduct && (
+                        <TabsTrigger value="variants" icon={GitBranch}>
+                          Variants
+                        </TabsTrigger>
                       )}
-                    >
-                      {PRODUCT_TYPES.map((type) => (
-                        <option key={type.value} value={type.value}>
-                          {type.label}
-                        </option>
-                      ))}
-                    </select>
-                    {isEditMode && (
-                      <p className="text-xs text-gray-600 dark:text-gray-400">
-                        Product type cannot be changed after creation
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </CustomCardContent>
-            </CustomCard>
-
-            {/* Subscription Settings */}
-            {hasSubscription && (
-              <CustomCard>
-                <CustomCardContent className="pt-6">
-                  <h3 className="text-lg font-semibold text-foreground mb-4">
-                    Subscription Settings
-                  </h3>
-
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <CustomLabel htmlFor="subscriptionPeriod">
-                          Billing Period
-                        </CustomLabel>
-                        <select
-                          id="subscriptionPeriod"
-                          name="subscriptionPeriod"
-                          value={formValues.subscriptionPeriod}
-                          onChange={handleInputChange}
-                          disabled={loading}
-                          className={cn(
-                            "flex h-10 w-full rounded-md border px-3 py-2 text-sm transition-colors",
-                            "bg-white text-gray-900 border-gray-300",
-                            "dark:bg-gray-800 dark:text-gray-100 dark:border-gray-600",
-                            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
-                            "focus-visible:ring-blue-500 dark:focus-visible:ring-blue-400"
-                          )}
-                        >
-                          {SUBSCRIPTION_PERIODS.map((period) => (
-                            <option key={period.value} value={period.value}>
-                              {period.label}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <FormField
-                        id="subscriptionInterval"
-                        name="subscriptionInterval"
-                        label="Billing Interval"
-                        type="number"
-                        min="1"
-                        value={formValues.subscriptionInterval}
-                        onChange={handleInputChange}
-                        helperText="Bill every N period(s)"
-                        disabled={loading}
-                      />
-
-                      <FormField
-                        id="subscriptionSignUpFee"
-                        name="subscriptionSignUpFee"
-                        label="Sign-up Fee"
-                        type="number"
-                        step="0.01"
-                        value={formValues.subscriptionSignUpFee}
-                        onChange={handleInputChange}
-                        placeholder="0.00"
-                        disabled={loading}
-                      />
-
-                      <FormField
-                        id="subscriptionLength"
-                        name="subscriptionLength"
-                        label="Subscription Length"
-                        type="number"
-                        min="0"
-                        value={formValues.subscriptionLength}
-                        onChange={handleInputChange}
-                        helperText="0 = never expires"
-                        disabled={loading}
-                      />
-
-                      <FormField
-                        id="subscriptionTrialLength"
-                        name="subscriptionTrialLength"
-                        label="Trial Length"
-                        type="number"
-                        min="0"
-                        value={formValues.subscriptionTrialLength}
-                        onChange={handleInputChange}
-                        disabled={loading}
-                      />
-
-                      <div className="space-y-2">
-                        <CustomLabel htmlFor="subscriptionTrialPeriod">
-                          Trial Period
-                        </CustomLabel>
-                        <select
-                          id="subscriptionTrialPeriod"
-                          name="subscriptionTrialPeriod"
-                          value={formValues.subscriptionTrialPeriod}
-                          onChange={handleInputChange}
-                          disabled={loading}
-                          className={cn(
-                            "flex h-10 w-full rounded-md border px-3 py-2 text-sm transition-colors",
-                            "bg-white text-gray-900 border-gray-300",
-                            "dark:bg-gray-800 dark:text-gray-100 dark:border-gray-600",
-                            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
-                            "focus-visible:ring-blue-500 dark:focus-visible:ring-blue-400"
-                          )}
-                        >
-                          {SUBSCRIPTION_PERIODS.map((period) => (
-                            <option key={period.value} value={period.value}>
-                              {period.label}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
-                  </div>
-                </CustomCardContent>
-              </CustomCard>
-            )}
-
-            {/* Global Attributes - Only for VARIABLE and VARIABLE_SUBSCRIPTION products */}
-            {(formValues.type === "VARIABLE" ||
-              formValues.type === "VARIABLE_SUBSCRIPTION") && (
-              <CustomCard>
-                <CustomCardContent className="pt-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-semibold text-foreground">
-                      Global Attributes
-                    </h3>
-                  </div>
-
-                  <div className="space-y-4">
-                    {/* Add Global Attribute */}
-                    <div className="space-y-2">
-                      <CustomLabel>Add Global Attribute</CustomLabel>
-                      <div className="flex gap-2">
-                        <select
-                          value=""
-                          onChange={(e) => {
-                            if (e.target.value) {
-                              handleAddGlobalAttribute(e.target.value);
-                              e.target.value = "";
-                            }
-                          }}
-                          disabled={loading || globalAttributesLoading}
-                          className={cn(
-                            "flex-1 h-10 rounded-md border px-3 py-2 text-sm transition-colors",
-                            "bg-white text-gray-900 border-gray-300",
-                            "dark:bg-gray-800 dark:text-gray-100 dark:border-gray-600",
-                            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
-                            "focus-visible:ring-blue-500 dark:focus-visible:ring-blue-400",
-                            "disabled:cursor-not-allowed disabled:opacity-50"
-                          )}
-                        >
-                          <option value="">Select a global attribute...</option>
-                          {globalAttributes
-                            .filter(
-                              (ga) =>
-                                !productGlobalAttributes.some(
-                                  (pga) => pga.globalAttributeId === ga.id
-                                )
-                            )
-                            .map((attr) => (
-                              <option key={attr.id} value={attr.id}>
-                                {attr.name}
-                                {attr.description && ` - ${attr.description}`}
-                              </option>
-                            ))}
-                        </select>
-                      </div>
-                      {globalAttributes.length === 0 && (
-                        <p className="text-sm text-muted-foreground">
-                          No global attributes available. Go to Global
-                          Attributes page to create one.
-                        </p>
+                      {hasSubscription && (
+                        <TabsTrigger value="subscription" icon={Repeat}>
+                          Subscription
+                        </TabsTrigger>
                       )}
+                      <TabsTrigger value="additional" icon={FileText}>
+                        Additional
+                      </TabsTrigger>
                     </div>
+                  </TabsList>
+                </div>
 
-                    {/* Selected Global Attributes */}
-                    <div className="space-y-3">
-                      <CustomLabel>Assigned Attributes</CustomLabel>
-                      {productGlobalAttributes.length === 0 ? (
-                        <p className="text-sm text-muted-foreground py-4 text-center">
-                          No attributes assigned yet. Select an attribute from
-                          the dropdown above.
-                        </p>
-                      ) : (
-                        productGlobalAttributes.map((attr, index) => {
-                          const globalAttr = attr.globalAttribute || {};
-                          return (
-                            <div
-                              key={`${attr.globalAttributeId}-${index}`}
-                              className="p-3 border border-border rounded-lg space-y-2"
+                {/* Tab Content */}
+                <div className="flex-1 min-w-0">
+                  {/* Basic Info & Product Type Tab */}
+                  <TabsContent value="basic" className="space-y-6">
+                    {/* Basic Information */}
+                    <CustomCard>
+                      <CustomCardContent className="pt-6">
+                        <h3 className="text-lg font-semibold text-foreground mb-4">
+                          Basic Information
+                        </h3>
+
+                        <div className="space-y-4">
+                          <FormField
+                            id="name"
+                            name="name"
+                            label="Product Name"
+                            value={formValues.name}
+                            onChange={handleInputChange}
+                            error={errors.name}
+                            required
+                            placeholder="Enter product name"
+                            disabled={loading}
+                          />
+
+                          <FormField
+                            id="slug"
+                            name="slug"
+                            label="Slug"
+                            value={formValues.slug}
+                            onChange={handleInputChange}
+                            error={errors.slug}
+                            required
+                            placeholder="product-slug"
+                            helperText="URL-friendly version of the name"
+                            disabled={loading}
+                          />
+
+                          <div className="space-y-2">
+                            <CustomLabel htmlFor="description">
+                              Description
+                            </CustomLabel>
+                            <textarea
+                              id="description"
+                              name="description"
+                              value={formValues.description}
+                              onChange={handleInputChange}
+                              placeholder="Enter product description"
+                              disabled={loading}
+                              rows={4}
+                              className={cn(
+                                "flex w-full rounded-md border px-3 py-2 text-sm transition-colors",
+                                "bg-white text-gray-900 border-gray-300",
+                                "placeholder:text-gray-500",
+                                "dark:bg-gray-800 dark:text-gray-100 dark:border-gray-600",
+                                "dark:placeholder:text-gray-400",
+                                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
+                                "focus-visible:ring-blue-500 dark:focus-visible:ring-blue-400",
+                                "focus-visible:border-blue-500 dark:focus-visible:border-blue-400",
+                                "disabled:cursor-not-allowed disabled:opacity-50"
+                              )}
+                            />
+                          </div>
+
+                          <div className="space-y-2">
+                            <CustomLabel htmlFor="shortDescription">
+                              Short Description
+                            </CustomLabel>
+                            <textarea
+                              id="shortDescription"
+                              name="shortDescription"
+                              value={formValues.shortDescription}
+                              onChange={handleInputChange}
+                              placeholder="Enter short description"
+                              disabled={loading}
+                              rows={2}
+                              className={cn(
+                                "flex w-full rounded-md border px-3 py-2 text-sm transition-colors",
+                                "bg-white text-gray-900 border-gray-300",
+                                "placeholder:text-gray-500",
+                                "dark:bg-gray-800 dark:text-gray-100 dark:border-gray-600",
+                                "dark:placeholder:text-gray-400",
+                                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
+                                "focus-visible:ring-blue-500 dark:focus-visible:ring-blue-400",
+                                "focus-visible:border-blue-500 dark:focus-visible:border-blue-400",
+                                "disabled:cursor-not-allowed disabled:opacity-50"
+                              )}
+                            />
+                          </div>
+                        </div>
+                      </CustomCardContent>
+                    </CustomCard>
+
+                    {/* Product Type */}
+                    <CustomCard>
+                      <CustomCardContent className="pt-6">
+                        <h3 className="text-lg font-semibold text-foreground mb-4">
+                          Product Type
+                        </h3>
+
+                        <div className="space-y-4">
+                          <div className="space-y-2">
+                            <CustomLabel htmlFor="type" required>
+                              Type
+                            </CustomLabel>
+                            <select
+                              id="type"
+                              name="type"
+                              value={formValues.type}
+                              onChange={handleInputChange}
+                              disabled={loading || isEditMode}
+                              className={cn(
+                                "flex h-10 w-full rounded-md border px-3 py-2 text-sm transition-colors",
+                                "bg-white text-gray-900 border-gray-300",
+                                "dark:bg-gray-800 dark:text-gray-100 dark:border-gray-600",
+                                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
+                                "focus-visible:ring-blue-500 dark:focus-visible:ring-blue-400",
+                                "disabled:cursor-not-allowed disabled:opacity-50"
+                              )}
                             >
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                  <Globe className="h-4 w-4 text-muted-foreground" />
-                                  <span className="font-medium">
-                                    {globalAttr.name || "Unknown"}
-                                  </span>
-                                  {globalAttr.description && (
-                                    <span className="text-xs text-muted-foreground">
-                                      ({globalAttr.description})
-                                    </span>
-                                  )}
-                                </div>
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    handleRemoveGlobalAttribute(index)
-                                  }
-                                  disabled={loading}
-                                  className="p-1 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-red-600"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </button>
-                              </div>
-                              <CustomInput
-                                placeholder={`Enter value for ${globalAttr.name}`}
-                                value={attr.value}
-                                onChange={(e) =>
-                                  handleUpdateGlobalAttribute(
-                                    index,
-                                    "value",
-                                    e.target.value
-                                  )
-                                }
+                              {PRODUCT_TYPES.map((type) => (
+                                <option key={type.value} value={type.value}>
+                                  {type.label}
+                                </option>
+                              ))}
+                            </select>
+                            {isEditMode && (
+                              <p className="text-xs text-gray-600 dark:text-gray-400">
+                                Product type cannot be changed after creation
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </CustomCardContent>
+                    </CustomCard>
+
+                    {/* Pricing - Only for SIMPLE products */}
+                    {formValues.type === "SIMPLE" && (
+                      <CustomCard>
+                        <CustomCardContent className="pt-6">
+                          <h3 className="text-lg font-semibold text-foreground mb-4">
+                            Pricing
+                          </h3>
+
+                          <div className="space-y-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <FormField
+                                id="basePrice"
+                                name="basePrice"
+                                label="Base Price"
+                                type="number"
+                                step="0.01"
+                                value={formValues.basePrice}
+                                onChange={handleInputChange}
+                                error={errors.basePrice}
+                                required
+                                placeholder="0.00"
                                 disabled={loading}
                               />
-                              <div className="flex items-center gap-4 text-sm">
-                                <label className="flex items-center gap-2 cursor-pointer">
+
+                              <FormField
+                                id="salePrice"
+                                name="salePrice"
+                                label="Sale Price"
+                                type="number"
+                                step="0.01"
+                                value={formValues.salePrice}
+                                onChange={handleInputChange}
+                                placeholder="0.00"
+                                disabled={loading}
+                              />
+                            </div>
+                          </div>
+                        </CustomCardContent>
+                      </CustomCard>
+                    )}
+
+                    {/* Tax Settings - For all product types */}
+                    <CustomCard>
+                      <CustomCardContent className="pt-6">
+                        <h3 className="text-lg font-semibold text-foreground mb-4">
+                          Tax Settings
+                        </h3>
+
+                        <div className="space-y-4">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <CustomLabel htmlFor="taxStatus">
+                                Tax Status
+                              </CustomLabel>
+                              <select
+                                id="taxStatus"
+                                name="taxStatus"
+                                value={formValues.taxStatus}
+                                onChange={handleInputChange}
+                                disabled={loading}
+                                className={cn(
+                                  "flex h-10 w-full rounded-md border px-3 py-2 text-sm transition-colors",
+                                  "bg-white text-gray-900 border-gray-300",
+                                  "dark:bg-gray-800 dark:text-gray-100 dark:border-gray-600",
+                                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
+                                  "focus-visible:ring-blue-500 dark:focus-visible:ring-blue-400"
+                                )}
+                              >
+                                {TAX_STATUSES.map((status) => (
+                                  <option
+                                    key={status.value}
+                                    value={status.value}
+                                  >
+                                    {status.label}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+
+                            <div className="space-y-2">
+                              <CustomLabel htmlFor="taxClass">
+                                Tax Class
+                              </CustomLabel>
+                              <select
+                                id="taxClass"
+                                name="taxClass"
+                                value={formValues.taxClass}
+                                onChange={handleInputChange}
+                                disabled={loading}
+                                className={cn(
+                                  "flex h-10 w-full rounded-md border px-3 py-2 text-sm transition-colors",
+                                  "bg-white text-gray-900 border-gray-300",
+                                  "dark:bg-gray-800 dark:text-gray-100 dark:border-gray-600",
+                                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
+                                  "focus-visible:ring-blue-500 dark:focus-visible:ring-blue-400"
+                                )}
+                              >
+                                {TAX_CLASSES.map((taxClass) => (
+                                  <option
+                                    key={taxClass.value}
+                                    value={taxClass.value}
+                                  >
+                                    {taxClass.label}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          </div>
+                        </div>
+                      </CustomCardContent>
+                    </CustomCard>
+
+                    {/* Categories - For all product types */}
+                    <CustomCard>
+                      <CustomCardContent className="pt-6">
+                        <h3 className="text-lg font-semibold text-foreground mb-4">
+                          Categories
+                        </h3>
+
+                        {categories.length === 0 ? (
+                          <p className="text-sm text-muted-foreground text-center py-8">
+                            No categories available
+                          </p>
+                        ) : (
+                          <div className="space-y-4">
+                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                              {categories.map((category) => (
+                                <label
+                                  key={category.id}
+                                  className={cn(
+                                    "group relative flex flex-col items-center rounded-lg border-2 cursor-pointer transition-all overflow-hidden",
+                                    "hover:border-blue-400 hover:shadow-md",
+                                    categoryIds.includes(category.id)
+                                      ? "border-blue-500 shadow-md ring-2 ring-blue-200 dark:ring-blue-800"
+                                      : "border-gray-200 dark:border-gray-700"
+                                  )}
+                                >
                                   <input
                                     type="checkbox"
-                                    checked={attr.visible}
-                                    onChange={(e) =>
-                                      handleUpdateGlobalAttribute(
-                                        index,
-                                        "visible",
-                                        e.target.checked
-                                      )
+                                    checked={categoryIds.includes(category.id)}
+                                    onChange={() =>
+                                      handleCategoryToggle(category.id)
                                     }
-                                    className="h-4 w-4 rounded border-gray-300"
+                                    className="sr-only"
+                                  />
+                                  {/* Image Container */}
+                                  <div
+                                    className={cn(
+                                      "w-full aspect-square relative overflow-hidden bg-gray-100 dark:bg-gray-800",
+                                      "flex items-center justify-center"
+                                    )}
+                                  >
+                                    {category.image ? (
+                                      <img
+                                        src={category.image}
+                                        alt={category.name}
+                                        className="w-full h-full object-cover transition-transform group-hover:scale-105"
+                                      />
+                                    ) : (
+                                      <Package className="h-12 w-12 text-gray-400 dark:text-gray-500" />
+                                    )}
+                                    {/* Selected Overlay */}
+                                    {categoryIds.includes(category.id) && (
+                                      <div className="absolute inset-0 bg-blue-500/20 flex items-center justify-center">
+                                        <div className="bg-blue-600 rounded-full p-2 shadow-lg">
+                                          <Check className="h-5 w-5 text-white" />
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                  {/* Category Name */}
+                                  <div className="w-full p-3 bg-white dark:bg-gray-800 text-center">
+                                    <span
+                                      className={cn(
+                                        "text-sm font-medium block truncate",
+                                        categoryIds.includes(category.id)
+                                          ? "text-blue-600 dark:text-blue-400"
+                                          : "text-foreground"
+                                      )}
+                                    >
+                                      {category.name}
+                                    </span>
+                                  </div>
+                                </label>
+                              ))}
+                            </div>
+                            {categoryIds.length > 0 && (
+                              <p className="text-sm text-muted-foreground text-center pt-2">
+                                {categoryIds.length} categor
+                                {categoryIds.length === 1 ? "y" : "ies"}{" "}
+                                selected
+                              </p>
+                            )}
+                          </div>
+                        )}
+                      </CustomCardContent>
+                    </CustomCard>
+                  </TabsContent>
+
+                  {/* Inventory Tab */}
+                  <TabsContent value="inventory" className="space-y-6">
+                    {/* Inventory */}
+                    <CustomCard>
+                      <CustomCardContent className="pt-6">
+                        <h3 className="text-lg font-semibold text-foreground mb-4">
+                          Inventory
+                        </h3>
+
+                        <div className="space-y-4">
+                          <FormField
+                            id="sku"
+                            name="sku"
+                            label="SKU"
+                            value={formValues.sku}
+                            onChange={handleInputChange}
+                            placeholder="Product SKU"
+                            disabled={loading}
+                          />
+
+                          <div className="space-y-2">
+                            <label className="flex items-center gap-2">
+                              <input
+                                type="checkbox"
+                                name="trackInventory"
+                                checked={formValues.trackInventory}
+                                onChange={handleInputChange}
+                                disabled={loading}
+                                className="rounded border-gray-300 dark:border-gray-600"
+                              />
+                              <span className="text-sm font-medium">
+                                Track inventory
+                              </span>
+                            </label>
+                          </div>
+
+                          {formValues.trackInventory && (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <FormField
+                                id="stockQuantity"
+                                name="stockQuantity"
+                                label="Stock Quantity"
+                                type="number"
+                                value={formValues.stockQuantity}
+                                onChange={handleInputChange}
+                                disabled={loading}
+                              />
+
+                              <FormField
+                                id="lowStockThreshold"
+                                name="lowStockThreshold"
+                                label="Low Stock Threshold"
+                                type="number"
+                                value={formValues.lowStockThreshold}
+                                onChange={handleInputChange}
+                                disabled={loading}
+                              />
+                            </div>
+                          )}
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <FormField
+                              id="minCartQty"
+                              name="minCartQty"
+                              label="Minimum Cart Quantity"
+                              type="number"
+                              value={formValues.minCartQty ?? ""}
+                              onChange={handleInputChange}
+                              disabled={loading}
+                              helperText="Minimum quantity required in cart (leave empty for no limit)"
+                            />
+
+                            <FormField
+                              id="maxCartQty"
+                              name="maxCartQty"
+                              label="Maximum Cart Quantity"
+                              type="number"
+                              value={formValues.maxCartQty ?? ""}
+                              onChange={handleInputChange}
+                              disabled={loading}
+                              helperText="Maximum quantity allowed in cart (leave empty for no limit)"
+                            />
+                          </div>
+
+                          <div className="space-y-2">
+                            <CustomLabel htmlFor="backorders">
+                              Allow backorders?
+                            </CustomLabel>
+                            <select
+                              id="backorders"
+                              name="backorders"
+                              value={formValues.backorders}
+                              onChange={handleInputChange}
+                              disabled={loading}
+                              className={cn(
+                                "flex h-10 w-full rounded-md border px-3 py-2 text-sm transition-colors",
+                                "bg-white text-gray-900 border-gray-300",
+                                "dark:bg-gray-800 dark:text-gray-100 dark:border-gray-600",
+                                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
+                                "focus-visible:ring-blue-500 dark:focus-visible:ring-blue-400"
+                              )}
+                            >
+                              {BACKORDER_OPTIONS.map((option) => (
+                                <option key={option.value} value={option.value}>
+                                  {option.label}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+                      </CustomCardContent>
+                    </CustomCard>
+                  </TabsContent>
+
+                  {/* Shipping Tab */}
+                  <TabsContent value="shipping" className="space-y-6">
+                    {/* Shipping */}
+                    <CustomCard>
+                      <CustomCardContent className="pt-6">
+                        <h3 className="text-lg font-semibold text-foreground mb-4">
+                          Shipping
+                        </h3>
+
+                        <div className="space-y-4">
+                          <div className="space-y-3">
+                            <label className="flex items-center gap-2">
+                              <input
+                                type="checkbox"
+                                name="shippingRequired"
+                                checked={formValues.shippingRequired}
+                                onChange={handleInputChange}
+                                disabled={loading}
+                                className="rounded border-gray-300 dark:border-gray-600"
+                              />
+                              <span className="text-sm font-medium">
+                                This product requires shipping
+                              </span>
+                            </label>
+                          </div>
+
+                          {formValues.shippingRequired && (
+                            <>
+                              <FormField
+                                id="shippingClass"
+                                name="shippingClass"
+                                label="Shipping Class"
+                                value={formValues.shippingClass}
+                                onChange={handleInputChange}
+                                placeholder="e.g., prescriptions"
+                                disabled={loading}
+                              />
+
+                              <FormField
+                                id="weight"
+                                name="weight"
+                                label="Weight (kg)"
+                                type="number"
+                                step="0.01"
+                                value={formValues.weight}
+                                onChange={handleInputChange}
+                                placeholder="0.00"
+                                disabled={loading}
+                              />
+
+                              <div className="space-y-2">
+                                <CustomLabel>Dimensions (cm)</CustomLabel>
+                                <div className="grid grid-cols-3 gap-2">
+                                  <FormField
+                                    id="length"
+                                    label="Length"
+                                    type="number"
+                                    step="0.01"
+                                    name="length"
+                                    value={formValues.length}
+                                    onChange={handleInputChange}
                                     disabled={loading}
                                   />
-                                  <span>Visible</span>
-                                </label>
-                                <label className="flex items-center gap-2 cursor-pointer">
-                                  <input
-                                    type="checkbox"
-                                    checked={attr.variation}
-                                    onChange={(e) =>
-                                      handleUpdateGlobalAttribute(
-                                        index,
-                                        "variation",
-                                        e.target.checked
-                                      )
-                                    }
-                                    className="h-4 w-4 rounded border-gray-300"
+                                  <FormField
+                                    id="width"
+                                    label="Width"
+                                    type="number"
+                                    step="0.01"
+                                    name="width"
+                                    value={formValues.width}
+                                    onChange={handleInputChange}
                                     disabled={loading}
                                   />
-                                  <span>Used for Variations</span>
-                                </label>
+                                  <FormField
+                                    id="height"
+                                    label="Height"
+                                    type="number"
+                                    step="0.01"
+                                    name="height"
+                                    value={formValues.height}
+                                    onChange={handleInputChange}
+                                    disabled={loading}
+                                  />
+                                </div>
                               </div>
-                              {isVariableProduct &&
-                                attr.variation &&
-                                attr.value &&
-                                attr.value.trim() && (
-                                  <div className="mt-2">
-                                    <CustomButton
-                                      type="button"
-                                      size="sm"
-                                      variant="outline"
-                                      onClick={() =>
-                                        handleAddGlobalToVariants(index)
+                            </>
+                          )}
+                        </div>
+                      </CustomCardContent>
+                    </CustomCard>
+                  </TabsContent>
+
+                  {/* Attributes Tab */}
+                  <TabsContent value="attributes" className="space-y-6">
+                    {/* Product Attributes - For all product types */}
+                    <CustomCard>
+                      <CustomCardContent className="pt-6">
+                        <div className="flex items-center justify-between mb-4">
+                          <h3 className="text-lg font-semibold text-foreground">
+                            Product Attributes
+                          </h3>
+                        </div>
+
+                        <div className="space-y-4">
+                          {/* Add Attribute */}
+                          <div className="space-y-2">
+                            <CustomLabel>Add Attribute</CustomLabel>
+                            <div className="flex gap-2">
+                              <CustomButton
+                                type="button"
+                                variant="outline"
+                                onClick={addAttribute}
+                                disabled={loading}
+                                className="flex-shrink-0"
+                              >
+                                <Plus className="h-4 w-4 mr-2" />
+                                New
+                              </CustomButton>
+                              <select
+                                value=""
+                                onChange={(e) => {
+                                  if (e.target.value) {
+                                    handleAddGlobalAttribute(e.target.value);
+                                    e.target.value = "";
+                                  }
+                                }}
+                                disabled={loading || globalAttributesLoading}
+                                className={cn(
+                                  "flex-1 h-10 rounded-md border px-3 py-2 text-sm transition-colors",
+                                  "bg-white text-gray-900 border-gray-300",
+                                  "dark:bg-gray-800 dark:text-gray-100 dark:border-gray-600",
+                                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
+                                  "focus-visible:ring-blue-500 dark:focus-visible:ring-blue-400",
+                                  "disabled:cursor-not-allowed disabled:opacity-50"
+                                )}
+                              >
+                                <option value="">Add existing...</option>
+                                {globalAttributes
+                                  .filter(
+                                    (ga) =>
+                                      !productGlobalAttributes.some(
+                                        (pga) => pga.globalAttributeId === ga.id
+                                      )
+                                  )
+                                  .map((attr) => (
+                                    <option key={attr.id} value={attr.id}>
+                                      {attr.name}
+                                      {attr.description &&
+                                        ` - ${attr.description}`}
+                                    </option>
+                                  ))}
+                              </select>
+                            </div>
+                          </div>
+
+                          {/* Assigned Attributes - Global and Inline */}
+                          {(productGlobalAttributes.length > 0 ||
+                            attributes.length > 0) && (
+                            <div className="space-y-3">
+                              <CustomLabel>Assigned Attributes</CustomLabel>
+                              {errors.attributes && (
+                                <p className="text-sm text-red-600 mb-4">
+                                  {errors.attributes}
+                                </p>
+                              )}
+
+                              {/* Global Attributes */}
+                              {productGlobalAttributes.map((attr, index) => {
+                                const globalAttr = attr.globalAttribute || {};
+                                return (
+                                  <div
+                                    key={`global-${attr.globalAttributeId}-${index}`}
+                                    className="p-3 border border-border rounded-lg space-y-2"
+                                  >
+                                    <div className="flex items-center justify-between">
+                                      <div className="flex items-center gap-2">
+                                        <Globe className="h-4 w-4 text-muted-foreground" />
+                                        <span className="font-medium">
+                                          {globalAttr.name || "Unknown"}
+                                        </span>
+                                        {globalAttr.description && (
+                                          <span className="text-xs text-muted-foreground">
+                                            ({globalAttr.description})
+                                          </span>
+                                        )}
+                                      </div>
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          handleRemoveGlobalAttribute(index)
+                                        }
+                                        disabled={loading}
+                                        className="p-1 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-red-600"
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </button>
+                                    </div>
+                                    <FormField
+                                      id={`global-attr-${index}-value`}
+                                      label={`Value for ${globalAttr.name}`}
+                                      value={attr.value}
+                                      onChange={(e) =>
+                                        handleUpdateGlobalAttribute(
+                                          index,
+                                          "value",
+                                          e.target.value
+                                        )
                                       }
                                       disabled={loading}
-                                    >
-                                      <Plus className="h-4 w-4 mr-2" />
-                                      Add to Variant Attributes
-                                    </CustomButton>
+                                    />
+                                    <div className="flex items-center gap-4 text-sm">
+                                      <label className="flex items-center gap-2 cursor-pointer">
+                                        <input
+                                          type="checkbox"
+                                          checked={attr.visible}
+                                          onChange={(e) =>
+                                            handleUpdateGlobalAttribute(
+                                              index,
+                                              "visible",
+                                              e.target.checked
+                                            )
+                                          }
+                                          className="h-4 w-4 rounded border-gray-300"
+                                          disabled={loading}
+                                        />
+                                        <span>Visible</span>
+                                      </label>
+                                      <label className="flex items-center gap-2 cursor-pointer">
+                                        <input
+                                          type="checkbox"
+                                          checked={attr.variation}
+                                          onChange={(e) =>
+                                            handleUpdateGlobalAttribute(
+                                              index,
+                                              "variation",
+                                              e.target.checked
+                                            )
+                                          }
+                                          className="h-4 w-4 rounded border-gray-300"
+                                          disabled={loading}
+                                        />
+                                        <span>Used for Variations</span>
+                                      </label>
+                                    </div>
                                   </div>
-                                )}
-                            </div>
-                          );
-                        })
-                      )}
-                    </div>
-                  </div>
-                </CustomCardContent>
-              </CustomCard>
-            )}
+                                );
+                              })}
 
-            {/* Attributes (for variable products variant generation) */}
-            {isVariableProduct && (
-              <CustomCard>
-                <CustomCardContent className="pt-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-semibold text-foreground">
-                      Variant Attributes (for variant generation)
-                    </h3>
-                    <div className="flex items-center gap-2">
-                      <CustomButton
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={addAttribute}
-                        disabled={loading}
-                      >
-                        <Plus className="h-4 w-4 mr-2" />
-                        Add Attribute
-                      </CustomButton>
-                      {isVariableProduct && (
+                              {/* Inline Product Attributes */}
+                              {attributes.map((attribute, index) => (
+                                <div
+                                  key={`inline-${index}`}
+                                  className="p-3 border border-border rounded-lg space-y-2"
+                                >
+                                  <div className="flex items-center justify-between gap-2">
+                                    <div className="flex-1">
+                                      <FormField
+                                        id={`attr-${index}-name`}
+                                        label="Attribute Name"
+                                        placeholder="e.g., Size, Color"
+                                        value={attribute.name}
+                                        onChange={(e) =>
+                                          updateAttribute(
+                                            index,
+                                            "name",
+                                            e.target.value
+                                          )
+                                        }
+                                        disabled={loading}
+                                      />
+                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={() => removeAttribute(index)}
+                                      disabled={loading}
+                                      className="p-1 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-red-600 mt-6"
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </button>
+                                  </div>
+                                  <FormField
+                                    id={`attr-${index}-value`}
+                                    label="Attribute Values"
+                                    placeholder="Comma-separated: S, M, L"
+                                    helperText="Enter values separated by commas"
+                                    value={attribute.value}
+                                    onChange={(e) =>
+                                      updateAttribute(
+                                        index,
+                                        "value",
+                                        e.target.value
+                                      )
+                                    }
+                                    disabled={loading}
+                                  />
+                                  <div className="flex items-center gap-4 text-sm">
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                      <input
+                                        type="checkbox"
+                                        checked={
+                                          attribute.visible !== undefined
+                                            ? attribute.visible
+                                            : true
+                                        }
+                                        onChange={(e) =>
+                                          updateAttribute(
+                                            index,
+                                            "visible",
+                                            e.target.checked
+                                          )
+                                        }
+                                        className="h-4 w-4 rounded border-gray-300"
+                                        disabled={loading}
+                                      />
+                                      <span>Visible</span>
+                                    </label>
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                      <input
+                                        type="checkbox"
+                                        checked={
+                                          attribute.variation !== undefined
+                                            ? attribute.variation
+                                            : false
+                                        }
+                                        onChange={(e) =>
+                                          updateAttribute(
+                                            index,
+                                            "variation",
+                                            e.target.checked
+                                          )
+                                        }
+                                        className="h-4 w-4 rounded border-gray-300"
+                                        disabled={loading}
+                                      />
+                                      <span>Used for Variations</span>
+                                    </label>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          {productGlobalAttributes.length === 0 &&
+                            attributes.length === 0 && (
+                              <p className="text-sm text-muted-foreground py-4 text-center">
+                                No attributes assigned yet. Click
+                                &quot;New&quot; to create one or select from
+                                &quot;Add existing&quot;.
+                              </p>
+                            )}
+                        </div>
+                      </CustomCardContent>
+                    </CustomCard>
+
+                    {/* Generate Variants Button - Only for variable products */}
+                    {isVariableProduct && (
+                      <div className="flex justify-end">
                         <CustomButton
                           type="button"
-                          size="sm"
+                          size="default"
                           onClick={() => {
-                            // Generate variants from attribute combinations
-                            const parsed = attributes
-                              .filter((a) => a.name && a.value)
+                            // Collect attributes from both sources:
+                            // 1. Inline attributes (manually added) - only those marked for variations
+                            const inlineAttrs = attributes
+                              .filter(
+                                (a) => a.name && a.value && a.variation === true
+                              )
                               .map((a) => ({
                                 name: a.name.trim(),
                                 values: a.value
@@ -1590,9 +2204,39 @@ export default function ProductForm({ productId = null }) {
                               }))
                               .filter((a) => a.values.length > 0);
 
-                            if (parsed.length === 0) return;
+                            // 2. Global attributes (selected from global, marked for variations)
+                            const globalAttrs = productGlobalAttributes
+                              .filter(
+                                (attr) =>
+                                  attr.variation &&
+                                  attr.value &&
+                                  attr.value.trim() &&
+                                  attr.globalAttribute
+                              )
+                              .map((attr) => {
+                                const globalAttr = attr.globalAttribute || {};
+                                return {
+                                  name: globalAttr.name || "",
+                                  values: attr.value
+                                    .split(/[,|/]+/)
+                                    .map((v) => v.trim())
+                                    .filter(Boolean),
+                                };
+                              })
+                              .filter((a) => a.name && a.values.length > 0);
 
-                            const mergedMap = parsed.reduce((map, p) => {
+                            // Combine both sources
+                            const allAttrs = [...inlineAttrs, ...globalAttrs];
+
+                            if (allAttrs.length === 0) {
+                              toast.error(
+                                "No attributes with values found. Add attributes and mark them for variations."
+                              );
+                              return;
+                            }
+
+                            // Merge attributes with same name
+                            const mergedMap = allAttrs.reduce((map, p) => {
                               const key = p.name.toLowerCase();
                               const set = map.get(key) || new Set();
                               p.values.forEach((v) => set.add(v));
@@ -1603,7 +2247,7 @@ export default function ProductForm({ productId = null }) {
                             const merged = Array.from(mergedMap.entries()).map(
                               ([key, set]) => ({
                                 name:
-                                  parsed.find(
+                                  allAttrs.find(
                                     (x) => x.name.toLowerCase() === key
                                   )?.name || key,
                                 values: Array.from(set),
@@ -1631,10 +2275,12 @@ export default function ProductForm({ productId = null }) {
 
                             // Generate variants - include subscription fields only for VARIABLE_SUBSCRIPTION
                             const newVariants = combos.map((values, idx) => {
+                              const nameParts = values
+                                .map((v, i) => `${cleaned[i].name}: ${v}`)
+                                .join(" | ");
+
                               const baseVariant = {
-                                name: values
-                                  .map((v, i) => `${cleaned[i].name}: ${v}`)
-                                  .join(" | "),
+                                name: nameParts,
                                 sku: "",
                                 price: "",
                                 salePrice: "",
@@ -1643,6 +2289,17 @@ export default function ProductForm({ productId = null }) {
                                 attributes: cleaned.map((p) => ({
                                   name: p.name,
                                 })),
+                                // Per-variant settings
+                                status: formValues.status || "DRAFT",
+                                featured: false,
+                                virtual: false,
+                                downloadable: false,
+                                reviewsAllowed: true,
+                                // Set first two attributes for the select boxes
+                                attribute1Name: cleaned[0]?.name || "",
+                                attribute1Value: values[0] || "",
+                                attribute2Name: cleaned[1]?.name || "",
+                                attribute2Value: values[1] || "",
                               };
 
                               // Add subscription fields only for VARIABLE_SUBSCRIPTION
@@ -1661,586 +2318,946 @@ export default function ProductForm({ productId = null }) {
                             });
 
                             setVariants(newVariants);
+                            toast.success(
+                              `Generated ${newVariants.length} variant(s)`
+                            );
+                            // Automatically switch to variants tab
+                            setActiveTab("variants");
                           }}
-                          disabled={loading || attributes.length === 0}
+                          disabled={
+                            loading ||
+                            (attributes.filter(
+                              (a) => a.name && a.value && a.variation === true
+                            ).length === 0 &&
+                              productGlobalAttributes.filter(
+                                (attr) =>
+                                  attr.variation &&
+                                  attr.value &&
+                                  attr.value.trim()
+                              ).length === 0)
+                          }
                         >
+                          <GitBranch className="h-4 w-4 mr-2" />
                           Generate Variants
                         </CustomButton>
-                      )}
-                    </div>
-                  </div>
-
-                  {errors.attributes && (
-                    <p className="text-sm text-red-600 mb-4">
-                      {errors.attributes}
-                    </p>
-                  )}
-
-                  <div className="space-y-3">
-                    {attributes.map((attribute, index) => (
-                      <div key={index} className="flex gap-2 items-start">
-                        <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-2">
-                          <CustomInput
-                            placeholder="Attribute name (e.g., Size, Color)"
-                            value={attribute.name}
-                            onChange={(e) =>
-                              updateAttribute(index, "name", e.target.value)
-                            }
-                            disabled={loading}
-                          />
-                          <CustomInput
-                            placeholder="Values (comma-separated: S, M, L)"
-                            value={attribute.value}
-                            onChange={(e) =>
-                              updateAttribute(index, "value", e.target.value)
-                            }
-                            disabled={loading}
-                          />
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => removeAttribute(index)}
-                          disabled={loading}
-                          className="p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-red-600"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
                       </div>
-                    ))}
-                  </div>
-                </CustomCardContent>
-              </CustomCard>
-            )}
+                    )}
+                  </TabsContent>
 
-            {/* Variants (for variable products) */}
-            {isVariableProduct && (
-              <CustomCard>
-                <CustomCardContent className="pt-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-semibold text-foreground">
-                      Variants
-                    </h3>
-                    <CustomButton
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={addVariant}
-                      disabled={loading}
-                    >
-                      <Plus className="h-4 w-4 mr-2" />
-                      Add Variant
-                    </CustomButton>
-                  </div>
+                  {/* Variants Tab */}
+                  <TabsContent value="variants" className="space-y-6">
+                    {/* Variants (for variable products) */}
+                    {isVariableProduct && (
+                      <CustomCard>
+                        <CustomCardContent className="pt-6">
+                          <div className="flex items-center justify-between mb-4">
+                            <h3 className="text-lg font-semibold text-foreground">
+                              Variants
+                            </h3>
+                            <CustomButton
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={addVariant}
+                              disabled={loading}
+                            >
+                              <Plus className="h-4 w-4 mr-2" />
+                              Add Variant
+                            </CustomButton>
+                          </div>
 
-                  <div className="space-y-4">
-                    {variants.map((variant, index) => (
-                      <div
-                        key={index}
-                        className="p-4 border border-border rounded-lg space-y-3"
-                      >
-                        <div className="flex items-center justify-between">
-                          <h4 className="font-medium">Variant {index + 1}</h4>
-                          <button
-                            type="button"
-                            onClick={() => removeVariant(index)}
-                            disabled={loading}
-                            className="p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-red-600"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                          <CustomInput
-                            placeholder="Variant name"
-                            value={variant.name}
-                            onChange={(e) =>
-                              updateVariant(index, "name", e.target.value)
-                            }
-                            disabled={loading}
-                          />
-                          <CustomInput
-                            placeholder="SKU"
-                            value={variant.sku}
-                            onChange={(e) =>
-                              updateVariant(index, "sku", e.target.value)
-                            }
-                            disabled={loading}
-                          />
-                          <CustomInput
-                            type="number"
-                            step="0.01"
-                            placeholder="Price"
-                            value={variant.price}
-                            onChange={(e) =>
-                              updateVariant(index, "price", e.target.value)
-                            }
-                            disabled={loading}
-                          />
-                          <CustomInput
-                            type="number"
-                            step="0.01"
-                            placeholder="Sale Price"
-                            value={variant.salePrice}
-                            onChange={(e) =>
-                              updateVariant(index, "salePrice", e.target.value)
-                            }
-                            disabled={loading}
-                          />
-                          <CustomInput
-                            placeholder="Image URL"
-                            value={variant.imageUrl || ""}
-                            onChange={(e) =>
-                              updateVariant(index, "imageUrl", e.target.value)
-                            }
-                            disabled={loading}
-                          />
-                          <CustomInput
-                            type="number"
-                            placeholder="Stock Quantity"
-                            value={variant.stockQuantity ?? 0}
-                            onChange={(e) =>
-                              updateVariant(
-                                index,
-                                "stockQuantity",
-                                Number(e.target.value)
-                              )
-                            }
-                            disabled={loading}
-                          />
-                        </div>
-
-                        {isVariableSubscription && (
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
-                            <div className="space-y-2">
-                              <CustomLabel htmlFor={`v-${index}-period`}>
-                                Subscription Period
-                              </CustomLabel>
-                              <select
-                                id={`v-${index}-period`}
-                                value={
-                                  variant.subscriptionPeriod ||
-                                  formValues.subscriptionPeriod
-                                }
-                                onChange={(e) =>
-                                  updateVariant(
-                                    index,
-                                    "subscriptionPeriod",
-                                    e.target.value
-                                  )
-                                }
-                                disabled={loading}
-                                className={cn(
-                                  "flex h-10 w-full rounded-md border px-3 py-2 text-sm transition-colors",
-                                  "bg-white text-gray-900 border-gray-300",
-                                  "dark:bg-gray-800 dark:text-gray-100 dark:border-gray-600",
-                                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
-                                  "focus-visible:ring-blue-500 dark:focus-visible:ring-blue-400"
-                                )}
+                          <div className="space-y-4">
+                            {variants.map((variant, index) => (
+                              <div
+                                key={index}
+                                className="p-4 border border-border rounded-lg space-y-3 bg-[#0b111e]"
                               >
-                                {SUBSCRIPTION_PERIODS.map((p) => (
-                                  <option key={p.value} value={p.value}>
-                                    {p.label}
-                                  </option>
-                                ))}
-                              </select>
-                            </div>
-                            <FormField
-                              id={`v-${index}-interval`}
-                              label="Interval"
-                              type="number"
-                              min="1"
-                              value={variant.subscriptionInterval ?? 1}
-                              onChange={(e) =>
-                                updateVariant(
-                                  index,
-                                  "subscriptionInterval",
-                                  Number(e.target.value)
-                                )
-                              }
-                              disabled={loading}
-                            />
-                            <FormField
-                              id={`v-${index}-length`}
-                              label="Length"
-                              type="number"
-                              min="0"
-                              value={variant.subscriptionLength ?? 0}
-                              onChange={(e) =>
-                                updateVariant(
-                                  index,
-                                  "subscriptionLength",
-                                  Number(e.target.value)
-                                )
-                              }
-                              helperText="0 = never expires"
-                              disabled={loading}
-                            />
-                            <FormField
-                              id={`v-${index}-signup`}
-                              label="Sign-up Fee"
-                              type="number"
-                              step="0.01"
-                              value={variant.subscriptionSignUpFee ?? "0"}
-                              onChange={(e) =>
-                                updateVariant(
-                                  index,
-                                  "subscriptionSignUpFee",
-                                  e.target.value
-                                )
-                              }
-                              disabled={loading}
-                            />
-                            <FormField
-                              id={`v-${index}-trial-len`}
-                              label="Trial Length"
-                              type="number"
-                              min="0"
-                              value={variant.subscriptionTrialLength ?? 0}
-                              onChange={(e) =>
-                                updateVariant(
-                                  index,
-                                  "subscriptionTrialLength",
-                                  Number(e.target.value)
-                                )
-                              }
-                              disabled={loading}
-                            />
-                            <div className="space-y-2">
-                              <CustomLabel htmlFor={`v-${index}-trial-period`}>
-                                Trial Period
-                              </CustomLabel>
-                              <select
-                                id={`v-${index}-trial-period`}
-                                value={
-                                  variant.subscriptionTrialPeriod ||
-                                  formValues.subscriptionTrialPeriod
-                                }
-                                onChange={(e) =>
-                                  updateVariant(
-                                    index,
-                                    "subscriptionTrialPeriod",
-                                    e.target.value
-                                  )
-                                }
-                                disabled={loading}
-                                className={cn(
-                                  "flex h-10 w-full rounded-md border px-3 py-2 text-sm transition-colors",
-                                  "bg-white text-gray-900 border-gray-300",
-                                  "dark:bg-gray-800 dark:text-gray-100 dark:border-gray-600",
-                                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
-                                  "focus-visible:ring-blue-500 dark:focus-visible:ring-blue-400"
-                                )}
-                              >
-                                {SUBSCRIPTION_PERIODS.map((period) => (
-                                  <option
-                                    key={period.value}
-                                    value={period.value}
+                                <div className="flex items-center justify-between">
+                                  <h4 className="font-medium">
+                                    Variant {index + 1}
+                                  </h4>
+                                  <button
+                                    type="button"
+                                    onClick={() => removeVariant(index)}
+                                    disabled={loading}
+                                    className="p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-red-600"
                                   >
-                                    {period.label}
-                                  </option>
-                                ))}
-                              </select>
+                                    <Trash2 className="h-4 w-4" />
+                                  </button>
+                                </div>
+
+                                {/* Variant Name - 2 Select Boxes */}
+                                {(() => {
+                                  const variationAttrs =
+                                    getVariationAttributes();
+                                  const attr1 = variationAttrs.find(
+                                    (a) => a.name === variant.attribute1Name
+                                  );
+                                  const attr2 = variationAttrs.find(
+                                    (a) => a.name === variant.attribute2Name
+                                  );
+
+                                  return (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                                      {/* First Attribute */}
+                                      {/* <div className="space-y-2">
+                                        <CustomLabel
+                                          htmlFor={`variant-${index}-attr1-name`}
+                                        >
+                                          Attribute 1
+                                        </CustomLabel>
+                                        <select
+                                          id={`variant-${index}-attr1-name`}
+                                          value={variant.attribute1Name || ""}
+                                          onChange={(e) => {
+                                            updateVariant(
+                                              index,
+                                              "attribute1Name",
+                                              e.target.value
+                                            );
+                                            updateVariant(
+                                              index,
+                                              "attribute1Value",
+                                              ""
+                                            );
+                                          }}
+                                          disabled={loading}
+                                          className={cn(
+                                            "flex h-10 w-full rounded-md border px-3 py-2 text-sm transition-colors",
+                                            "bg-white text-gray-900 border-gray-300",
+                                            "dark:bg-gray-800 dark:text-gray-100 dark:border-gray-600",
+                                            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
+                                            "focus-visible:ring-blue-500 dark:focus-visible:ring-blue-400"
+                                          )}
+                                        >
+                                          <option value="">
+                                            Select Attribute
+                                          </option>
+                                          {variationAttrs.map((attr) => (
+                                            <option
+                                              key={attr.name}
+                                              value={attr.name}
+                                            >
+                                              {attr.name}
+                                            </option>
+                                          ))}
+                                        </select>
+                                      </div> */}
+                                      <div className="space-y-2">
+                                        {/* <CustomLabel
+                                          htmlFor={`variant-${index}-attr1-value`}
+                                        >
+                                          Value 1
+                                        </CustomLabel> */}
+                                        <select
+                                          id={`variant-${index}-attr1-value`}
+                                          value={variant.attribute1Value || ""}
+                                          onChange={(e) =>
+                                            updateVariant(
+                                              index,
+                                              "attribute1Value",
+                                              e.target.value
+                                            )
+                                          }
+                                          disabled={
+                                            loading || !variant.attribute1Name
+                                          }
+                                          className={cn(
+                                            "flex h-10 w-full rounded-md border px-3 py-2 text-sm transition-colors",
+                                            "bg-white text-gray-900 border-gray-300",
+                                            "dark:bg-gray-800 dark:text-gray-100 dark:border-gray-600",
+                                            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
+                                            "focus-visible:ring-blue-500 dark:focus-visible:ring-blue-400",
+                                            "disabled:opacity-50 disabled:cursor-not-allowed"
+                                          )}
+                                        >
+                                          <option value="">Select Value</option>
+                                          {attr1?.values.map((val) => (
+                                            <option key={val} value={val}>
+                                              {val}
+                                            </option>
+                                          ))}
+                                        </select>
+                                      </div>
+
+                                      {/* Second Attribute */}
+                                      {/* <div className="space-y-2">
+                                        <CustomLabel
+                                          htmlFor={`variant-${index}-attr2-name`}
+                                        >
+                                          Attribute 2
+                                        </CustomLabel>
+                                        <select
+                                          id={`variant-${index}-attr2-name`}
+                                          value={variant.attribute2Name || ""}
+                                          onChange={(e) => {
+                                            updateVariant(
+                                              index,
+                                              "attribute2Name",
+                                              e.target.value
+                                            );
+                                            updateVariant(
+                                              index,
+                                              "attribute2Value",
+                                              ""
+                                            );
+                                          }}
+                                          disabled={loading}
+                                          className={cn(
+                                            "flex h-10 w-full rounded-md border px-3 py-2 text-sm transition-colors",
+                                            "bg-white text-gray-900 border-gray-300",
+                                            "dark:bg-gray-800 dark:text-gray-100 dark:border-gray-600",
+                                            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
+                                            "focus-visible:ring-blue-500 dark:focus-visible:ring-blue-400"
+                                          )}
+                                        >
+                                          <option value="">
+                                            Select Attribute
+                                          </option>
+                                          {variationAttrs
+                                            .filter(
+                                              (attr) =>
+                                                attr.name !==
+                                                variant.attribute1Name
+                                            )
+                                            .map((attr) => (
+                                              <option
+                                                key={attr.name}
+                                                value={attr.name}
+                                              >
+                                                {attr.name}
+                                              </option>
+                                            ))}
+                                        </select>
+                                      </div> */}
+                                      <div className="space-y-2">
+                                        {/* <CustomLabel
+                                          htmlFor={`variant-${index}-attr2-value`}
+                                        >
+                                          Value 2
+                                        </CustomLabel> */}
+                                        <select
+                                          id={`variant-${index}-attr2-value`}
+                                          value={variant.attribute2Value || ""}
+                                          onChange={(e) =>
+                                            updateVariant(
+                                              index,
+                                              "attribute2Value",
+                                              e.target.value
+                                            )
+                                          }
+                                          disabled={
+                                            loading || !variant.attribute2Name
+                                          }
+                                          className={cn(
+                                            "flex h-10 w-full rounded-md border px-3 py-2 text-sm transition-colors",
+                                            "bg-white text-gray-900 border-gray-300",
+                                            "dark:bg-gray-800 dark:text-gray-100 dark:border-gray-600",
+                                            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
+                                            "focus-visible:ring-blue-500 dark:focus-visible:ring-blue-400",
+                                            "disabled:opacity-50 disabled:cursor-not-allowed"
+                                          )}
+                                        >
+                                          <option value="">Select Value</option>
+                                          {attr2?.values.map((val) => (
+                                            <option key={val} value={val}>
+                                              {val}
+                                            </option>
+                                          ))}
+                                        </select>
+                                      </div>
+                                    </div>
+                                  );
+                                })()}
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                  <FormField
+                                    id={`variant-${index}-sku`}
+                                    label="SKU"
+                                    value={variant.sku}
+                                    onChange={(e) =>
+                                      updateVariant(
+                                        index,
+                                        "sku",
+                                        e.target.value
+                                      )
+                                    }
+                                    disabled={loading}
+                                  />
+                                  <FormField
+                                    id={`variant-${index}-price`}
+                                    label="Price"
+                                    type="number"
+                                    step="0.01"
+                                    value={variant.price}
+                                    onChange={(e) =>
+                                      updateVariant(
+                                        index,
+                                        "price",
+                                        e.target.value
+                                      )
+                                    }
+                                    disabled={loading}
+                                  />
+                                  <FormField
+                                    id={`variant-${index}-sale-price`}
+                                    label="Sale Price"
+                                    type="number"
+                                    step="0.01"
+                                    value={variant.salePrice}
+                                    onChange={(e) =>
+                                      updateVariant(
+                                        index,
+                                        "salePrice",
+                                        e.target.value
+                                      )
+                                    }
+                                    disabled={loading}
+                                  />
+                                  <div className="md:col-span-2">
+                                    <SingleImageUpload
+                                      label="Variant Image"
+                                      value={variant.imageUrl || ""}
+                                      onChange={(url) =>
+                                        updateVariant(index, "imageUrl", url)
+                                      }
+                                      onRemove={() =>
+                                        updateVariant(index, "imageUrl", "")
+                                      }
+                                      disabled={loading}
+                                    />
+                                  </div>
+                                  <FormField
+                                    id={`variant-${index}-stock`}
+                                    label="Stock Quantity"
+                                    type="number"
+                                    value={variant.stockQuantity ?? 0}
+                                    onChange={(e) =>
+                                      updateVariant(
+                                        index,
+                                        "stockQuantity",
+                                        Number(e.target.value)
+                                      )
+                                    }
+                                    disabled={loading}
+                                  />
+                                </div>
+
+                                {/* Per-Variant Settings */}
+                                <div className="border-t border-border pt-4 mt-4">
+                                  <h5 className="text-sm font-semibold text-foreground mb-3">
+                                    Variant Settings
+                                  </h5>
+                                  <div className="grid grid-cols-1  gap-4">
+                                    {/* Enabled/Disabled Toggle */}
+                                    <div className="flex items-center justify-between">
+                                      <CustomLabel
+                                        htmlFor={`variant-${index}-enabled`}
+                                      >
+                                        Enabled
+                                      </CustomLabel>
+                                      <label className="relative inline-flex items-center cursor-pointer">
+                                        <input
+                                          type="checkbox"
+                                          id={`variant-${index}-enabled`}
+                                          checked={
+                                            variant.status === "PUBLISHED" ||
+                                            (!variant.status &&
+                                              formValues.status === "PUBLISHED")
+                                          }
+                                          onChange={(e) =>
+                                            updateVariant(
+                                              index,
+                                              "status",
+                                              e.target.checked
+                                                ? "PUBLISHED"
+                                                : "DRAFT"
+                                            )
+                                          }
+                                          disabled={loading}
+                                          className="sr-only peer"
+                                        />
+                                        <div className="w-11 h-6 bg-gray-300 dark:bg-gray-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                                      </label>
+                                    </div>
+
+                                    {/* Featured */}
+                                    <div className="flex items-center justify-between">
+                                      <CustomLabel
+                                        htmlFor={`variant-${index}-featured`}
+                                      >
+                                        Featured
+                                      </CustomLabel>
+                                      <label className="relative inline-flex items-center cursor-pointer">
+                                        <input
+                                          type="checkbox"
+                                          id={`variant-${index}-featured`}
+                                          checked={variant.featured || false}
+                                          onChange={(e) =>
+                                            updateVariant(
+                                              index,
+                                              "featured",
+                                              e.target.checked
+                                            )
+                                          }
+                                          disabled={loading}
+                                          className="sr-only peer"
+                                        />
+                                        <div className="w-11 h-6 bg-gray-300 dark:bg-gray-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                                      </label>
+                                    </div>
+
+                                    {/* Virtual */}
+                                    <div className="flex items-center justify-between">
+                                      <CustomLabel
+                                        htmlFor={`variant-${index}-virtual`}
+                                      >
+                                        Virtual
+                                      </CustomLabel>
+                                      <label className="relative inline-flex items-center cursor-pointer">
+                                        <input
+                                          type="checkbox"
+                                          id={`variant-${index}-virtual`}
+                                          checked={variant.virtual || false}
+                                          onChange={(e) =>
+                                            updateVariant(
+                                              index,
+                                              "virtual",
+                                              e.target.checked
+                                            )
+                                          }
+                                          disabled={loading}
+                                          className="sr-only peer"
+                                        />
+                                        <div className="w-11 h-6 bg-gray-300 dark:bg-gray-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                                      </label>
+                                    </div>
+
+                                    {/* Downloadable */}
+                                    <div className="flex items-center justify-between">
+                                      <CustomLabel
+                                        htmlFor={`variant-${index}-downloadable`}
+                                      >
+                                        Downloadable
+                                      </CustomLabel>
+                                      <label className="relative inline-flex items-center cursor-pointer">
+                                        <input
+                                          type="checkbox"
+                                          id={`variant-${index}-downloadable`}
+                                          checked={
+                                            variant.downloadable || false
+                                          }
+                                          onChange={(e) =>
+                                            updateVariant(
+                                              index,
+                                              "downloadable",
+                                              e.target.checked
+                                            )
+                                          }
+                                          disabled={loading}
+                                          className="sr-only peer"
+                                        />
+                                        <div className="w-11 h-6 bg-gray-300 dark:bg-gray-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                                      </label>
+                                    </div>
+
+                                    {/* Enable Reviews */}
+                                    <div className="flex items-center justify-between">
+                                      <CustomLabel
+                                        htmlFor={`variant-${index}-reviews`}
+                                      >
+                                        Enable Reviews
+                                      </CustomLabel>
+                                      <label className="relative inline-flex items-center cursor-pointer">
+                                        <input
+                                          type="checkbox"
+                                          id={`variant-${index}-reviews`}
+                                          checked={
+                                            variant.reviewsAllowed !== undefined
+                                              ? variant.reviewsAllowed
+                                              : true
+                                          }
+                                          onChange={(e) =>
+                                            updateVariant(
+                                              index,
+                                              "reviewsAllowed",
+                                              e.target.checked
+                                            )
+                                          }
+                                          disabled={loading}
+                                          className="sr-only peer"
+                                        />
+                                        <div className="w-11 h-6 bg-gray-300 dark:bg-gray-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                                      </label>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {isVariableSubscription && (
+                                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
+                                    <div className="space-y-2">
+                                      <CustomLabel
+                                        htmlFor={`v-${index}-period`}
+                                      >
+                                        Subscription Period
+                                      </CustomLabel>
+                                      <select
+                                        id={`v-${index}-period`}
+                                        value={
+                                          variant.subscriptionPeriod ||
+                                          formValues.subscriptionPeriod
+                                        }
+                                        onChange={(e) =>
+                                          updateVariant(
+                                            index,
+                                            "subscriptionPeriod",
+                                            e.target.value
+                                          )
+                                        }
+                                        disabled={loading}
+                                        className={cn(
+                                          "flex h-10 w-full rounded-md border px-3 py-2 text-sm transition-colors",
+                                          "bg-white text-gray-900 border-gray-300",
+                                          "dark:bg-gray-800 dark:text-gray-100 dark:border-gray-600",
+                                          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
+                                          "focus-visible:ring-blue-500 dark:focus-visible:ring-blue-400"
+                                        )}
+                                      >
+                                        {SUBSCRIPTION_PERIODS.map((p) => (
+                                          <option key={p.value} value={p.value}>
+                                            {p.label}
+                                          </option>
+                                        ))}
+                                      </select>
+                                    </div>
+                                    <FormField
+                                      id={`v-${index}-interval`}
+                                      label="Interval"
+                                      type="number"
+                                      min="1"
+                                      value={variant.subscriptionInterval ?? 1}
+                                      onChange={(e) =>
+                                        updateVariant(
+                                          index,
+                                          "subscriptionInterval",
+                                          Number(e.target.value)
+                                        )
+                                      }
+                                      disabled={loading}
+                                    />
+                                    <FormField
+                                      id={`v-${index}-length`}
+                                      label="Length"
+                                      type="number"
+                                      min="0"
+                                      value={variant.subscriptionLength ?? 0}
+                                      onChange={(e) =>
+                                        updateVariant(
+                                          index,
+                                          "subscriptionLength",
+                                          Number(e.target.value)
+                                        )
+                                      }
+                                      helperText="0 = never expires"
+                                      disabled={loading}
+                                    />
+                                    <FormField
+                                      id={`v-${index}-signup`}
+                                      label="Sign-up Fee"
+                                      type="number"
+                                      step="0.01"
+                                      value={
+                                        variant.subscriptionSignUpFee ?? "0"
+                                      }
+                                      onChange={(e) =>
+                                        updateVariant(
+                                          index,
+                                          "subscriptionSignUpFee",
+                                          e.target.value
+                                        )
+                                      }
+                                      disabled={loading}
+                                    />
+                                    <FormField
+                                      id={`v-${index}-trial-len`}
+                                      label="Trial Length"
+                                      type="number"
+                                      min="0"
+                                      value={
+                                        variant.subscriptionTrialLength ?? 0
+                                      }
+                                      onChange={(e) =>
+                                        updateVariant(
+                                          index,
+                                          "subscriptionTrialLength",
+                                          Number(e.target.value)
+                                        )
+                                      }
+                                      disabled={loading}
+                                    />
+                                    <div className="space-y-2">
+                                      <CustomLabel
+                                        htmlFor={`v-${index}-trial-period`}
+                                      >
+                                        Trial Period
+                                      </CustomLabel>
+                                      <select
+                                        id={`v-${index}-trial-period`}
+                                        value={
+                                          variant.subscriptionTrialPeriod ||
+                                          formValues.subscriptionTrialPeriod
+                                        }
+                                        onChange={(e) =>
+                                          updateVariant(
+                                            index,
+                                            "subscriptionTrialPeriod",
+                                            e.target.value
+                                          )
+                                        }
+                                        disabled={loading}
+                                        className={cn(
+                                          "flex h-10 w-full rounded-md border px-3 py-2 text-sm transition-colors",
+                                          "bg-white text-gray-900 border-gray-300",
+                                          "dark:bg-gray-800 dark:text-gray-100 dark:border-gray-600",
+                                          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
+                                          "focus-visible:ring-blue-500 dark:focus-visible:ring-blue-400"
+                                        )}
+                                      >
+                                        {SUBSCRIPTION_PERIODS.map((period) => (
+                                          <option
+                                            key={period.value}
+                                            value={period.value}
+                                          >
+                                            {period.label}
+                                          </option>
+                                        ))}
+                                      </select>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </CustomCardContent>
+                      </CustomCard>
+                    )}
+                  </TabsContent>
+
+                  {/* Subscription Settings Tab */}
+                  {hasSubscription && (
+                    <TabsContent value="subscription" className="space-y-6">
+                      <CustomCard>
+                        <CustomCardContent className="pt-6">
+                          <h3 className="text-lg font-semibold text-foreground mb-4">
+                            Subscription Settings
+                          </h3>
+
+                          <div className="space-y-4">
+                            {/* Pricing for Subscription Products */}
+                            {formValues.type === "SUBSCRIPTION" && (
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <FormField
+                                  id="basePrice"
+                                  name="basePrice"
+                                  label="Base Price"
+                                  type="number"
+                                  step="0.01"
+                                  value={formValues.basePrice}
+                                  onChange={handleInputChange}
+                                  error={errors.basePrice}
+                                  required
+                                  placeholder="0.00"
+                                  disabled={loading}
+                                />
+
+                                <FormField
+                                  id="salePrice"
+                                  name="salePrice"
+                                  label="Sale Price"
+                                  type="number"
+                                  step="0.01"
+                                  value={formValues.salePrice}
+                                  onChange={handleInputChange}
+                                  placeholder="0.00"
+                                  disabled={loading}
+                                />
+                              </div>
+                            )}
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div className="space-y-2">
+                                <CustomLabel htmlFor="subscriptionPeriod">
+                                  Billing Period
+                                </CustomLabel>
+                                <select
+                                  id="subscriptionPeriod"
+                                  name="subscriptionPeriod"
+                                  value={formValues.subscriptionPeriod}
+                                  onChange={handleInputChange}
+                                  disabled={loading}
+                                  className={cn(
+                                    "flex h-10 w-full rounded-md border px-3 py-2 text-sm transition-colors",
+                                    "bg-white text-gray-900 border-gray-300",
+                                    "dark:bg-gray-800 dark:text-gray-100 dark:border-gray-600",
+                                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
+                                    "focus-visible:ring-blue-500 dark:focus-visible:ring-blue-400"
+                                  )}
+                                >
+                                  {SUBSCRIPTION_PERIODS.map((period) => (
+                                    <option
+                                      key={period.value}
+                                      value={period.value}
+                                    >
+                                      {period.label}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+
+                              <FormField
+                                id="subscriptionInterval"
+                                name="subscriptionInterval"
+                                label="Billing Interval"
+                                type="number"
+                                min="1"
+                                value={formValues.subscriptionInterval}
+                                onChange={handleInputChange}
+                                helperText="Bill every N period(s)"
+                                disabled={loading}
+                              />
+
+                              <FormField
+                                id="subscriptionSignUpFee"
+                                name="subscriptionSignUpFee"
+                                label="Sign-up Fee"
+                                type="number"
+                                step="0.01"
+                                value={formValues.subscriptionSignUpFee}
+                                onChange={handleInputChange}
+                                placeholder="0.00"
+                                disabled={loading}
+                              />
+
+                              <FormField
+                                id="subscriptionLength"
+                                name="subscriptionLength"
+                                label="Subscription Length"
+                                type="number"
+                                min="0"
+                                value={formValues.subscriptionLength}
+                                onChange={handleInputChange}
+                                helperText="0 = never expires"
+                                disabled={loading}
+                              />
+
+                              <FormField
+                                id="subscriptionTrialLength"
+                                name="subscriptionTrialLength"
+                                label="Trial Length"
+                                type="number"
+                                min="0"
+                                value={formValues.subscriptionTrialLength}
+                                onChange={handleInputChange}
+                                disabled={loading}
+                              />
+
+                              <div className="space-y-2">
+                                <CustomLabel htmlFor="subscriptionTrialPeriod">
+                                  Trial Period
+                                </CustomLabel>
+                                <select
+                                  id="subscriptionTrialPeriod"
+                                  name="subscriptionTrialPeriod"
+                                  value={formValues.subscriptionTrialPeriod}
+                                  onChange={handleInputChange}
+                                  disabled={loading}
+                                  className={cn(
+                                    "flex h-10 w-full rounded-md border px-3 py-2 text-sm transition-colors",
+                                    "bg-white text-gray-900 border-gray-300",
+                                    "dark:bg-gray-800 dark:text-gray-100 dark:border-gray-600",
+                                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
+                                    "focus-visible:ring-blue-500 dark:focus-visible:ring-blue-400"
+                                  )}
+                                >
+                                  {SUBSCRIPTION_PERIODS.map((period) => (
+                                    <option
+                                      key={period.value}
+                                      value={period.value}
+                                    >
+                                      {period.label}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
                             </div>
                           </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </CustomCardContent>
-              </CustomCard>
-            )}
-
-            {/* Generated Variants preview removed; editing inline above for VARIABLE_SUBSCRIPTION */}
-
-            {/* Inventory */}
-            <CustomCard>
-              <CustomCardContent className="pt-6">
-                <h3 className="text-lg font-semibold text-foreground mb-4">
-                  Inventory
-                </h3>
-
-                <div className="space-y-4">
-                  <FormField
-                    id="sku"
-                    name="sku"
-                    label="SKU"
-                    value={formValues.sku}
-                    onChange={handleInputChange}
-                    placeholder="Product SKU"
-                    disabled={loading}
-                  />
-
-                  <div className="space-y-2">
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        name="trackInventory"
-                        checked={formValues.trackInventory}
-                        onChange={handleInputChange}
-                        disabled={loading}
-                        className="rounded border-gray-300 dark:border-gray-600"
-                      />
-                      <span className="text-sm font-medium">
-                        Track inventory
-                      </span>
-                    </label>
-                  </div>
-
-                  {formValues.trackInventory && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <FormField
-                        id="stockQuantity"
-                        name="stockQuantity"
-                        label="Stock Quantity"
-                        type="number"
-                        value={formValues.stockQuantity}
-                        onChange={handleInputChange}
-                        disabled={loading}
-                      />
-
-                      <FormField
-                        id="lowStockThreshold"
-                        name="lowStockThreshold"
-                        label="Low Stock Threshold"
-                        type="number"
-                        value={formValues.lowStockThreshold}
-                        onChange={handleInputChange}
-                        disabled={loading}
-                      />
-                    </div>
+                        </CustomCardContent>
+                      </CustomCard>
+                    </TabsContent>
                   )}
 
-                  <div className="space-y-2">
-                    <CustomLabel htmlFor="backorders">
-                      Allow backorders?
-                    </CustomLabel>
-                    <select
-                      id="backorders"
-                      name="backorders"
-                      value={formValues.backorders}
-                      onChange={handleInputChange}
-                      disabled={loading}
-                      className={cn(
-                        "flex h-10 w-full rounded-md border px-3 py-2 text-sm transition-colors",
-                        "bg-white text-gray-900 border-gray-300",
-                        "dark:bg-gray-800 dark:text-gray-100 dark:border-gray-600",
-                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
-                        "focus-visible:ring-blue-500 dark:focus-visible:ring-blue-400"
-                      )}
-                    >
-                      {BACKORDER_OPTIONS.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-              </CustomCardContent>
-            </CustomCard>
-
-            {/* Shipping */}
-            <CustomCard>
-              <CustomCardContent className="pt-6">
-                <h3 className="text-lg font-semibold text-foreground mb-4">
-                  Shipping
-                </h3>
-
-                <div className="space-y-4">
-                  <div className="space-y-3">
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        name="shippingRequired"
-                        checked={formValues.shippingRequired}
-                        onChange={handleInputChange}
-                        disabled={loading}
-                        className="rounded border-gray-300 dark:border-gray-600"
-                      />
-                      <span className="text-sm font-medium">
-                        This product requires shipping
-                      </span>
-                    </label>
-                  </div>
-
-                  {formValues.shippingRequired && (
-                    <>
-                      <FormField
-                        id="shippingClass"
-                        name="shippingClass"
-                        label="Shipping Class"
-                        value={formValues.shippingClass}
-                        onChange={handleInputChange}
-                        placeholder="e.g., prescriptions"
-                        disabled={loading}
-                      />
-
-                      <FormField
-                        id="weight"
-                        name="weight"
-                        label="Weight (kg)"
-                        type="number"
-                        step="0.01"
-                        value={formValues.weight}
-                        onChange={handleInputChange}
-                        placeholder="0.00"
-                        disabled={loading}
-                      />
-
-                      <div className="space-y-2">
-                        <CustomLabel>Dimensions (cm)</CustomLabel>
-                        <div className="grid grid-cols-3 gap-2">
-                          <CustomInput
-                            placeholder="Length"
-                            type="number"
-                            step="0.01"
-                            name="length"
-                            value={formValues.length}
-                            onChange={handleInputChange}
+                  {/* Additional Settings Tab */}
+                  <TabsContent value="additional" className="space-y-6">
+                    {/* Metadata */}
+                    <CustomCard>
+                      <CustomCardContent className="pt-6">
+                        <div className="flex items-center justify-between mb-4">
+                          <h3 className="text-lg font-semibold text-foreground">
+                            Custom Metadata
+                          </h3>
+                          <CustomButton
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={addMetadata}
                             disabled={loading}
-                          />
-                          <CustomInput
-                            placeholder="Width"
-                            type="number"
-                            step="0.01"
-                            name="width"
-                            value={formValues.width}
-                            onChange={handleInputChange}
-                            disabled={loading}
-                          />
-                          <CustomInput
-                            placeholder="Height"
-                            type="number"
-                            step="0.01"
-                            name="height"
-                            value={formValues.height}
-                            onChange={handleInputChange}
-                            disabled={loading}
-                          />
+                          >
+                            <Plus className="h-4 w-4 mr-2" />
+                            Add Metadata
+                          </CustomButton>
                         </div>
-                      </div>
-                    </>
-                  )}
+
+                        <div className="space-y-3">
+                          {metadata.map((meta, index) => (
+                            <div key={index} className="flex gap-2 items-start">
+                              <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-2">
+                                <FormField
+                                  id={`meta-${index}-key`}
+                                  label="Key"
+                                  value={meta.key}
+                                  onChange={(e) =>
+                                    updateMetadata(index, "key", e.target.value)
+                                  }
+                                  disabled={loading}
+                                />
+                                <FormField
+                                  id={`meta-${index}-value`}
+                                  label="Value"
+                                  value={meta.value}
+                                  onChange={(e) =>
+                                    updateMetadata(
+                                      index,
+                                      "value",
+                                      e.target.value
+                                    )
+                                  }
+                                  disabled={loading}
+                                />
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => removeMetadata(index)}
+                                disabled={loading}
+                                className="p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-red-600"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </CustomCardContent>
+                    </CustomCard>
+
+                    {/* SEO */}
+                    <CustomCard>
+                      <CustomCardContent className="pt-6">
+                        <h3 className="text-lg font-semibold text-foreground mb-4">
+                          SEO Information
+                        </h3>
+
+                        <div className="space-y-4">
+                          <FormField
+                            id="metaTitle"
+                            name="metaTitle"
+                            label="Meta Title"
+                            value={formValues.metaTitle}
+                            onChange={handleInputChange}
+                            placeholder="SEO title"
+                            helperText="Recommended: 50-60 characters"
+                            disabled={loading}
+                          />
+
+                          <div className="space-y-2">
+                            <CustomLabel htmlFor="metaDescription">
+                              Meta Description
+                            </CustomLabel>
+                            <textarea
+                              id="metaDescription"
+                              name="metaDescription"
+                              value={formValues.metaDescription}
+                              onChange={handleInputChange}
+                              placeholder="SEO description"
+                              disabled={loading}
+                              rows={3}
+                              className={cn(
+                                "flex w-full rounded-md border px-3 py-2 text-sm transition-colors",
+                                "bg-white text-gray-900 border-gray-300",
+                                "placeholder:text-gray-500",
+                                "dark:bg-gray-800 dark:text-gray-100 dark:border-gray-600",
+                                "dark:placeholder:text-gray-400",
+                                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
+                                "focus-visible:ring-blue-500 dark:focus-visible:ring-blue-400",
+                                "focus-visible:border-blue-500 dark:focus-visible:border-blue-400",
+                                "disabled:cursor-not-allowed disabled:opacity-50"
+                              )}
+                            />
+                            <p className="text-xs text-gray-600 dark:text-gray-400">
+                              Recommended: 150-160 characters
+                            </p>
+                          </div>
+
+                          {/* Meta keywords removed from payload; field omitted to match backend schema */}
+                        </div>
+                      </CustomCardContent>
+                    </CustomCard>
+                  </TabsContent>
                 </div>
-              </CustomCardContent>
-            </CustomCard>
-
-            {/* Metadata */}
-            <CustomCard>
-              <CustomCardContent className="pt-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-foreground">
-                    Custom Metadata
-                  </h3>
-                  <CustomButton
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={addMetadata}
-                    disabled={loading}
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add Metadata
-                  </CustomButton>
-                </div>
-
-                <div className="space-y-3">
-                  {metadata.map((meta, index) => (
-                    <div key={index} className="flex gap-2 items-start">
-                      <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-2">
-                        <CustomInput
-                          placeholder="Key"
-                          value={meta.key}
-                          onChange={(e) =>
-                            updateMetadata(index, "key", e.target.value)
-                          }
-                          disabled={loading}
-                        />
-                        <CustomInput
-                          placeholder="Value"
-                          value={meta.value}
-                          onChange={(e) =>
-                            updateMetadata(index, "value", e.target.value)
-                          }
-                          disabled={loading}
-                        />
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => removeMetadata(index)}
-                        disabled={loading}
-                        className="p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-red-600"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </CustomCardContent>
-            </CustomCard>
-
-            {/* SEO */}
-            <CustomCard>
-              <CustomCardContent className="pt-6">
-                <h3 className="text-lg font-semibold text-foreground mb-4">
-                  SEO Information
-                </h3>
-
-                <div className="space-y-4">
-                  <FormField
-                    id="metaTitle"
-                    name="metaTitle"
-                    label="Meta Title"
-                    value={formValues.metaTitle}
-                    onChange={handleInputChange}
-                    placeholder="SEO title"
-                    helperText="Recommended: 50-60 characters"
-                    disabled={loading}
-                  />
-
-                  <div className="space-y-2">
-                    <CustomLabel htmlFor="metaDescription">
-                      Meta Description
-                    </CustomLabel>
-                    <textarea
-                      id="metaDescription"
-                      name="metaDescription"
-                      value={formValues.metaDescription}
-                      onChange={handleInputChange}
-                      placeholder="SEO description"
-                      disabled={loading}
-                      rows={3}
-                      className={cn(
-                        "flex w-full rounded-md border px-3 py-2 text-sm transition-colors",
-                        "bg-white text-gray-900 border-gray-300",
-                        "placeholder:text-gray-500",
-                        "dark:bg-gray-800 dark:text-gray-100 dark:border-gray-600",
-                        "dark:placeholder:text-gray-400",
-                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
-                        "focus-visible:ring-blue-500 dark:focus-visible:ring-blue-400",
-                        "focus-visible:border-blue-500 dark:focus-visible:border-blue-400",
-                        "disabled:cursor-not-allowed disabled:opacity-50"
-                      )}
-                    />
-                    <p className="text-xs text-gray-600 dark:text-gray-400">
-                      Recommended: 150-160 characters
-                    </p>
-                  </div>
-
-                  {/* Meta keywords removed from payload; field omitted to match backend schema */}
-                </div>
-              </CustomCardContent>
-            </CustomCard>
+              </div>
+            </Tabs>
           </div>
 
           {/* Sidebar */}
-          <div className="space-y-6">
-            {/* Featured Image */}
+          <div className="lg:col-span-1 space-y-6">
+            {/* Actions */}
+            <CustomCard>
+              <CustomCardContent className="pt-6">
+                <div className="space-y-3">
+                  <CustomButton
+                    type="submit"
+                    className="w-full flex items-center justify-center gap-2"
+                    disabled={loading}
+                  >
+                    {loading ? (
+                      <>
+                        <span className="animate-spin">⏳</span>
+                        {isEditMode ? "Updating..." : "Creating..."}
+                      </>
+                    ) : (
+                      <>
+                        <Save className="h-4 w-4" />
+                        {isEditMode ? "Update Product" : "Create Product"}
+                      </>
+                    )}
+                  </CustomButton>
+
+                  <CustomButton
+                    type="button"
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => router.push("/dashboard/products")}
+                    disabled={loading}
+                  >
+                    Cancel
+                  </CustomButton>
+                </div>
+              </CustomCardContent>
+            </CustomCard>
+
+            {/* Product image */}
             <CustomCard>
               <CustomCardContent className="pt-6">
                 <h3 className="text-lg font-semibold text-foreground mb-4">
-                  Featured Image
+                  Product image
                 </h3>
                 <SingleImageUpload
                   value={featuredImage}
@@ -2249,11 +3266,11 @@ export default function ProductForm({ productId = null }) {
               </CustomCardContent>
             </CustomCard>
 
-            {/* Gallery Images */}
+            {/* Product gallery */}
             <CustomCard>
               <CustomCardContent className="pt-6">
                 <h3 className="text-lg font-semibold text-foreground mb-4">
-                  Gallery Images
+                  Product gallery
                 </h3>
                 <MultiImageUpload
                   value={galleryImages}
@@ -2264,7 +3281,21 @@ export default function ProductForm({ productId = null }) {
               </CustomCardContent>
             </CustomCard>
 
-            {/* Settings */}
+            {/* Product tags */}
+            <CustomCard>
+              <CustomCardContent className="pt-6">
+                <h3 className="text-lg font-semibold text-foreground mb-4">
+                  Product tags
+                </h3>
+                <TagsSelector
+                  value={selectedTags}
+                  onChange={setSelectedTags}
+                  helperText="Add tags to categorize and filter products"
+                />
+              </CustomCardContent>
+            </CustomCard>
+
+            {/* Settings - General product settings for all product types */}
             <CustomCard>
               <CustomCardContent className="pt-6">
                 <h3 className="text-lg font-semibold text-foreground mb-4">
@@ -2359,73 +3390,6 @@ export default function ProductForm({ productId = null }) {
                       <div className="w-11 h-6 bg-gray-300 dark:bg-gray-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
                     </label>
                   </div>
-                </div>
-              </CustomCardContent>
-            </CustomCard>
-
-            {/* Categories */}
-            <CustomCard>
-              <CustomCardContent className="pt-6">
-                <h3 className="text-lg font-semibold text-foreground mb-4">
-                  Categories
-                </h3>
-
-                <div className="space-y-2 max-h-64 overflow-y-auto">
-                  {categories.map((category) => (
-                    <label
-                      key={category.id}
-                      className="flex items-center gap-2 p-2 hover:bg-gray-50 dark:hover:bg-gray-800 rounded cursor-pointer"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={categoryIds.includes(category.id)}
-                        onChange={() => handleCategoryToggle(category.id)}
-                        className="rounded border-gray-300 dark:border-gray-600"
-                      />
-                      <span className="text-sm">{category.name}</span>
-                    </label>
-                  ))}
-
-                  {categories.length === 0 && (
-                    <p className="text-sm text-muted-foreground text-center py-4">
-                      No categories available
-                    </p>
-                  )}
-                </div>
-              </CustomCardContent>
-            </CustomCard>
-
-            {/* Actions */}
-            <CustomCard className="md:sticky md:top-4">
-              <CustomCardContent className="pt-6">
-                <div className="space-y-3">
-                  <CustomButton
-                    type="submit"
-                    className="w-full flex items-center justify-center gap-2"
-                    disabled={loading}
-                  >
-                    {loading ? (
-                      <>
-                        <span className="animate-spin">⏳</span>
-                        {isEditMode ? "Updating..." : "Creating..."}
-                      </>
-                    ) : (
-                      <>
-                        <Save className="h-4 w-4" />
-                        {isEditMode ? "Update Product" : "Create Product"}
-                      </>
-                    )}
-                  </CustomButton>
-
-                  <CustomButton
-                    type="button"
-                    variant="outline"
-                    className="w-full"
-                    onClick={() => router.push("/dashboard/products")}
-                    disabled={loading}
-                  >
-                    Cancel
-                  </CustomButton>
                 </div>
               </CustomCardContent>
             </CustomCard>

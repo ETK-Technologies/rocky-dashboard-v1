@@ -123,6 +123,15 @@
   background: white !important;
 }
 
+/* Ensure toast notifications appear above modals and dialogs */
+.Toastify__toast-container {
+  z-index: 10000 !important;
+}
+
+.Toastify__toast {
+  z-index: 10000 !important;
+}
+
 /* Remove any yellow/amber accents from disabled states */
 .disabled\:opacity-50:disabled {
   opacity: 0.5 !important;

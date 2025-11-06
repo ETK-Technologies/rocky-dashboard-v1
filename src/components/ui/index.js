@@ -6,6 +6,7 @@ export {
 } from "./CustomAvatar";
 export { CustomBadge } from "./CustomBadge";
 export { CustomButton } from "./CustomButton";
+export { Pagination } from "./Pagination";
 export {
   CustomCard,
   CustomCardHeader,
@@ -30,6 +31,9 @@ export { PageHeader } from "./PageHeader";
 export { SectionHeader } from "./SectionHeader";
 export { SingleImageUpload } from "./SingleImageUpload";
 export { MultiImageUpload } from "./MultiImageUpload";
+export { ImageGalleryModal } from "./ImageGalleryModal";
+export { TagsSelector } from "./TagsSelector";
 export { Tooltip } from "./Tooltip";
 export { ViewToggle } from "./ViewToggle";
+export { Tabs, TabsList, TabsTrigger, TabsContent } from "./Tabs";
 export { FileUpload } from "@/features/uploads/components/FileUpload";

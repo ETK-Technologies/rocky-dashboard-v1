@@ -1,11 +1,20 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { Upload, X, Image as ImageIcon, Loader2, Trash2 } from "lucide-react";
+import {
+  Upload,
+  X,
+  Image as ImageIcon,
+  Loader2,
+  Trash2,
+  FolderOpen,
+} from "lucide-react";
 import { cn } from "@/utils/cn";
 import { CustomLabel } from "./CustomLabel";
 import { CustomButton } from "./CustomButton";
 import { useUploads } from "@/features/uploads";
+import { ImageGalleryModal } from "./ImageGalleryModal";
+import Image from "next/image";
 
 /**
  * MultiImageUpload component for uploading multiple images
@@ -31,6 +40,7 @@ export function MultiImageUpload({
 }) {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadingIndex, setUploadingIndex] = useState(null);
+  const [galleryOpen, setGalleryOpen] = useState(false);
   const fileInputRef = useRef(null);
   const { uploadFiles } = useUploads();
 
@@ -98,6 +108,18 @@ export function MultiImageUpload({
     }
   };
 
+  const handleGallerySelect = (selectedUrls) => {
+    if (Array.isArray(selectedUrls)) {
+      // Filter out already selected images and respect maxImages limit
+      const newUrls = selectedUrls.filter((url) => !value.includes(url));
+      const remainingSlots = maxImages - value.length;
+      const urlsToAdd = newUrls.slice(0, remainingSlots);
+      if (urlsToAdd.length > 0) {
+        onChange?.([...value, ...urlsToAdd]);
+      }
+    }
+  };
+
   const remainingSlots = maxImages - value.length;
 
   return (
@@ -113,16 +135,18 @@ export function MultiImageUpload({
 
       {/* Image Grid */}
       {value.length > 0 && (
-        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
+        <div className="grid grid-cols-3  gap-3">
           {value.map((url, index) => (
             <div
               key={index}
               className="relative group aspect-square border border-border rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-800"
             >
-              <img
+              <Image
                 src={url}
                 alt={`Image ${index + 1}`}
-                className="w-full h-full object-cover"
+                fill
+                className="object-cover"
+                unoptimized
               />
               <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                 <button
@@ -141,54 +165,71 @@ export function MultiImageUpload({
 
       {/* Upload Area */}
       {remainingSlots > 0 && (
-        <div
-          onClick={handleClick}
-          className={cn(
-            "border-2 border-dashed rounded-lg p-6 transition-all",
-            !isUploading && "cursor-pointer",
-            "border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500",
-            error && "border-red-500 dark:border-red-400",
-            isUploading && "opacity-50 cursor-not-allowed"
-          )}
-        >
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            multiple
-            onChange={handleInputChange}
-            className="hidden"
-            disabled={isUploading || value.length >= maxImages}
-          />
-
-          <div className="flex flex-col items-center justify-center text-center">
-            {isUploading ? (
-              <>
-                <Loader2 className="h-8 w-8 text-blue-600 dark:text-blue-400 animate-spin mb-2" />
-                <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                  Uploading...
-                </p>
-              </>
-            ) : (
-              <>
-                <div className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mb-2">
-                  <Upload className="h-5 w-5 text-gray-400 dark:text-gray-500" />
-                </div>
-                <p className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">
-                  Click to upload images
-                </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  PNG, JPG, GIF up to 10MB
-                </p>
-                {maxImages !== Infinity && (
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    {remainingSlots} {remainingSlots === 1 ? "image" : "images"}{" "}
-                    remaining
-                  </p>
-                )}
-              </>
+        <div className="space-y-2">
+          <div
+            onClick={handleClick}
+            className={cn(
+              "border-2 border-dashed rounded-lg p-6 transition-all",
+              !isUploading && "cursor-pointer",
+              "border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500",
+              error && "border-red-500 dark:border-red-400",
+              isUploading && "opacity-50 cursor-not-allowed"
             )}
+          >
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={handleInputChange}
+              className="hidden"
+              disabled={isUploading || value.length >= maxImages}
+            />
+
+            <div className="flex flex-col items-center justify-center text-center">
+              {isUploading ? (
+                <>
+                  <Loader2 className="h-8 w-8 text-blue-600 dark:text-blue-400 animate-spin mb-2" />
+                  <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                    Uploading...
+                  </p>
+                </>
+              ) : (
+                <>
+                  <div className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mb-2">
+                    <Upload className="h-5 w-5 text-gray-400 dark:text-gray-500" />
+                  </div>
+                  <p className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">
+                    Click to upload images
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    PNG, JPG, GIF up to 10MB
+                  </p>
+                  {maxImages !== Infinity && (
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      {remainingSlots}{" "}
+                      {remainingSlots === 1 ? "image" : "images"} remaining
+                    </p>
+                  )}
+                </>
+              )}
+            </div>
           </div>
+
+          {/* Gallery Button */}
+          <CustomButton
+            type="button"
+            variant="outline"
+            onClick={(e) => {
+              e.stopPropagation();
+              setGalleryOpen(true);
+            }}
+            className="w-full"
+            disabled={isUploading || value.length >= maxImages}
+          >
+            <FolderOpen className="h-4 w-4 mr-2" />
+            Choose from Gallery
+          </CustomButton>
         </div>
       )}
 
@@ -198,6 +239,15 @@ export function MultiImageUpload({
       {helperText && !error && (
         <p className="text-sm text-gray-600 dark:text-gray-400">{helperText}</p>
       )}
+
+      {/* Gallery Modal */}
+      <ImageGalleryModal
+        isOpen={galleryOpen}
+        onClose={() => setGalleryOpen(false)}
+        onSelect={handleGallerySelect}
+        multiple={true}
+        selectedUrls={value}
+      />
     </div>
   );
 }
