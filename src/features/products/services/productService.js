@@ -88,6 +88,18 @@ export const productService = {
   },
 
   /**
+   * Bulk delete products
+   * @param {Array<string>} ids - Array of product IDs
+   * @returns {Promise<Object>} Response with deletedCount, deletedIds, and missingIds
+   */
+  async bulkDelete(ids) {
+    return makeRequest("/api/v1/admin/products/bulk", {
+      method: "DELETE",
+      body: JSON.stringify({ ids }),
+    });
+  },
+
+  /**
    * Update product stock
    * @param {string} id - Product ID
    * @param {Object} stockData - Stock update data
@@ -158,6 +170,42 @@ export const productService = {
   async deleteMetadata(id, key) {
     return makeRequest(`/api/v1/products/${id}/metadata/${key}`, {
       method: "DELETE",
+    });
+  },
+
+  /**
+   * Import products from WooCommerce CSV file
+   * @param {File} file - CSV file to import
+   * @returns {Promise<Object>} Import job details
+   */
+  async importProducts(file) {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    return makeRequest("/api/v1/admin/products/import", {
+      method: "POST",
+      body: formData,
+    });
+  },
+
+  /**
+   * Get list of recent product import jobs
+   * @returns {Promise<Object>} List of import jobs
+   */
+  async getImportJobs() {
+    return makeRequest("/api/v1/admin/products/import", {
+      method: "GET",
+    });
+  },
+
+  /**
+   * Get product import job status by ID
+   * @param {string} id - Import job ID
+   * @returns {Promise<Object>} Import job details with status and error log
+   */
+  async getImportJobStatus(id) {
+    return makeRequest(`/api/v1/admin/products/import/${id}`, {
+      method: "GET",
     });
   },
 };

@@ -15,6 +15,10 @@ import { LoadingState } from "./LoadingState";
  * @param {boolean} props.loading - Loading state
  * @param {Object} props.emptyState - Empty state props
  * @param {string} props.className - Additional CSS classes
+ * @param {boolean} props.selectable - Enable row selection
+ * @param {Array} props.selectedRows - Array of selected row IDs
+ * @param {Function} props.onSelectionChange - Callback when selection changes (selectedIds)
+ * @param {Function} props.getRowId - Function to get unique ID from row data (default: row.id)
  */
 export function DataTable({
   columns = [],
@@ -24,9 +28,46 @@ export function DataTable({
   loading = false,
   emptyState,
   className,
+  selectable = false,
+  selectedRows = [],
+  onSelectionChange,
+  getRowId = (row) => row.id,
 }) {
   // Ensure data is always an array
   const safeData = Array.isArray(data) ? data : [];
+
+  // Handle row selection
+  const handleRowSelect = (rowId, checked) => {
+    if (!onSelectionChange) return;
+
+    const newSelection = checked
+      ? [...selectedRows, rowId]
+      : selectedRows.filter((id) => id !== rowId);
+
+    onSelectionChange(newSelection);
+  };
+
+  // Handle select all
+  const handleSelectAll = (checked) => {
+    if (!onSelectionChange) return;
+
+    if (checked) {
+      const allIds = safeData.map((row) => getRowId(row));
+      onSelectionChange(allIds);
+    } else {
+      onSelectionChange([]);
+    }
+  };
+
+  // Check if all rows are selected
+  const allSelected =
+    safeData.length > 0 &&
+    safeData.every((row) => selectedRows.includes(getRowId(row)));
+
+  // Check if some rows are selected
+  const someSelected =
+    safeData.some((row) => selectedRows.includes(getRowId(row))) &&
+    !allSelected;
 
   if (loading) {
     return <LoadingState message="Loading data..." />;
@@ -47,6 +88,20 @@ export function DataTable({
         <table className="w-full min-w-max table-fixed">
           <thead className="bg-secondary border-b border-border">
             <tr>
+              {selectable && (
+                <th className="px-3 sm:px-4 md:px-6 py-3 whitespace-nowrap w-12">
+                  <input
+                    type="checkbox"
+                    checked={allSelected}
+                    ref={(input) => {
+                      if (input) input.indeterminate = someSelected;
+                    }}
+                    onChange={(e) => handleSelectAll(e.target.checked)}
+                    className="w-4 h-4 text-primary bg-background border-input rounded focus:ring-primary focus:ring-2 cursor-pointer"
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                </th>
+              )}
               {columns.map((column) => (
                 <th
                   key={column.key}
@@ -67,33 +122,55 @@ export function DataTable({
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
-            {safeData.map((row, rowIndex) => (
-              <tr
-                key={rowIndex}
-                className={cn(
-                  "transition-colors",
-                  onRowClick && "hover:bg-accent cursor-pointer"
-                )}
-                onClick={() => onRowClick?.(row)}
-              >
-                {columns.map((column) => (
-                  <td
-                    key={column.key}
-                    className={cn(
-                      "px-3 sm:px-4 md:px-6 py-4",
-                      column.truncate ? "truncate" : "whitespace-nowrap"
-                    )}
-                  >
-                    {column.render ? column.render(row) : row[column.key]}
-                  </td>
-                ))}
-                {renderActions && (
-                  <td className="px-3 sm:px-4 md:px-6 py-4 whitespace-nowrap">
-                    {renderActions(row)}
-                  </td>
-                )}
-              </tr>
-            ))}
+            {safeData.map((row, rowIndex) => {
+              const rowId = getRowId(row);
+              const isSelected = selectedRows.includes(rowId);
+
+              return (
+                <tr
+                  key={rowIndex}
+                  className={cn(
+                    "transition-colors",
+                    onRowClick && "hover:bg-accent cursor-pointer",
+                    isSelected && "bg-accent/50"
+                  )}
+                  onClick={() => onRowClick?.(row)}
+                >
+                  {selectable && (
+                    <td
+                      className="px-3 sm:px-4 md:px-6 py-4 whitespace-nowrap"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={(e) =>
+                          handleRowSelect(rowId, e.target.checked)
+                        }
+                        className="w-4 h-4 text-primary bg-background border-input rounded focus:ring-primary focus:ring-2 cursor-pointer"
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    </td>
+                  )}
+                  {columns.map((column) => (
+                    <td
+                      key={column.key}
+                      className={cn(
+                        "px-3 sm:px-4 md:px-6 py-4",
+                        column.truncate ? "truncate" : "whitespace-nowrap"
+                      )}
+                    >
+                      {column.render ? column.render(row) : row[column.key]}
+                    </td>
+                  ))}
+                  {renderActions && (
+                    <td className="px-3 sm:px-4 md:px-6 py-4 whitespace-nowrap">
+                      {renderActions(row)}
+                    </td>
+                  )}
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

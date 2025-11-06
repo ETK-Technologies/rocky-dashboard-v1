@@ -4,7 +4,15 @@ import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Tooltip } from "react-tooltip";
 import "react-tooltip/dist/react-tooltip.css";
-import { Edit, Trash2, Search, Plus, Package, Filter } from "lucide-react";
+import {
+  Edit,
+  Trash2,
+  Search,
+  Plus,
+  Package,
+  Filter,
+  Upload,
+} from "lucide-react";
 import {
   CustomButton,
   PageContainer,
@@ -15,19 +23,31 @@ import {
   CustomBadge,
   CustomConfirmationDialog,
   ErrorState,
+  Pagination,
 } from "@/components/ui";
 import { useProducts } from "../hooks/useProducts";
 import { useCategories } from "@/features/categories";
+import { ProductImportModal } from "./ProductImportModal";
 
 export default function Products() {
   const router = useRouter();
-  const { products, loading, error, deleteProduct, pagination, updateFilters } =
-    useProducts();
+  const {
+    products,
+    loading,
+    error,
+    deleteProduct,
+    bulkDeleteProducts,
+    pagination,
+    updateFilters,
+  } = useProducts();
   const { categories } = useCategories();
   const [searchTerm, setSearchTerm] = useState("");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [productToDelete, setProductToDelete] = useState(null);
+  const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false);
+  const [selectedProductIds, setSelectedProductIds] = useState([]);
   const [showFilters, setShowFilters] = useState(false);
+  const [importModalOpen, setImportModalOpen] = useState(false);
   const [filterValues, setFilterValues] = useState({
     type: "",
     status: "",
@@ -118,6 +138,34 @@ export default function Products() {
     setProductToDelete(null);
   };
 
+  // Handle bulk delete
+  const handleBulkDeleteClick = () => {
+    if (selectedProductIds.length > 0) {
+      setBulkDeleteDialogOpen(true);
+    }
+  };
+
+  const handleBulkDeleteConfirm = async () => {
+    if (selectedProductIds.length > 0) {
+      try {
+        await bulkDeleteProducts(selectedProductIds);
+        setBulkDeleteDialogOpen(false);
+        setSelectedProductIds([]);
+      } catch (error) {
+        // Error is already handled in the hook
+      }
+    }
+  };
+
+  const handleBulkDeleteCancel = () => {
+    setBulkDeleteDialogOpen(false);
+  };
+
+  // Handle selection change
+  const handleSelectionChange = (selectedIds) => {
+    setSelectedProductIds(selectedIds);
+  };
+
   // Get product type badge variant
   const getTypeBadgeVariant = (type) => {
     switch (type) {
@@ -201,7 +249,7 @@ export default function Products() {
             </div>
           )}
           {product.sku && (
-            <code className="text-xs text-muted-foreground bg-secondary px-1.5 py-0.5 rounded mt-1 inline-block">
+            <code className="text-xs text-muted-foreground bg-secondary px-1.5 py-0.5 rounded mt-1 inline-block w-fit">
               {product.sku}
             </code>
           )}
@@ -330,6 +378,11 @@ export default function Products() {
     });
   };
 
+  // Handle import success - refresh products
+  const handleImportSuccess = () => {
+    window.location.reload();
+  };
+
   // Show error state if there's an error
   if (error && !loading) {
     return (
@@ -338,15 +391,27 @@ export default function Products() {
           title="Products"
           description="Manage your products"
           action={
-            <CustomButton
-              onClick={() => router.push("/dashboard/products/new")}
-              className="flex items-center gap-2"
-              size="sm"
-            >
-              <Plus className="h-4 w-4" />
-              <span className="hidden sm:inline">Add Product</span>
-              <span className="sm:hidden">Add</span>
-            </CustomButton>
+            <div className="flex items-center gap-2">
+              <CustomButton
+                onClick={() => setImportModalOpen(true)}
+                variant="outline"
+                className="flex items-center gap-2"
+                size="sm"
+              >
+                <Upload className="h-4 w-4" />
+                <span className="hidden sm:inline">Import</span>
+                <span className="sm:hidden">Import</span>
+              </CustomButton>
+              <CustomButton
+                onClick={() => router.push("/dashboard/products/new")}
+                className="flex items-center gap-2"
+                size="sm"
+              >
+                <Plus className="h-4 w-4" />
+                <span className="hidden sm:inline">Add Product</span>
+                <span className="sm:hidden">Add</span>
+              </CustomButton>
+            </div>
           }
         />
         <ErrorState
@@ -358,6 +423,11 @@ export default function Products() {
             </CustomButton>
           }
         />
+        <ProductImportModal
+          isOpen={importModalOpen}
+          onClose={() => setImportModalOpen(false)}
+          onImportSuccess={handleImportSuccess}
+        />
       </PageContainer>
     );
   }
@@ -368,15 +438,27 @@ export default function Products() {
         title="Products"
         description="Manage your products"
         action={
-          <CustomButton
-            onClick={() => router.push("/dashboard/products/new")}
-            className="flex items-center gap-2"
-            size="sm"
-          >
-            <Plus className="h-4 w-4" />
-            <span className="hidden sm:inline">Add Product</span>
-            <span className="sm:hidden">Add</span>
-          </CustomButton>
+          <div className="flex items-center gap-2">
+            <CustomButton
+              onClick={() => setImportModalOpen(true)}
+              variant="outline"
+              className="flex items-center gap-2"
+              size="sm"
+            >
+              <Upload className="h-4 w-4" />
+              <span className="hidden sm:inline">Import</span>
+              <span className="sm:hidden">Import</span>
+            </CustomButton>
+            <CustomButton
+              onClick={() => router.push("/dashboard/products/new")}
+              className="flex items-center gap-2"
+              size="sm"
+            >
+              <Plus className="h-4 w-4" />
+              <span className="hidden sm:inline">Add Product</span>
+              <span className="sm:hidden">Add</span>
+            </CustomButton>
+          </div>
         }
       />
 
@@ -546,12 +628,35 @@ export default function Products() {
         </div>
       )}
 
+      {/* Bulk Actions Bar */}
+      {selectedProductIds.length > 0 && (
+        <div className="mb-4 p-3 bg-accent rounded-lg border border-border flex items-center justify-between">
+          <span className="text-sm text-foreground">
+            {selectedProductIds.length} product
+            {selectedProductIds.length > 1 ? "s" : ""} selected
+          </span>
+          <CustomButton
+            onClick={handleBulkDeleteClick}
+            variant="destructive"
+            size="sm"
+            className="flex items-center gap-2"
+          >
+            <Trash2 className="h-4 w-4" />
+            Delete Selected
+          </CustomButton>
+        </div>
+      )}
+
       {/* Products Table */}
       <DataTable
         columns={columns}
         data={Array.isArray(products) ? products : []}
         renderActions={renderActions}
         loading={loading}
+        selectable={true}
+        selectedRows={selectedProductIds}
+        onSelectionChange={handleSelectionChange}
+        getRowId={(row) => row.id}
         emptyState={{
           icon: Package,
           title: "No products found",
@@ -578,11 +683,16 @@ export default function Products() {
         }}
       />
 
-      {/* Pagination Info */}
+      {/* Pagination */}
       {pagination && pagination.total > 0 && (
-        <div className="mt-4 text-sm text-muted-foreground text-center">
-          Showing {products.length} of {pagination.total} products
-        </div>
+        <Pagination
+          currentPage={pagination.page || 1}
+          totalPages={pagination.totalPages || 1}
+          total={pagination.total || 0}
+          limit={pagination.limit || 10}
+          onPageChange={(page) => updateFilters({ page })}
+          disabled={loading}
+        />
       )}
 
       {/* Delete Confirmation Dialog */}
@@ -595,6 +705,28 @@ export default function Products() {
         confirmText="Delete"
         cancelText="Cancel"
         variant="danger"
+      />
+
+      {/* Bulk Delete Confirmation Dialog */}
+      <CustomConfirmationDialog
+        isOpen={bulkDeleteDialogOpen}
+        onClose={handleBulkDeleteCancel}
+        onConfirm={handleBulkDeleteConfirm}
+        title="Delete Products"
+        description={`Are you sure you want to delete ${
+          selectedProductIds.length
+        } product${
+          selectedProductIds.length > 1 ? "s" : ""
+        }? This action cannot be undone.`}
+        confirmText="Delete"
+        cancelText="Cancel"
+        variant="danger"
+      />
+
+      <ProductImportModal
+        isOpen={importModalOpen}
+        onClose={() => setImportModalOpen(false)}
+        onImportSuccess={handleImportSuccess}
       />
 
       {/* Tooltip */}
