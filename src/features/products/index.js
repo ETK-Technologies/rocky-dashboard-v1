@@ -11,3 +11,4 @@ export { useProductAttributes } from "./hooks/useProductAttributes";
 // Services
 export { productService } from "./services/productService";
 export { productAttributeService } from "./services/productAttributeService";
+export { tagService } from "./services/tagService";

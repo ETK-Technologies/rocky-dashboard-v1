@@ -4,7 +4,15 @@ import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Tooltip } from "react-tooltip";
 import "react-tooltip/dist/react-tooltip.css";
-import { Edit, Trash2, Search, Plus, Package, Filter } from "lucide-react";
+import {
+  Edit,
+  Trash2,
+  Search,
+  Plus,
+  Package,
+  Filter,
+  Upload,
+} from "lucide-react";
 import {
   CustomButton,
   PageContainer,
@@ -18,6 +26,7 @@ import {
 } from "@/components/ui";
 import { useProducts } from "../hooks/useProducts";
 import { useCategories } from "@/features/categories";
+import { ProductImportModal } from "./ProductImportModal";
 
 export default function Products() {
   const router = useRouter();
@@ -28,6 +37,7 @@ export default function Products() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [productToDelete, setProductToDelete] = useState(null);
   const [showFilters, setShowFilters] = useState(false);
+  const [importModalOpen, setImportModalOpen] = useState(false);
   const [filterValues, setFilterValues] = useState({
     type: "",
     status: "",
@@ -330,6 +340,11 @@ export default function Products() {
     });
   };
 
+  // Handle import success - refresh products
+  const handleImportSuccess = () => {
+    window.location.reload();
+  };
+
   // Show error state if there's an error
   if (error && !loading) {
     return (
@@ -338,15 +353,27 @@ export default function Products() {
           title="Products"
           description="Manage your products"
           action={
-            <CustomButton
-              onClick={() => router.push("/dashboard/products/new")}
-              className="flex items-center gap-2"
-              size="sm"
-            >
-              <Plus className="h-4 w-4" />
-              <span className="hidden sm:inline">Add Product</span>
-              <span className="sm:hidden">Add</span>
-            </CustomButton>
+            <div className="flex items-center gap-2">
+              <CustomButton
+                onClick={() => setImportModalOpen(true)}
+                variant="outline"
+                className="flex items-center gap-2"
+                size="sm"
+              >
+                <Upload className="h-4 w-4" />
+                <span className="hidden sm:inline">Import</span>
+                <span className="sm:hidden">Import</span>
+              </CustomButton>
+              <CustomButton
+                onClick={() => router.push("/dashboard/products/new")}
+                className="flex items-center gap-2"
+                size="sm"
+              >
+                <Plus className="h-4 w-4" />
+                <span className="hidden sm:inline">Add Product</span>
+                <span className="sm:hidden">Add</span>
+              </CustomButton>
+            </div>
           }
         />
         <ErrorState
@@ -358,6 +385,11 @@ export default function Products() {
             </CustomButton>
           }
         />
+        <ProductImportModal
+          isOpen={importModalOpen}
+          onClose={() => setImportModalOpen(false)}
+          onImportSuccess={handleImportSuccess}
+        />
       </PageContainer>
     );
   }
@@ -368,15 +400,27 @@ export default function Products() {
         title="Products"
         description="Manage your products"
         action={
-          <CustomButton
-            onClick={() => router.push("/dashboard/products/new")}
-            className="flex items-center gap-2"
-            size="sm"
-          >
-            <Plus className="h-4 w-4" />
-            <span className="hidden sm:inline">Add Product</span>
-            <span className="sm:hidden">Add</span>
-          </CustomButton>
+          <div className="flex items-center gap-2">
+            <CustomButton
+              onClick={() => setImportModalOpen(true)}
+              variant="outline"
+              className="flex items-center gap-2"
+              size="sm"
+            >
+              <Upload className="h-4 w-4" />
+              <span className="hidden sm:inline">Import</span>
+              <span className="sm:hidden">Import</span>
+            </CustomButton>
+            <CustomButton
+              onClick={() => router.push("/dashboard/products/new")}
+              className="flex items-center gap-2"
+              size="sm"
+            >
+              <Plus className="h-4 w-4" />
+              <span className="hidden sm:inline">Add Product</span>
+              <span className="sm:hidden">Add</span>
+            </CustomButton>
+          </div>
         }
       />
 
@@ -595,6 +639,12 @@ export default function Products() {
         confirmText="Delete"
         cancelText="Cancel"
         variant="danger"
+      />
+
+      <ProductImportModal
+        isOpen={importModalOpen}
+        onClose={() => setImportModalOpen(false)}
+        onImportSuccess={handleImportSuccess}
       />
 
       {/* Tooltip */}

@@ -31,6 +31,7 @@ export { SectionHeader } from "./SectionHeader";
 export { SingleImageUpload } from "./SingleImageUpload";
 export { MultiImageUpload } from "./MultiImageUpload";
 export { ImageGalleryModal } from "./ImageGalleryModal";
+export { TagsSelector } from "./TagsSelector";
 export { Tooltip } from "./Tooltip";
 export { ViewToggle } from "./ViewToggle";
 export { Tabs, TabsList, TabsTrigger, TabsContent } from "./Tabs";

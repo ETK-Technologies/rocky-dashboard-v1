@@ -45,7 +45,7 @@ const navigation = [
         roles: ["admin", "super_admin"],
       },
       {
-        name: "Global Attributes",
+        name: "Attributes",
         href: "/dashboard/products/global-attributes",
         icon: Globe,
         roles: ["admin", "super_admin"],
