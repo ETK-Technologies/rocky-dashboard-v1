@@ -23,6 +23,7 @@ import {
   GitBranch,
   ChevronLeft,
   ChevronRight as ChevronRightIcon,
+  ShoppingCart,
 } from "lucide-react";
 import { cn } from "@/utils/cn";
 import { RoleGuard } from "@/components/common/ProtectedRoute";
@@ -32,6 +33,13 @@ import Image from "next/image";
 
 const navigation = [
   { name: "Home", href: "/dashboard", icon: LayoutDashboard },
+
+  {
+    name: "Orders",
+    href: "/dashboard/orders",
+    icon: ShoppingCart,
+    roles: ["admin", "super_admin"],
+  },
 
   {
     name: "Products",

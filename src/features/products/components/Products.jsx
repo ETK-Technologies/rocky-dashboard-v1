@@ -692,6 +692,7 @@ export default function Products() {
           limit={pagination.limit || 10}
           onPageChange={(page) => updateFilters({ page })}
           disabled={loading}
+          resourceName="products"
         />
       )}
 
