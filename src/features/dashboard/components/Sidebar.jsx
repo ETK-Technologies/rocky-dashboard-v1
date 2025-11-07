@@ -28,6 +28,7 @@ import { cn } from "@/utils/cn";
 import { RoleGuard } from "@/components/common/ProtectedRoute";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { Tooltip } from "@/components/ui/Tooltip";
+import Image from "next/image";
 
 const navigation = [
   { name: "Home", href: "/dashboard", icon: LayoutDashboard },
@@ -242,7 +243,13 @@ export function Sidebar({
             )}
           >
             <div className="w-7 h-7 sm:w-8 sm:h-8 bg-gradient-to-br from-[#af7f56] to-[#9d6f46] rounded-lg flex items-center justify-center flex-shrink-0">
-              <FileText className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
+              <Image
+                src="https://mycdn.myrocky.ca/wp-content/uploads/20240403133659/Rocky-favicon-1.svg"
+                alt="Rocky Logo"
+                width={32}
+                height={32}
+                className="h-4 w-4 sm:h-5 sm:w-5 text-white"
+              />
             </div>
             {!isCollapsed && (
               <h1 className="text-base sm:text-lg font-semibold text-foreground whitespace-nowrap">

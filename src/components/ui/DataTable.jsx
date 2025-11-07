@@ -85,7 +85,7 @@ export function DataTable({
       )}
     >
       <div className="overflow-x-auto w-full">
-        <table className="w-full min-w-max table-fixed">
+        <table className="w-full min-w-full table-fixed">
           <thead className="bg-secondary border-b border-border">
             <tr>
               {selectable && (
