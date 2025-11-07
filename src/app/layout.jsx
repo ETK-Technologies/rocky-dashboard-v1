@@ -8,6 +8,13 @@ import { ThemeProvider } from "@/features/theme";
 export default function RootLayout({ children }) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <link
+          rel="icon"
+          href="https://mycdn.myrocky.ca/wp-content/uploads/20240403133659/Rocky-favicon-1.svg"
+          type="image/svg+xml"
+        />
+      </head>
       <body>
         <ThemeProvider>
           {children}
