@@ -12,6 +12,7 @@ import { LogoutButton } from "@/features/auth";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { ThemeToggle } from "@/features/theme";
 import { useSearch } from "@/features/search";
+import { CacheActionsDropdown } from "@/features/cache";
 
 export function Topbar({ onMenuClick }) {
   const { user, getRoleDisplayName, isAdmin, isSuperAdmin } = useAuth();
@@ -261,6 +262,9 @@ export function Topbar({ onMenuClick }) {
           >
             <Search className="h-5 w-5" />
           </button>
+
+          {/* Cache management - super admins only */}
+          {isSuperAdmin() && <CacheActionsDropdown />}
 
           {/* Theme Toggle */}
           <ThemeToggle

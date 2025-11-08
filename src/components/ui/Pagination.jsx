@@ -13,6 +13,7 @@ import { cn } from "@/utils/cn";
  * @param {number} props.limit - Items per page
  * @param {Function} props.onPageChange - Callback when page changes
  * @param {boolean} props.disabled - Whether pagination is disabled
+ * @param {string} props.resourceName - Label for resource being paginated (plural form)
  */
 export function Pagination({
   currentPage,
@@ -21,6 +22,7 @@ export function Pagination({
   limit,
   onPageChange,
   disabled = false,
+  resourceName = "items",
 }) {
   if (totalPages <= 1) {
     return null;
@@ -35,7 +37,7 @@ export function Pagination({
   const getPageNumbers = () => {
     const pages = [];
     const maxVisible = 5;
-    
+
     if (totalPages <= maxVisible) {
       // Show all pages if total pages is less than max visible
       for (let i = 1; i <= totalPages; i++) {
@@ -44,39 +46,39 @@ export function Pagination({
     } else {
       // Always show first page
       pages.push(1);
-      
+
       let start = Math.max(2, currentPage - 1);
       let end = Math.min(totalPages - 1, currentPage + 1);
-      
+
       // Adjust if we're near the start
       if (currentPage <= 3) {
         end = Math.min(4, totalPages - 1);
       }
-      
+
       // Adjust if we're near the end
       if (currentPage >= totalPages - 2) {
         start = Math.max(totalPages - 3, 2);
       }
-      
+
       // Add ellipsis after first page if needed
       if (start > 2) {
         pages.push("ellipsis-start");
       }
-      
+
       // Add middle pages
       for (let i = start; i <= end; i++) {
         pages.push(i);
       }
-      
+
       // Add ellipsis before last page if needed
       if (end < totalPages - 1) {
         pages.push("ellipsis-end");
       }
-      
+
       // Always show last page
       pages.push(totalPages);
     }
-    
+
     return pages;
   };
 
@@ -87,9 +89,10 @@ export function Pagination({
     <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-4">
       {/* Results Info */}
       <div className="text-sm text-muted-foreground">
-        Showing <span className="font-medium text-foreground">{startItem}</span> to{" "}
-        <span className="font-medium text-foreground">{endItem}</span> of{" "}
-        <span className="font-medium text-foreground">{total}</span> products
+        Showing <span className="font-medium text-foreground">{startItem}</span>{" "}
+        to <span className="font-medium text-foreground">{endItem}</span> of{" "}
+        <span className="font-medium text-foreground">{total}</span>{" "}
+        {resourceName}
       </div>
 
       {/* Pagination Controls */}
@@ -154,4 +157,3 @@ export function Pagination({
     </div>
   );
 }
-
