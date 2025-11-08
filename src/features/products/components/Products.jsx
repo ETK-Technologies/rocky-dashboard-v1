@@ -166,35 +166,35 @@ export default function Products() {
     setSelectedProductIds(selectedIds);
   };
 
-  // Get product type badge variant
-  const getTypeBadgeVariant = (type) => {
-    switch (type) {
-      case "SIMPLE":
-        return "default";
-      case "VARIABLE":
-        return "info";
-      case "SUBSCRIPTION":
-        return "warning";
-      case "VARIABLE_SUBSCRIPTION":
-        return "success";
-      default:
-        return "default";
-    }
+  const DEFAULT_TYPE_BADGE_CLASS =
+    "bg-secondary text-secondary-foreground dark:bg-slate-400/20 dark:text-slate-200";
+  const TYPE_BADGE_CLASSES = {
+    SIMPLE:
+      "bg-amber-100 text-amber-700 dark:bg-amber-400/20 dark:text-amber-200",
+    VARIABLE:
+      "bg-cyan-100 text-cyan-700 dark:bg-cyan-400/20 dark:text-cyan-200",
+    SUBSCRIPTION:
+      "bg-purple-100 text-purple-700 dark:bg-purple-400/20 dark:text-purple-200",
+    VARIABLE_SUBSCRIPTION:
+      "bg-pink-100 text-pink-700 dark:bg-pink-400/20 dark:text-pink-200",
   };
 
-  // Get status badge variant
-  const getStatusBadgeVariant = (status) => {
-    switch (status) {
-      case "PUBLISHED":
-        return "success";
-      case "DRAFT":
-        return "warning";
-      case "ARCHIVED":
-        return "secondary";
-      default:
-        return "default";
-    }
+  const DEFAULT_STATUS_BADGE_CLASS =
+    "bg-secondary text-secondary-foreground dark:bg-slate-400/20 dark:text-slate-200";
+  const STATUS_BADGE_CLASSES = {
+    PUBLISHED:
+      "bg-emerald-100 text-emerald-700 dark:bg-emerald-400/20 dark:text-emerald-200",
+    DRAFT:
+      "bg-amber-100 text-amber-700 dark:bg-amber-400/20 dark:text-amber-200",
+    ARCHIVED:
+      "bg-slate-100 text-slate-700 dark:bg-slate-400/20 dark:text-slate-200",
   };
+
+  const getTypeBadgeClass = (type) =>
+    TYPE_BADGE_CLASSES[type?.toUpperCase()] || DEFAULT_TYPE_BADGE_CLASS;
+
+  const getStatusBadgeClass = (status) =>
+    STATUS_BADGE_CLASSES[status?.toUpperCase()] || DEFAULT_STATUS_BADGE_CLASS;
 
   // Format price
   const formatPrice = (price) => {
@@ -261,8 +261,13 @@ export default function Products() {
       label: "Type",
       width: "150px",
       render: (product) => (
-        <CustomBadge variant={getTypeBadgeVariant(product.type)}>
-          {product.type?.replace("_", " ")}
+        <CustomBadge
+          variant="outline"
+          className={`px-2.5 py-1 text-xs font-semibold uppercase tracking-wide ${getTypeBadgeClass(
+            product.type
+          )}`}
+        >
+          {product.type?.replace(/_/g, " ") || "UNKNOWN"}
         </CustomBadge>
       ),
     },
@@ -288,8 +293,13 @@ export default function Products() {
       label: "Status",
       width: "120px",
       render: (product) => (
-        <CustomBadge variant={getStatusBadgeVariant(product.status)}>
-          {product.status || "DRAFT"}
+        <CustomBadge
+          variant="outline"
+          className={`px-2.5 py-1 text-xs font-semibold uppercase tracking-wide ${getStatusBadgeClass(
+            product.status || "DRAFT"
+          )}`}
+        >
+          {(product.status || "DRAFT").replace(/_/g, " ")}
         </CustomBadge>
       ),
     },
@@ -692,6 +702,7 @@ export default function Products() {
           limit={pagination.limit || 10}
           onPageChange={(page) => updateFilters({ page })}
           disabled={loading}
+          resourceName="products"
         />
       )}
 
