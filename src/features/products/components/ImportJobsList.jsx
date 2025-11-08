@@ -9,6 +9,7 @@ import {
   RefreshCw,
   Eye,
   AlertCircle,
+  FileText,
 } from "lucide-react";
 import { CustomBadge, CustomButton, CustomCard } from "@/components/ui";
 import { cn } from "@/utils/cn";
@@ -25,7 +26,11 @@ export function ImportJobsList({ limit = 10, onJobClick }) {
     useProductImport();
   const [expandedJobId, setExpandedJobId] = useState(null);
   const [expandedErrorLogs, setExpandedErrorLogs] = useState(new Set());
+  const [expandedDetailedLogs, setExpandedDetailedLogs] = useState(new Set());
   const [refreshing, setRefreshing] = useState(false);
+
+  const ERROR_LOG_PREVIEW_COUNT = 5;
+  const DETAIL_LOG_PREVIEW_COUNT = 20;
 
   // Fetch jobs on mount
   useEffect(() => {
@@ -160,6 +165,231 @@ export function ImportJobsList({ limit = 10, onJobClick }) {
     if (diffHours < 24) return `${diffHours}h ago`;
     if (diffDays < 7) return `${diffDays}d ago`;
     return date.toLocaleDateString();
+  };
+
+  const formatDateTime = (dateString) => {
+    if (!dateString) return "N/A";
+    try {
+      return new Date(dateString).toLocaleString();
+    } catch {
+      return dateString;
+    }
+  };
+
+  const getLogLevelStyles = (level = "") => {
+    const normalized = level.toLowerCase();
+    switch (normalized) {
+      case "error":
+        return {
+          badgeClass:
+            "bg-destructive/20 text-destructive border border-destructive/40",
+          label: "ERROR",
+        };
+      case "warn":
+      case "warning":
+        return {
+          badgeClass:
+            "bg-yellow-100 text-yellow-800 border border-yellow-300 dark:bg-yellow-900/30 dark:text-yellow-200 dark:border-yellow-900/60",
+          label: "WARN",
+        };
+      case "debug":
+        return {
+          badgeClass:
+            "bg-slate-100 text-slate-700 border border-slate-300 dark:bg-slate-900/40 dark:text-slate-100 dark:border-slate-700/60",
+          label: "DEBUG",
+        };
+      case "info":
+      default:
+        return {
+          badgeClass: "bg-primary/10 text-primary border border-primary/40",
+          label: (level || "INFO").toUpperCase(),
+        };
+    }
+  };
+
+  const formatMetaKey = (key = "") =>
+    key
+      .replace(/[_\-\s]+/g, " ")
+      .replace(/([a-z])([A-Z])/g, "$1 $2")
+      .replace(/\s+/g, " ")
+      .trim()
+      .replace(/^./, (str) => str.toUpperCase());
+
+  const normalizeLogEntry = (entry, fallbackLevel = "info") => {
+    if (entry == null) {
+      return {
+        level: fallbackLevel,
+        message: "",
+      };
+    }
+
+    if (
+      typeof entry === "string" ||
+      typeof entry === "number" ||
+      typeof entry === "boolean"
+    ) {
+      return {
+        level: fallbackLevel,
+        message: String(entry),
+      };
+    }
+
+    if (typeof entry !== "object") {
+      return {
+        level: fallbackLevel,
+        message: JSON.stringify(entry),
+      };
+    }
+
+    const normalized = {
+      ...entry,
+      level: entry.level || fallbackLevel,
+    };
+
+    if (!normalized.message && normalized.error) {
+      normalized.message = normalized.error;
+    }
+
+    return normalized;
+  };
+
+  const getLogEntryMeta = (entry) => {
+    const reservedKeys = new Set(["level", "message", "timestamp"]);
+    const scalarMeta = [];
+    const structuredMeta = [];
+
+    Object.entries(entry).forEach(([key, value]) => {
+      if (
+        reservedKeys.has(key) ||
+        value === null ||
+        value === undefined ||
+        value === ""
+      ) {
+        return;
+      }
+
+      if (
+        typeof value === "string" ||
+        typeof value === "number" ||
+        typeof value === "boolean"
+      ) {
+        scalarMeta.push([key, value]);
+        return;
+      }
+
+      structuredMeta.push([key, value]);
+    });
+
+    return { scalarMeta, structuredMeta };
+  };
+
+  const renderLogEntries = (
+    entries,
+    {
+      jobId,
+      fallbackLevel,
+      isExpanded,
+      previewCount,
+      expandedSet,
+      setExpandedSet,
+      toggleLabelFormatter,
+    }
+  ) => {
+    if (!entries || entries.length === 0) return null;
+
+    const visibleEntries = isExpanded
+      ? entries
+      : entries.slice(0, previewCount);
+
+    return (
+      <>
+        <div
+          className={cn(
+            "border border-border rounded-lg bg-muted/20 text-xs overflow-y-auto",
+            isExpanded ? "max-h-[28rem]" : "max-h-60"
+          )}
+        >
+          <ul className="divide-y divide-border/60">
+            {visibleEntries.map((entry, index) => {
+              const normalized = normalizeLogEntry(entry, fallbackLevel);
+              const { badgeClass, label } = getLogLevelStyles(normalized.level);
+              const { scalarMeta, structuredMeta } =
+                getLogEntryMeta(normalized);
+              const messageClass =
+                normalized.level?.toLowerCase() === "error"
+                  ? "text-destructive"
+                  : "text-foreground";
+
+              return (
+                <li
+                  key={`${jobId}-${fallbackLevel}-log-${index}`}
+                  className="p-3 hover:bg-muted/30 transition-colors space-y-2"
+                >
+                  <div className="flex flex-wrap items-center gap-2 text-[11px]">
+                    <span
+                      className={cn(
+                        "px-1.5 py-0.5 rounded-md font-semibold tracking-wide",
+                        badgeClass
+                      )}
+                    >
+                      {label}
+                    </span>
+                    {normalized.timestamp && (
+                      <span className="font-mono text-muted-foreground">
+                        {formatDateTime(normalized.timestamp)}
+                      </span>
+                    )}
+                    {scalarMeta.map(([key, value]) => (
+                      <span key={key} className="text-muted-foreground">
+                        {formatMetaKey(key)}:{" "}
+                        <span className="font-mono">{String(value)}</span>
+                      </span>
+                    ))}
+                  </div>
+
+                  {normalized.message && (
+                    <p className={cn("text-sm leading-relaxed", messageClass)}>
+                      {normalized.message}
+                    </p>
+                  )}
+
+                  {structuredMeta.map(([key, value]) => (
+                    <div key={key} className="space-y-1">
+                      <p className="text-[11px] text-muted-foreground tracking-wide font-semibold uppercase">
+                        {formatMetaKey(key)}
+                      </p>
+                      <pre className="bg-background/70 border border-border/60 rounded-lg p-2 text-[11px] font-mono whitespace-pre-wrap break-words">
+                        {JSON.stringify(value, null, 2)}
+                      </pre>
+                    </div>
+                  ))}
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+
+        {entries.length > previewCount && (
+          <div
+            className="p-2 text-center text-xs text-muted-foreground cursor-pointer hover:text-foreground transition-colors font-medium"
+            onClick={(e) => {
+              e.stopPropagation();
+              setExpandedSet((prev) => {
+                const newSet = new Set(prev);
+                if (newSet.has(jobId)) {
+                  newSet.delete(jobId);
+                } else {
+                  newSet.add(jobId);
+                }
+                return newSet;
+              });
+            }}
+          >
+            {toggleLabelFormatter(isExpanded, entries.length, previewCount)}
+          </div>
+        )}
+      </>
+    );
   };
 
   // Calculate progress
@@ -339,9 +569,7 @@ export function ImportJobsList({ limit = 10, onJobClick }) {
                       <p className="text-xs text-muted-foreground mb-1">
                         Created At
                       </p>
-                      <p className="text-xs">
-                        {new Date(job.createdAt).toLocaleString()}
-                      </p>
+                      <p className="text-xs">{formatDateTime(job.createdAt)}</p>
                     </div>
                     {job.startedAt && (
                       <div>
@@ -349,7 +577,7 @@ export function ImportJobsList({ limit = 10, onJobClick }) {
                           Started At
                         </p>
                         <p className="text-xs">
-                          {new Date(job.startedAt).toLocaleString()}
+                          {formatDateTime(job.startedAt)}
                         </p>
                       </div>
                     )}
@@ -359,7 +587,30 @@ export function ImportJobsList({ limit = 10, onJobClick }) {
                           Completed At
                         </p>
                         <p className="text-xs">
-                          {new Date(job.completedAt).toLocaleString()}
+                          {formatDateTime(job.completedAt)}
+                        </p>
+                      </div>
+                    )}
+                    {job.status && (
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-1">
+                          Final Status
+                        </p>
+                        <p className="text-xs font-medium uppercase">
+                          {job.status}
+                        </p>
+                      </div>
+                    )}
+                    {job.createdBy && (
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-1">
+                          Created By
+                        </p>
+                        <p className="text-xs">
+                          {job.createdBy?.name ||
+                            job.createdBy?.email ||
+                            job.createdBy?.id ||
+                            "Unknown"}
                         </p>
                       </div>
                     )}
@@ -403,74 +654,44 @@ export function ImportJobsList({ limit = 10, onJobClick }) {
                           {job.errorLog.length}
                         </CustomBadge>
                       </div>
-                      <div
-                        className={cn(
-                          "overflow-y-auto border border-border rounded-lg text-xs",
-                          expandedErrorLogs.has(job.id)
-                            ? "max-h-96"
-                            : "max-h-32"
-                        )}
-                      >
-                        <table className="w-full">
-                          <thead className="bg-muted/50 sticky top-0">
-                            <tr>
-                              <th className="px-2 py-1.5 text-left text-xs font-semibold text-muted-foreground">
-                                Row
-                              </th>
-                              <th className="px-2 py-1.5 text-left text-xs font-semibold text-muted-foreground">
-                                SKU
-                              </th>
-                              <th className="px-2 py-1.5 text-left text-xs font-semibold text-muted-foreground">
-                                Error
-                              </th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-border">
-                            {(expandedErrorLogs.has(job.id)
-                              ? job.errorLog
-                              : job.errorLog.slice(0, 5)
-                            ).map((error, index) => (
-                              <tr key={index} className="hover:bg-muted/30">
-                                <td className="px-2 py-1.5 font-mono text-xs">
-                                  {error.row || "N/A"}
-                                </td>
-                                <td className="px-2 py-1.5 font-mono text-xs">
-                                  {error.sku || "N/A"}
-                                </td>
-                                <td className="px-2 py-1.5 text-xs text-destructive">
-                                  {error.message || "Unknown error"}
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                        {job.errorLog.length > 5 && (
-                          <div
-                            className="p-2 text-center text-xs text-muted-foreground cursor-pointer hover:text-foreground transition-colors font-medium"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setExpandedErrorLogs((prev) => {
-                                const newSet = new Set(prev);
-                                if (newSet.has(job.id)) {
-                                  newSet.delete(job.id);
-                                } else {
-                                  newSet.add(job.id);
-                                }
-                                return newSet;
-                              });
-                            }}
-                          >
-                            {expandedErrorLogs.has(job.id) ? (
-                              <>
-                                Show less (showing all {job.errorLog.length}{" "}
-                                errors)
-                              </>
-                            ) : (
-                              <>+{job.errorLog.length - 5} more errors</>
-                            )}
-                          </div>
-                        )}
+                      {renderLogEntries(job.errorLog, {
+                        jobId: job.id,
+                        fallbackLevel: "error",
+                        isExpanded: expandedErrorLogs.has(job.id),
+                        previewCount: ERROR_LOG_PREVIEW_COUNT,
+                        expandedSet: expandedErrorLogs,
+                        setExpandedSet: setExpandedErrorLogs,
+                        toggleLabelFormatter: (isExpanded, total, preview) =>
+                          isExpanded
+                            ? `Show less (showing all ${total} errors)`
+                            : `+${total - preview} more errors`,
+                      })}
+                    </div>
+                  )}
+
+                  {/* Detailed Log */}
+                  {job.detailedLog && job.detailedLog.length > 0 && (
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <FileText className="h-4 w-4 text-primary" />
+                        <h5 className="text-sm font-semibold">Detailed Log</h5>
+                        <CustomBadge variant="outline" className="text-xs">
+                          {job.detailedLog.length}
+                        </CustomBadge>
                       </div>
+
+                      {renderLogEntries(job.detailedLog, {
+                        jobId: job.id,
+                        fallbackLevel: "info",
+                        isExpanded: expandedDetailedLogs.has(job.id),
+                        previewCount: DETAIL_LOG_PREVIEW_COUNT,
+                        expandedSet: expandedDetailedLogs,
+                        setExpandedSet: setExpandedDetailedLogs,
+                        toggleLabelFormatter: (isExpanded, total, preview) =>
+                          isExpanded
+                            ? `Show less (showing all ${total} entries)`
+                            : `+${total - preview} more entries`,
+                      })}
                     </div>
                   )}
                 </div>

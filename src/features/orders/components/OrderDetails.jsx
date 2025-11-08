@@ -48,22 +48,30 @@ const STATUS_OPTIONS = [
 ];
 
 const STATUS_STYLES = {
-  PENDING: { label: "Pending", className: "bg-amber-100 text-amber-700 dark:bg-amber-400/20 dark:text-amber-200" },
+  PENDING: {
+    label: "Pending",
+    className:
+      "bg-amber-100 text-amber-700 dark:bg-amber-400/20 dark:text-amber-200",
+  },
   PROCESSING: {
     label: "Processing",
-    className: "bg-blue-100 text-blue-700 dark:bg-blue-400/20 dark:text-blue-200",
+    className:
+      "bg-blue-100 text-blue-700 dark:bg-blue-400/20 dark:text-blue-200",
   },
   MEDICAL_REVIEW: {
     label: "Medical Review",
-    className: "bg-purple-100 text-purple-700 dark:bg-purple-400/20 dark:text-purple-200",
+    className:
+      "bg-purple-100 text-purple-700 dark:bg-purple-400/20 dark:text-purple-200",
   },
   SHIPPED: {
     label: "Shipped",
-    className: "bg-emerald-100 text-emerald-700 dark:bg-emerald-400/20 dark:text-emerald-200",
+    className:
+      "bg-emerald-100 text-emerald-700 dark:bg-emerald-400/20 dark:text-emerald-200",
   },
   CANCELLED: {
     label: "Cancelled",
-    className: "bg-rose-100 text-rose-700 dark:bg-rose-400/20 dark:text-rose-200",
+    className:
+      "bg-rose-100 text-rose-700 dark:bg-rose-400/20 dark:text-rose-200",
   },
   REFUNDED: {
     label: "Refunded",
@@ -71,19 +79,23 @@ const STATUS_STYLES = {
   },
   FAILED: {
     label: "Failed",
-    className: "bg-rose-200 text-rose-800 dark:bg-rose-400/40 dark:text-rose-200",
+    className:
+      "bg-rose-200 text-rose-800 dark:bg-rose-400/40 dark:text-rose-200",
   },
   DRAFT: {
     label: "Draft",
-    className: "bg-slate-100 text-slate-700 dark:bg-slate-400/20 dark:text-slate-200",
+    className:
+      "bg-slate-100 text-slate-700 dark:bg-slate-400/20 dark:text-slate-200",
   },
   CANCELLATION_FEE: {
     label: "Cancellation Fee",
-    className: "bg-orange-100 text-orange-700 dark:bg-orange-400/20 dark:text-orange-200",
+    className:
+      "bg-orange-100 text-orange-700 dark:bg-orange-400/20 dark:text-orange-200",
   },
   CONSULTATION_COMPLETE: {
     label: "Consultation Complete",
-    className: "bg-emerald-200 text-emerald-800 dark:bg-emerald-400/30 dark:text-emerald-100",
+    className:
+      "bg-emerald-200 text-emerald-800 dark:bg-emerald-400/30 dark:text-emerald-100",
   },
 };
 
@@ -93,10 +105,17 @@ const formatCurrency = (amount, currency = "USD") => {
   }
 
   try {
-    return new Intl.NumberFormat("en-US", {
+    const formatted = new Intl.NumberFormat("en-US", {
       style: "currency",
       currency: currency || "USD",
+      currencyDisplay: "narrowSymbol",
     }).format(Number(amount));
+
+    if (/^[A-Z]{1,3}\$/.test(formatted)) {
+      return formatted.replace(/^[A-Z]{1,3}/, "");
+    }
+
+    return formatted;
   } catch {
     return `${currency || ""} ${Number(amount).toFixed(2)}`;
   }
@@ -121,11 +140,13 @@ const getStatusDisplay = (status) => {
   }
 
   const normalized = status.toUpperCase();
-  return STATUS_STYLES[normalized] || {
-    label: normalized.replace(/_/g, " "),
-    className:
-      "bg-secondary text-secondary-foreground dark:bg-slate-400/20 dark:text-slate-200",
-  };
+  return (
+    STATUS_STYLES[normalized] || {
+      label: normalized.replace(/_/g, " "),
+      className:
+        "bg-secondary text-secondary-foreground dark:bg-slate-400/20 dark:text-slate-200",
+    }
+  );
 };
 
 const renderAddress = (address) => {
@@ -243,11 +264,7 @@ export default function OrderDetails({ orderId }) {
         order.amountShipping ??
         order.pricing?.shipping ??
         0,
-      tax:
-        order.taxAmount ??
-        order.amountTax ??
-        order.pricing?.tax ??
-        0,
+      tax: order.taxAmount ?? order.amountTax ?? order.pricing?.tax ?? 0,
       discount:
         order.discountAmount ??
         order.amountDiscount ??
@@ -260,10 +277,7 @@ export default function OrderDetails({ orderId }) {
         order.amount ??
         0,
       currency:
-        order.currency ||
-        order.currencyCode ||
-        order.currency_code ||
-        "USD",
+        order.currency || order.currencyCode || order.currency_code || "USD",
     };
   }, [order]);
 
@@ -416,8 +430,7 @@ export default function OrderDetails({ orderId }) {
   );
   const orderNumber =
     order.orderNumber || order.number || order.reference || order.id;
-  const customer =
-    order.user ||
+  const customer = order.user ||
     order.customer || {
       email: order.guestEmail,
       firstName: order.guestFirstName,
@@ -494,7 +507,9 @@ export default function OrderDetails({ orderId }) {
                     <p className="font-medium text-foreground">
                       {[customer?.firstName, customer?.lastName]
                         .filter(Boolean)
-                        .join(" ") || customer?.fullName || "Guest Checkout"}
+                        .join(" ") ||
+                        customer?.fullName ||
+                        "Guest Checkout"}
                     </p>
                     {customer?.email && (
                       <p className="text-xs text-muted-foreground flex items-center gap-2 mt-1">
@@ -531,15 +546,46 @@ export default function OrderDetails({ orderId }) {
                         </span>
                       </p>
                     )}
+                    {order.stripePaymentIntentStatus && (
+                      <p className="text-xs text-muted-foreground mt-1 capitalize">
+                        Status:{" "}
+                        {order.stripePaymentIntentStatus.replace(/_/g, " ")}
+                      </p>
+                    )}
+                    {(order.stripeCapturedAmount ||
+                      order.stripeAuthorizedAmount) && (
+                      <div className="text-xs text-muted-foreground mt-2 space-y-1">
+                        {order.stripeCapturedAmount && (
+                          <p>
+                            Captured:{" "}
+                            <span className="font-medium text-foreground">
+                              {formatCurrency(
+                                order.stripeCapturedAmount,
+                                order.currency
+                              )}
+                            </span>
+                          </p>
+                        )}
+                        {order.stripeAuthorizedAmount && (
+                          <p>
+                            Authorized:{" "}
+                            <span className="font-medium text-foreground">
+                              {formatCurrency(
+                                order.stripeAuthorizedAmount,
+                                order.currency
+                              )}
+                            </span>
+                          </p>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
 
                 <div className="flex items-start gap-3 p-4 border border-border rounded-lg">
                   <Truck className="h-5 w-5 text-muted-foreground mt-1" />
                   <div>
-                    <p className="text-sm text-muted-foreground">
-                      Fulfillment
-                    </p>
+                    <p className="text-sm text-muted-foreground">Fulfillment</p>
                     <p className="font-medium text-foreground">
                       {order.fulfillmentStatus ||
                         order.fulfillment_status ||
@@ -551,6 +597,21 @@ export default function OrderDetails({ orderId }) {
                         <span className="font-mono">
                           {order.trackingNumber}
                         </span>
+                      </p>
+                    )}
+                    {order.shippingMethod && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Method: {order.shippingMethod}
+                      </p>
+                    )}
+                    {order.shippedAt && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Shipped: {formatDateTime(order.shippedAt)}
+                      </p>
+                    )}
+                    {order.deliveredAt && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Delivered: {formatDateTime(order.deliveredAt)}
                       </p>
                     )}
                   </div>
@@ -584,58 +645,92 @@ export default function OrderDetails({ orderId }) {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border">
-                      {items.map((item, index) => (
-                        <tr key={item.id || item.sku || index}>
-                          <td className="py-3">
-                            <div className="flex items-start gap-3">
-                              <div className="w-12 h-12 bg-secondary rounded-md flex items-center justify-center overflow-hidden flex-shrink-0">
-                                {item.image?.url ? (
-                                  // eslint-disable-next-line @next/next/no-img-element
-                                  <img
-                                    src={item.image.url}
-                                    alt={item.name || "Product image"}
-                                    className="w-full h-full object-cover"
-                                  />
-                                ) : (
-                                  <Package className="h-5 w-5 text-muted-foreground" />
-                                )}
-                              </div>
-                              <div className="flex flex-col">
-                                <span className="font-medium text-foreground">
-                                  {item.name || item.productName || "Product"}
-                                </span>
-                                {item.variantName && (
-                                  <span className="text-xs text-muted-foreground mt-1">
-                                    {item.variantName}
+                      {items.map((item, index) => {
+                        const product = item.product || {};
+                        const variant = item.variant || {};
+                        const name =
+                          item.name ||
+                          item.productName ||
+                          variant.name ||
+                          product.name ||
+                          "Product";
+                        const sku =
+                          item.sku ||
+                          item.productSku ||
+                          variant.sku ||
+                          product.sku ||
+                          "—";
+                        const variantName =
+                          item.variantName || variant.name || "";
+                        const productType = product.type
+                          ? product.type.replace(/_/g, " ")
+                          : null;
+                        const imageUrl =
+                          item.image?.url ||
+                          product.image?.url ||
+                          (Array.isArray(product.images)
+                            ? product.images[0]?.url
+                            : null) ||
+                          null;
+
+                        return (
+                          <tr key={item.id || item.sku || index}>
+                            <td className="py-3">
+                              <div className="flex items-start gap-3">
+                                <div className="w-12 h-12 bg-secondary rounded-md flex items-center justify-center overflow-hidden flex-shrink-0">
+                                  {imageUrl ? (
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    <img
+                                      src={imageUrl}
+                                      alt={name}
+                                      className="w-full h-full object-cover"
+                                    />
+                                  ) : (
+                                    <Package className="h-5 w-5 text-muted-foreground" />
+                                  )}
+                                </div>
+                                <div className="flex flex-col">
+                                  <span className="font-medium text-foreground">
+                                    {name}
                                   </span>
-                                )}
+                                  {variantName && (
+                                    <span className="text-xs text-muted-foreground mt-1">
+                                      {variantName}
+                                    </span>
+                                  )}
+                                  {productType && (
+                                    <span className="text-xs text-muted-foreground mt-1 capitalize">
+                                      {productType}
+                                    </span>
+                                  )}
+                                </div>
                               </div>
-                            </div>
-                          </td>
-                          <td className="py-3 text-muted-foreground">
-                            {item.sku || item.productSku || "—"}
-                          </td>
-                          <td className="py-3">{item.quantity || 1}</td>
-                          <td className="py-3">
-                            {formatCurrency(
-                              item.unitPrice ||
-                                item.price ||
-                                item.unit_price ||
-                                0,
-                              totals.currency
-                            )}
-                          </td>
-                          <td className="py-3 font-medium text-foreground">
-                            {formatCurrency(
-                              item.totalPrice ||
-                                item.total ||
-                                (item.unitPrice || item.price || 0) *
-                                  (item.quantity || 1),
-                              totals.currency
-                            )}
-                          </td>
-                        </tr>
-                      ))}
+                            </td>
+                            <td className="py-3 text-muted-foreground">
+                              {sku}
+                            </td>
+                            <td className="py-3">{item.quantity || 1}</td>
+                            <td className="py-3">
+                              {formatCurrency(
+                                item.unitPrice ||
+                                  item.price ||
+                                  item.unit_price ||
+                                  0,
+                                totals.currency
+                              )}
+                            </td>
+                            <td className="py-3 font-medium text-foreground">
+                              {formatCurrency(
+                                item.totalPrice ||
+                                  item.total ||
+                                  (item.unitPrice || item.price || 0) *
+                                    (item.quantity || 1),
+                                totals.currency
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -758,6 +853,45 @@ export default function OrderDetails({ orderId }) {
                     {formatCurrency(totals.total, totals.currency)}
                   </span>
                 </div>
+                {/* {(order.stripePaymentIntentStatus ||
+                  order.stripeCapturedAmount ||
+                  order.stripeAuthorizedAmount) && (
+                  <>
+                    <Divider className="border-dashed" />
+                    <div className="space-y-2 text-xs text-muted-foreground">
+                      {order.stripePaymentIntentStatus && (
+                        <div className="flex justify-between">
+                          <span>Intent Status</span>
+                          <span className="text-foreground">
+                            {order.stripePaymentIntentStatus.replace(/_/g, " ")}
+                          </span>
+                        </div>
+                      )}
+                      {order.stripeCapturedAmount && (
+                        <div className="flex justify-between">
+                          <span>Captured</span>
+                          <span className="text-foreground font-medium">
+                            {formatCurrency(
+                              order.stripeCapturedAmount,
+                              totals.currency
+                            )}
+                          </span>
+                        </div>
+                      )}
+                      {order.stripeAuthorizedAmount && (
+                        <div className="flex justify-between">
+                          <span>Authorized</span>
+                          <span className="text-foreground font-medium">
+                            {formatCurrency(
+                              order.stripeAuthorizedAmount,
+                              totals.currency
+                            )}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )} */}
               </div>
             </CustomCardContent>
           </CustomCard>
@@ -791,6 +925,47 @@ export default function OrderDetails({ orderId }) {
               </div>
             </CustomCardContent>
           </CustomCard>
+
+          {Array.isArray(order.appliedCoupons) &&
+            order.appliedCoupons.length > 0 && (
+              <CustomCard>
+                <CustomCardHeader>
+                  <CustomCardTitle>Applied Coupons</CustomCardTitle>
+                  <CustomCardDescription>
+                    Discounts applied to this order
+                  </CustomCardDescription>
+                </CustomCardHeader>
+                <CustomCardContent className="space-y-2">
+                  {order.appliedCoupons.map((coupon, index) => {
+                    const code =
+                      coupon?.code ||
+                      coupon?.id ||
+                      coupon?.name ||
+                      `Coupon ${index + 1}`;
+                    const amount =
+                      coupon?.amount ??
+                      coupon?.discountAmount ??
+                      coupon?.value ??
+                      null;
+                    return (
+                      <div
+                        key={`${code}-${index}`}
+                        className="flex justify-between items-center text-sm border border-border rounded-lg px-3 py-2"
+                      >
+                        <span className="font-medium text-foreground">
+                          {code}
+                        </span>
+                        {amount !== null && (
+                          <span className="text-muted-foreground">
+                            -{formatCurrency(amount, totals.currency)}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </CustomCardContent>
+              </CustomCard>
+            )}
         </div>
       </div>
 
@@ -1027,4 +1202,3 @@ export default function OrderDetails({ orderId }) {
     </PageContainer>
   );
 }
-

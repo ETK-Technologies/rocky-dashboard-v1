@@ -5,7 +5,7 @@ export const metadata = {
   description: "Review and manage order details",
 };
 
-export default function OrderDetailsPage({ params }) {
+export default async function OrderDetailsPage(props) {
+  const params = await props.params;
   return <OrderDetails orderId={params?.id} />;
 }
-

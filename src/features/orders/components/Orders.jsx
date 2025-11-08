@@ -113,10 +113,17 @@ const formatCurrency = (amount, currency = "USD") => {
   }
 
   try {
-    return new Intl.NumberFormat("en-US", {
+    const formatted = new Intl.NumberFormat("en-US", {
       style: "currency",
       currency: currency || "USD",
+      currencyDisplay: "narrowSymbol",
     }).format(Number(amount));
+
+    if (/^[A-Z]{1,3}\$/.test(formatted)) {
+      return formatted.replace(/^[A-Z]{1,3}/, "");
+    }
+
+    return formatted;
   } catch {
     return `${currency || ""} ${Number(amount).toFixed(2)}`;
   }

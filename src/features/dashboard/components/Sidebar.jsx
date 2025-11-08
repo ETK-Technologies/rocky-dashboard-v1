@@ -24,6 +24,10 @@ import {
   ChevronLeft,
   ChevronRight as ChevronRightIcon,
   ShoppingCart,
+  Activity,
+  Server,
+  PlusCircle,
+  Info,
 } from "lucide-react";
 import { cn } from "@/utils/cn";
 import { RoleGuard } from "@/components/common/ProtectedRoute";
@@ -43,10 +47,21 @@ const navigation = [
 
   {
     name: "Products",
-    href: "/dashboard/products",
     icon: Package,
     roles: ["admin", "super_admin"],
     children: [
+      {
+        name: "All Products",
+        href: "/dashboard/products",
+        icon: Package,
+        roles: ["admin", "super_admin"],
+      },
+      {
+        name: "Add Product",
+        href: "/dashboard/products/new",
+        icon: PlusCircle,
+        roles: ["admin", "super_admin"],
+      },
       {
         name: "Categories",
         href: "/dashboard/categories",
@@ -64,6 +79,31 @@ const navigation = [
         href: "/dashboard/products/import-jobs",
         icon: Upload,
         roles: ["admin", "super_admin"],
+      },
+    ],
+  },
+  {
+    name: "System",
+    icon: Server,
+    roles: ["admin", "super_admin"],
+    children: [
+      {
+        name: "Info",
+        href: "/dashboard/system/info",
+        icon: Info,
+        roles: ["admin", "super_admin"],
+      },
+      {
+        name: "Activity",
+        href: "/dashboard/activity",
+        icon: GitBranch,
+        roles: ["admin", "super_admin"],
+      },
+      {
+        name: "Health",
+        href: "/dashboard/super-admin/health",
+        icon: Activity,
+        roles: ["super_admin"],
       },
     ],
   },
@@ -130,6 +170,7 @@ export function Sidebar({
     const isActive =
       pathname === item.href ||
       (hasChildren && item.children.some((child) => pathname === child.href));
+    const isToggleOnly = hasChildren && !item.href;
 
     // Check if user has required role for this nav item
     if (item.roles && !isAuthorized(item.roles)) {
@@ -152,26 +193,54 @@ export function Sidebar({
               isActive
                 ? "bg-primary/10 text-primary"
                 : "text-muted-foreground hover:bg-accent hover:text-foreground",
-              isCollapsed && "justify-center px-2"
+              isCollapsed && "justify-center px-2",
+              isToggleOnly && !isCollapsed && "cursor-pointer"
             )}
+            onClick={() => {
+              if (isToggleOnly) {
+                toggleExpand(item.name);
+              }
+            }}
+            role={isToggleOnly ? "button" : undefined}
+            tabIndex={isToggleOnly ? 0 : undefined}
+            onKeyDown={(event) => {
+              if (isToggleOnly && (event.key === "Enter" || event.key === " ")) {
+                event.preventDefault();
+                toggleExpand(item.name);
+              }
+            }}
           >
             {/* {!hasChildren && <div className="w-4" />} */}
             {isCollapsed ? (
               <Tooltip content={item.name} side="right" usePortal={true}>
-                <Link
-                  href={item.href}
-                  onClick={onClose}
-                  className="flex items-center justify-center w-full"
-                >
-                  <item.icon className="h-5 w-5 flex-shrink-0" />
-                </Link>
+                {item.href && !isToggleOnly ? (
+                  <Link
+                    href={item.href}
+                    onClick={onClose}
+                    className="flex items-center justify-center w-full"
+                  >
+                    <item.icon className="h-5 w-5 flex-shrink-0" />
+                  </Link>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => toggleExpand(item.name)}
+                    className="flex items-center justify-center w-full bg-transparent border-0 text-current"
+                  >
+                    <item.icon className="h-5 w-5 flex-shrink-0" />
+                  </button>
+                )}
               </Tooltip>
             ) : (
               <>
                 <item.icon className="h-5 w-5 flex-shrink-0" />
-                <Link href={item.href} onClick={onClose} className="flex-1">
-                  {item.name}
-                </Link>
+                {item.href && !isToggleOnly ? (
+                  <Link href={item.href} onClick={onClose} className="flex-1">
+                    {item.name}
+                  </Link>
+                ) : (
+                  <span className="flex-1 select-none">{item.name}</span>
+                )}
               </>
             )}
             {hasChildren && !isCollapsed && (
@@ -182,6 +251,7 @@ export function Sidebar({
                   e.stopPropagation();
                   toggleExpand(item.name);
                 }}
+                aria-label={isExpanded ? "Collapse section" : "Expand section"}
               >
                 {isExpanded ? (
                   <ChevronDown className="h-4 w-4" />
