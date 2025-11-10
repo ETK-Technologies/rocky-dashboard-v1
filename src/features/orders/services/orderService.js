@@ -110,6 +110,67 @@ export const orderService = {
   },
 
   /**
+   * Create an order note (customer-visible or internal)
+   * @param {string} id - Order ID
+   * @param {Object} data - Note payload
+   * @returns {Promise<Object>} Created note data
+   */
+  async addOrderNote(id, data) {
+    return makeRequest(`/api/v1/admin/orders/${id}/notes`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
+
+  /**
+   * Create a system/internal note
+   * @param {string} id - Order ID
+   * @param {Object} data - System note payload
+   * @returns {Promise<Object>} Created note data
+   */
+  async addSystemNote(id, data) {
+    return makeRequest(`/api/v1/admin/orders/${id}/system-notes`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
+
+  /**
+   * Assign or update the doctor associated with an order
+   * @param {string} id - Order ID
+   * @param {Object} data - Assignment payload
+   * @returns {Promise<Object>} Updated order data
+   */
+  async assignDoctor(id, doctorId) {
+    return makeRequest(`/api/v1/admin/orders/${id}/doctor`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        doctorId: doctorId ?? null,
+      }),
+    });
+  },
+
+  /**
+   * Retrieve doctor options for assignment
+   * @param {Object} params - Query params (e.g. search)
+   * @returns {Promise<Object>} Doctor options
+   */
+  async getDoctorOptions(params = {}) {
+    const query = new URLSearchParams();
+    if (params.search) {
+      query.set("search", params.search);
+    }
+    const queryString = query.toString();
+
+    return makeRequest(
+      `/api/v1/admin/orders/doctors${queryString ? `?${queryString}` : ""}`,
+      {
+        method: "GET",
+      }
+    );
+  },
+
+  /**
    * Import an order from WordPress/WooCommerce
    * @param {Object} data - Import payload
    * @returns {Promise<Object>} Created order data

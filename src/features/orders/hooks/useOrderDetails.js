@@ -14,11 +14,43 @@ export function useOrderDetails(orderId) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [paymentIntent, setPaymentIntent] = useState(null);
+  const [doctorOptions, setDoctorOptions] = useState([]);
+  const [doctorOptionsLoaded, setDoctorOptionsLoaded] = useState(false);
 
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [processingRefund, setProcessingRefund] = useState(false);
   const [markingShipped, setMarkingShipped] = useState(false);
   const [capturingPayment, setCapturingPayment] = useState(false);
+  const [assigningDoctor, setAssigningDoctor] = useState(false);
+  const [loadingDoctorOptions, setLoadingDoctorOptions] = useState(false);
+
+  const normalizeDoctorOptions = useCallback((orderData) => {
+    if (!orderData) {
+      setDoctorOptions([]);
+      return;
+    }
+
+    const possibleOptions =
+      orderData.doctorOptions ??
+      orderData.availableDoctors ??
+      orderData.assignableDoctors ??
+      orderData.doctors ??
+      orderData.doctorList ??
+      orderData.providers ??
+      [];
+
+    if (Array.isArray(possibleOptions)) {
+      setDoctorOptions(possibleOptions);
+      return;
+    }
+
+    if (Array.isArray(possibleOptions?.items)) {
+      setDoctorOptions(possibleOptions.items);
+      return;
+    }
+
+    setDoctorOptions([]);
+  }, []);
 
   const fetchOrder = useCallback(async () => {
     if (!orderId) {
@@ -26,6 +58,7 @@ export function useOrderDetails(orderId) {
     }
 
     setLoading(true);
+    setDoctorOptionsLoaded(false);
     setError(null);
 
     try {
@@ -38,6 +71,7 @@ export function useOrderDetails(orderId) {
         response;
 
       setOrder(orderData);
+      normalizeDoctorOptions(orderData);
     } catch (err) {
       const message = err.message || "Failed to load order";
       setError(message);
@@ -46,7 +80,7 @@ export function useOrderDetails(orderId) {
     } finally {
       setLoading(false);
     }
-  }, [orderId]);
+  }, [orderId, normalizeDoctorOptions]);
 
   useEffect(() => {
     fetchOrder();
@@ -129,6 +163,23 @@ export function useOrderDetails(orderId) {
     }
   }, [orderId, fetchOrder]);
 
+  const addOrderNote = useCallback(
+    async (data) => {
+      if (!orderId) return;
+
+      try {
+        await orderService.addOrderNote(orderId, data);
+        toast.success("Order note added successfully");
+        await fetchOrder();
+      } catch (err) {
+        toast.error(err.message || "Failed to add order note");
+        console.error("Error adding order note:", err);
+        throw err;
+      }
+    },
+    [orderId, fetchOrder]
+  );
+
   const fetchPaymentIntent = useCallback(async () => {
     if (!orderId) return;
 
@@ -148,6 +199,63 @@ export function useOrderDetails(orderId) {
     }
   }, [orderId]);
 
+  const fetchDoctorOptions = useCallback(async (search) => {
+    setLoadingDoctorOptions(true);
+    try {
+      const response = await orderService.getDoctorOptions(
+        search ? { search } : undefined
+      );
+      const options =
+        response?.doctorOptions ??
+        response?.data ??
+        response?.result ??
+        response?.payload ??
+        response;
+
+      if (Array.isArray(options)) {
+        setDoctorOptions(options);
+        setDoctorOptionsLoaded(true);
+        return options;
+      }
+
+      if (Array.isArray(response?.doctors)) {
+        setDoctorOptions(response.doctors);
+        setDoctorOptionsLoaded(true);
+        return response.doctors;
+      }
+
+      setDoctorOptions([]);
+      setDoctorOptionsLoaded(true);
+      return [];
+    } catch (err) {
+      toast.error(err.message || "Failed to load doctor options");
+      console.error("Error loading doctor options:", err);
+      throw err;
+    } finally {
+      setLoadingDoctorOptions(false);
+    }
+  }, []);
+
+  const assignDoctor = useCallback(
+    async (doctorId) => {
+      if (!orderId) return;
+      setAssigningDoctor(true);
+
+      try {
+        await orderService.assignDoctor(orderId, doctorId || null);
+        toast.success("Assigned doctor updated successfully");
+        await fetchOrder();
+      } catch (err) {
+        toast.error(err.message || "Failed to update assigned doctor");
+        console.error("Error updating assigned doctor:", err);
+        throw err;
+      } finally {
+        setAssigningDoctor(false);
+      }
+    },
+    [orderId, fetchOrder]
+  );
+
   return {
     order,
     loading,
@@ -163,5 +271,12 @@ export function useOrderDetails(orderId) {
     markingShipped,
     capturePayment,
     capturingPayment,
+    doctorOptions,
+    doctorOptionsLoaded,
+    fetchDoctorOptions,
+    loadingDoctorOptions,
+    assignDoctor,
+    assigningDoctor,
+    addOrderNote,
   };
 }
