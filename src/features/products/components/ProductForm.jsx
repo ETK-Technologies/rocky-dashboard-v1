@@ -8,7 +8,6 @@ import {
   Plus,
   Trash2,
   X,
-  Package,
   Info,
   PackageCheck,
   Truck,
@@ -17,7 +16,7 @@ import {
   Settings,
   Repeat,
   FileText,
-  Check,
+  ChevronDown,
 } from "lucide-react";
 import {
   CustomButton,
@@ -92,6 +91,141 @@ const BACKORDER_OPTIONS = [
   { value: "YES", label: "Allow" },
 ];
 
+const parseAttributeValues = (value) =>
+  value
+    ? value
+        .split(/[,|/]+/)
+        .map((item) => item.trim())
+        .filter(Boolean)
+    : [];
+
+const formatAttributeValues = (values) =>
+  values.length > 0 ? values.join(", ") : "";
+
+const AttributeValuesEditor = ({
+  id,
+  label,
+  value,
+  onChange,
+  disabled = false,
+  placeholder = "Type a value and press Enter",
+  helperText,
+}) => {
+  const [inputValue, setInputValue] = useState("");
+  const values = parseAttributeValues(value);
+
+  const addValue = (rawValue) => {
+    const nextValue = rawValue.trim();
+
+    if (!nextValue) {
+      setInputValue("");
+      return;
+    }
+
+    const exists = values.some(
+      (existing) => existing.toLowerCase() === nextValue.toLowerCase()
+    );
+
+    if (exists) {
+      setInputValue("");
+      return;
+    }
+
+    onChange(formatAttributeValues([...values, nextValue]));
+    setInputValue("");
+  };
+
+  const removeValue = (valueToRemove) => {
+    const updatedValues = values.filter(
+      (existing) => existing.toLowerCase() !== valueToRemove.toLowerCase()
+    );
+    onChange(formatAttributeValues(updatedValues));
+  };
+
+  const handleKeyDown = (event) => {
+    if (disabled) return;
+
+    if (event.key === "Enter" || event.key === ",") {
+      event.preventDefault();
+      addValue(inputValue);
+      return;
+    }
+
+    if (event.key === "Tab") {
+      if (inputValue.trim()) {
+        event.preventDefault();
+        addValue(inputValue);
+      }
+      return;
+    }
+
+    if (event.key === "Backspace" && inputValue === "" && values.length > 0) {
+      event.preventDefault();
+      const updated = values.slice(0, -1);
+      onChange(formatAttributeValues(updated));
+    }
+  };
+
+  const handleBlur = () => {
+    if (disabled) return;
+    addValue(inputValue);
+  };
+
+  return (
+    <div className="space-y-2">
+      {label && <CustomLabel htmlFor={id}>{label}</CustomLabel>}
+
+      <div
+        className={cn(
+          "flex flex-wrap items-center gap-2 rounded-md border px-3 py-2 transition-colors",
+          "bg-white text-foreground border-gray-200",
+          "dark:bg-gray-900 dark:text-gray-100 dark:border-gray-700",
+          disabled && "cursor-not-allowed opacity-60"
+        )}
+      >
+        {values.map((item) => (
+          <span
+            key={`${item}`}
+            className="inline-flex items-center gap-2 rounded-full border border-border bg-muted/60 px-2.5 py-1 text-xs font-medium text-foreground transition-colors dark:bg-gray-800/80"
+          >
+            <span>{item}</span>
+            {!disabled && (
+              <button
+                type="button"
+                onClick={() => removeValue(item)}
+                className="rounded-full p-0.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-gray-400 dark:hover:bg-gray-700"
+                aria-label={`Remove ${item}`}
+              >
+                <X className="h-3 w-3" />
+              </button>
+            )}
+          </span>
+        ))}
+
+        <input
+          id={id}
+          value={inputValue}
+          onChange={(event) => setInputValue(event.target.value)}
+          onBlur={handleBlur}
+          onKeyDown={handleKeyDown}
+          placeholder={values.length === 0 ? placeholder : "Add another value"}
+          className={cn(
+            " min-w-[150px] rounded-md border border-dashed border-border bg-background px-2 py-1 text-sm outline-none transition-colors",
+            "focus-visible:border-foreground focus-visible:ring-0",
+            "dark:bg-gray-900/80 dark:focus-visible:border-gray-100",
+            disabled && "cursor-not-allowed bg-muted text-muted-foreground"
+          )}
+          disabled={disabled}
+        />
+      </div>
+
+      {helperText && (
+        <p className="text-xs text-muted-foreground">{helperText}</p>
+      )}
+    </div>
+  );
+};
+
 export default function ProductForm({ productId = null }) {
   const router = useRouter();
   const { loading, fetchLoading, productData, isEditMode, submitForm } =
@@ -156,9 +290,11 @@ export default function ProductForm({ productId = null }) {
   const [productGlobalAttributes, setProductGlobalAttributes] = useState([]); // Selected global attributes with values
   const [variants, setVariants] = useState([]);
   const [categoryIds, setCategoryIds] = useState([]);
+  const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
   const [metadata, setMetadata] = useState([]);
   const [errors, setErrors] = useState({});
   const [activeTab, setActiveTab] = useState("basic");
+  const categoryDropdownRef = useRef(null);
 
   // Ref to track if attributes have been loaded to prevent infinite loops
   const attributesLoadedRef = useRef(false);
@@ -566,7 +702,6 @@ export default function ProductForm({ productId = null }) {
     }
   };
 
-  // Category selection
   const handleCategoryToggle = (categoryId) => {
     setCategoryIds((prev) =>
       prev.includes(categoryId)
@@ -574,6 +709,38 @@ export default function ProductForm({ productId = null }) {
         : [...prev, categoryId]
     );
   };
+
+  const closeCategoryDropdown = () => setCategoryDropdownOpen(false);
+  const toggleCategoryDropdown = () => setCategoryDropdownOpen((prev) => !prev);
+
+  useEffect(() => {
+    if (!categoryDropdownOpen) {
+      return;
+    }
+
+    const handleClickOutside = (event) => {
+      if (
+        categoryDropdownRef.current &&
+        !categoryDropdownRef.current.contains(event.target)
+      ) {
+        setCategoryDropdownOpen(false);
+      }
+    };
+
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") {
+        setCategoryDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [categoryDropdownOpen]);
 
   // Image handlers - now using separate featured and Product gallery
 
@@ -1641,70 +1808,125 @@ export default function ProductForm({ productId = null }) {
                             No categories available
                           </p>
                         ) : (
-                          <div className="space-y-4">
-                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                              {categories.map((category) => (
-                                <label
-                                  key={category.id}
+                          <div className="space-y-2">
+                            {/* <CustomLabel htmlFor="productCategories">
+                              Categories
+                            </CustomLabel> */}
+                            <div className="relative" ref={categoryDropdownRef}>
+                              <button
+                                type="button"
+                                id="productCategories"
+                                name="productCategories"
+                                onClick={toggleCategoryDropdown}
+                                disabled={loading}
+                                className={cn(
+                                  "flex w-full items-center justify-between rounded-md border px-3 py-2 text-sm transition-colors",
+                                  "bg-white text-foreground border-gray-200",
+                                  "dark:bg-gray-900 dark:text-gray-100 dark:border-gray-700",
+                                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
+                                  "focus-visible:ring-blue-500 dark:focus-visible:ring-blue-400",
+                                  loading && "cursor-not-allowed opacity-70"
+                                )}
+                                aria-haspopup="listbox"
+                                aria-expanded={categoryDropdownOpen}
+                              >
+                                <span className="truncate text-left">
+                                  {categoryIds.length === 0
+                                    ? "Select categories"
+                                    : categories
+                                        .filter((category) =>
+                                          categoryIds.includes(category.id)
+                                        )
+                                        .map((category) => category.name)
+                                        .join(", ")}
+                                </span>
+                                <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                              </button>
+
+                              {categoryDropdownOpen && (
+                                <div
                                   className={cn(
-                                    "group relative flex flex-col items-center rounded-lg border-2 cursor-pointer transition-all overflow-hidden",
-                                    "hover:border-blue-400 hover:shadow-md",
-                                    categoryIds.includes(category.id)
-                                      ? "border-blue-500 shadow-md ring-2 ring-blue-200 dark:ring-blue-800"
-                                      : "border-gray-200 dark:border-gray-700"
+                                    "absolute left-0 right-0 z-50 mt-2 max-h-64 overflow-y-auto rounded-md border shadow-lg",
+                                    "bg-white text-foreground border-gray-200",
+                                    "dark:bg-gray-900 dark:text-gray-100 dark:border-gray-700"
                                   )}
+                                  role="listbox"
+                                  aria-multiselectable="true"
                                 >
-                                  <input
-                                    type="checkbox"
-                                    checked={categoryIds.includes(category.id)}
-                                    onChange={() =>
-                                      handleCategoryToggle(category.id)
-                                    }
-                                    className="sr-only"
-                                  />
-                                  {/* Image Container */}
-                                  <div
-                                    className={cn(
-                                      "w-full aspect-square relative overflow-hidden bg-gray-100 dark:bg-gray-800",
-                                      "flex items-center justify-center"
-                                    )}
-                                  >
-                                    {category.image ? (
-                                      <img
-                                        src={category.image}
-                                        alt={category.name}
-                                        className="w-full h-full object-cover transition-transform group-hover:scale-105"
-                                      />
-                                    ) : (
-                                      <Package className="h-12 w-12 text-gray-400 dark:text-gray-500" />
-                                    )}
-                                    {/* Selected Overlay */}
-                                    {categoryIds.includes(category.id) && (
-                                      <div className="absolute inset-0 bg-blue-500/20 flex items-center justify-center">
-                                        <div className="bg-blue-600 rounded-full p-2 shadow-lg">
-                                          <Check className="h-5 w-5 text-white" />
-                                        </div>
-                                      </div>
-                                    )}
+                                  <div className="py-1">
+                                    {categories.map((category) => {
+                                      const selected = categoryIds.includes(
+                                        category.id
+                                      );
+
+                                      return (
+                                        <label
+                                          key={category.id}
+                                          className={cn(
+                                            "flex cursor-pointer items-center gap-3 px-3 py-2 text-sm transition-colors",
+                                            "hover:bg-blue-50 hover:text-blue-600",
+                                            "dark:hover:bg-blue-500/15 dark:hover:text-blue-200",
+                                            selected
+                                              ? "bg-blue-50 text-blue-600 dark:bg-blue-500/20 dark:text-blue-200"
+                                              : "text-foreground dark:text-gray-200"
+                                          )}
+                                        >
+                                          <input
+                                            type="checkbox"
+                                            checked={selected}
+                                            onChange={() =>
+                                              handleCategoryToggle(category.id)
+                                            }
+                                            className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-600 dark:focus:ring-blue-400"
+                                          />
+                                          <span className="truncate">
+                                            {category.name}
+                                          </span>
+                                        </label>
+                                      );
+                                    })}
                                   </div>
-                                  {/* Category Name */}
-                                  <div className="w-full p-3 bg-white dark:bg-gray-800 text-center">
-                                    <span
-                                      className={cn(
-                                        "text-sm font-medium block truncate",
-                                        categoryIds.includes(category.id)
-                                          ? "text-blue-600 dark:text-blue-400"
-                                          : "text-foreground"
-                                      )}
+                                  <div className="border-t border-gray-200/80 p-2 text-right dark:border-gray-700">
+                                    <button
+                                      type="button"
+                                      onClick={closeCategoryDropdown}
+                                      className="text-sm font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
                                     >
-                                      {category.name}
-                                    </span>
+                                      Done
+                                    </button>
                                   </div>
-                                </label>
-                              ))}
+                                </div>
+                              )}
                             </div>
                             {categoryIds.length > 0 && (
-                              <p className="text-sm text-muted-foreground text-center pt-2">
+                              <div className="flex flex-wrap gap-2 rounded-md border border-dashed border-gray-200 bg-gray-50 p-3 text-sm text-foreground dark:border-gray-700 dark:bg-gray-900">
+                                {categories
+                                  .filter((category) =>
+                                    categoryIds.includes(category.id)
+                                  )
+                                  .map((category) => (
+                                    <button
+                                      key={category.id}
+                                      type="button"
+                                      onClick={() =>
+                                        handleCategoryToggle(category.id)
+                                      }
+                                      className={cn(
+                                        "flex items-center gap-2 rounded-full border px-3 py-1 font-medium transition-colors",
+                                        "bg-blue-100 text-blue-700 border-blue-200 hover:bg-blue-200",
+                                        "dark:bg-blue-500/20 dark:text-blue-200 dark:border-blue-500/40 dark:hover:bg-blue-500/30"
+                                      )}
+                                    >
+                                      <span className="truncate">
+                                        {category.name}
+                                      </span>
+                                      <X className="h-3.5 w-3.5" />
+                                    </button>
+                                  ))}
+                              </div>
+                            )}
+                            {categoryIds.length > 0 && (
+                              <p className="text-sm text-muted-foreground">
                                 {categoryIds.length} categor
                                 {categoryIds.length === 1 ? "y" : "ies"}{" "}
                                 selected
@@ -2027,18 +2249,19 @@ export default function ProductForm({ productId = null }) {
                                         <Trash2 className="h-4 w-4" />
                                       </button>
                                     </div>
-                                    <FormField
+                                    <AttributeValuesEditor
                                       id={`global-attr-${index}-value`}
-                                      label={`Value for ${globalAttr.name}`}
-                                      value={attr.value}
-                                      onChange={(e) =>
+                                      label={`Values for ${globalAttr.name}`}
+                                      value={attr.value || ""}
+                                      onChange={(newValue) =>
                                         handleUpdateGlobalAttribute(
                                           index,
                                           "value",
-                                          e.target.value
+                                          newValue
                                         )
                                       }
                                       disabled={loading}
+                                      helperText="Press Enter or comma to add each value."
                                     />
                                     <div className="flex items-center gap-4 text-sm">
                                       <label className="flex items-center gap-2 cursor-pointer">
@@ -2110,20 +2333,16 @@ export default function ProductForm({ productId = null }) {
                                       <Trash2 className="h-4 w-4" />
                                     </button>
                                   </div>
-                                  <FormField
+                                  <AttributeValuesEditor
                                     id={`attr-${index}-value`}
                                     label="Attribute Values"
-                                    placeholder="Comma-separated: S, M, L"
-                                    helperText="Enter values separated by commas"
-                                    value={attribute.value}
-                                    onChange={(e) =>
-                                      updateAttribute(
-                                        index,
-                                        "value",
-                                        e.target.value
-                                      )
+                                    value={attribute.value || ""}
+                                    onChange={(newValue) =>
+                                      updateAttribute(index, "value", newValue)
                                     }
                                     disabled={loading}
+                                    placeholder="Type a value and press Enter"
+                                    helperText="Press Enter or comma to add each value."
                                   />
                                   <div className="flex items-center gap-4 text-sm">
                                     <label className="flex items-center gap-2 cursor-pointer">
