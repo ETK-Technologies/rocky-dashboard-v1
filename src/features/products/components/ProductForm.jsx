@@ -25,6 +25,8 @@ import {
   PageHeader,
   CustomCard,
   CustomCardContent,
+  CustomCardHeader,
+  CustomCardTitle,
   FormField,
   CustomLabel,
   CustomInput,
@@ -3254,11 +3256,16 @@ export default function ProductForm({ productId = null }) {
             </CustomCard>
 
             {/* Product image */}
-            <CustomCard>
-              <CustomCardContent className="pt-6">
-                <h3 className="text-lg font-semibold text-foreground mb-4">
+            <CustomCard collapsible>
+              <CustomCardHeader
+                className="flex-row items-center justify-between space-y-0"
+                showIndicator
+              >
+                <CustomCardTitle className="text-lg font-semibold">
                   Product image
-                </h3>
+                </CustomCardTitle>
+              </CustomCardHeader>
+              <CustomCardContent className="pt-0">
                 <SingleImageUpload
                   value={featuredImage}
                   onChange={setFeaturedImage}
@@ -3267,11 +3274,16 @@ export default function ProductForm({ productId = null }) {
             </CustomCard>
 
             {/* Product gallery */}
-            <CustomCard>
-              <CustomCardContent className="pt-6">
-                <h3 className="text-lg font-semibold text-foreground mb-4">
+            <CustomCard collapsible>
+              <CustomCardHeader
+                className="flex-row items-center justify-between space-y-0"
+                showIndicator
+              >
+                <CustomCardTitle className="text-lg font-semibold">
                   Product gallery
-                </h3>
+                </CustomCardTitle>
+              </CustomCardHeader>
+              <CustomCardContent className="pt-0">
                 <MultiImageUpload
                   value={galleryImages}
                   onChange={setGalleryImages}
@@ -3282,11 +3294,16 @@ export default function ProductForm({ productId = null }) {
             </CustomCard>
 
             {/* Product tags */}
-            <CustomCard>
-              <CustomCardContent className="pt-6">
-                <h3 className="text-lg font-semibold text-foreground mb-4">
+            <CustomCard collapsible>
+              <CustomCardHeader
+                className="flex-row items-center justify-between space-y-0"
+                showIndicator
+              >
+                <CustomCardTitle className="text-lg font-semibold">
                   Product tags
-                </h3>
+                </CustomCardTitle>
+              </CustomCardHeader>
+              <CustomCardContent className="pt-0">
                 <TagsSelector
                   value={selectedTags}
                   onChange={setSelectedTags}
@@ -3296,12 +3313,16 @@ export default function ProductForm({ productId = null }) {
             </CustomCard>
 
             {/* Settings - General product settings for all product types */}
-            <CustomCard>
-              <CustomCardContent className="pt-6">
-                <h3 className="text-lg font-semibold text-foreground mb-4">
+            <CustomCard collapsible>
+              <CustomCardHeader
+                className="flex-row items-center justify-between space-y-0"
+                showIndicator
+              >
+                <CustomCardTitle className="text-lg font-semibold">
                   Settings
-                </h3>
-
+                </CustomCardTitle>
+              </CustomCardHeader>
+              <CustomCardContent className="pt-0">
                 <div className="space-y-4">
                   <div className="space-y-2">
                     <CustomLabel htmlFor="status">Status</CustomLabel>
