@@ -4,18 +4,21 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
+  Bell,
   Calendar,
   CreditCard,
   DollarSign,
   FileText,
+  Loader2,
   Mail,
   MapPin,
   MessageSquare,
-  Loader2,
   Package,
   Paperclip,
   Phone,
+  RefreshCcw,
   RefreshCw,
+  Send,
   Stethoscope,
   Truck,
   User as UserIcon,
@@ -339,6 +342,12 @@ export default function OrderDetails({ orderId }) {
     assignDoctor,
     assigningDoctor,
     addOrderNote,
+    sendOrderDetailsToCustomer,
+    sendingOrderDetails,
+    resendNewOrderNotification,
+    resendingOrderNotification,
+    regenerateDownloadPermissions,
+    regeneratingDownloadPermissions,
   } = useOrderDetails(orderId);
 
   const [statusModalOpen, setStatusModalOpen] = useState(false);
@@ -509,29 +518,6 @@ export default function OrderDetails({ orderId }) {
 
     return Array.isArray(value) ? value : [];
   }, [order]);
-
-  const otherAttachments = useMemo(() => {
-    if (attachments.length === 0) return [];
-
-    const pharmacyIds = new Set(
-      pharmacyHardcopy
-        .map((attachment) => getAttachmentIdentifier(attachment))
-        .filter(Boolean)
-    );
-    const scannedIds = new Set(
-      scannedDocuments
-        .map((attachment) => getAttachmentIdentifier(attachment))
-        .filter(Boolean)
-    );
-
-    return attachments.filter((attachment) => {
-      const identifier = getAttachmentIdentifier(attachment);
-      if (!identifier) return true;
-      if (pharmacyIds.has(identifier)) return false;
-      if (scannedIds.has(identifier)) return false;
-      return true;
-    });
-  }, [attachments, pharmacyHardcopy, scannedDocuments]);
 
   const relatedOrders = useMemo(() => {
     if (!order) return [];
@@ -721,6 +707,73 @@ export default function OrderDetails({ orderId }) {
         order.currency || order.currencyCode || order.currency_code || "USD",
     };
   }, [order]);
+
+  const relatedOrdersForDisplay = useMemo(() => {
+    if (!Array.isArray(relatedOrders) || relatedOrders.length === 0) {
+      return [];
+    }
+
+    return relatedOrders
+      .map((related) => {
+        if (!related) return null;
+
+        const relatedId =
+          related?.id ||
+          related?.orderId ||
+          related?.order_id ||
+          related?.uuid ||
+          related?.identifier ||
+          related?.value ||
+          null;
+        const relatedNumber =
+          related?.orderNumber ||
+          related?.number ||
+          related?.reference ||
+          relatedId ||
+          "Order";
+        const rawStatus = (
+          related?.status ||
+          related?.orderStatus ||
+          related?.order_status ||
+          "UNKNOWN"
+        ).toString();
+        const { label: statusLabel, className: statusClassName } =
+          getStatusDisplay(rawStatus);
+        const relatedTotal =
+          related?.totalAmount ??
+          related?.total ??
+          related?.amount ??
+          related?.grandTotal ??
+          null;
+        const relatedCurrency =
+          related?.currency ||
+          related?.currencyCode ||
+          related?.currency_code ||
+          totals.currency ||
+          "USD";
+        const createdAt =
+          related?.createdAt ||
+          related?.created_at ||
+          related?.createdDate ||
+          related?.created_date ||
+          null;
+
+        return {
+          id: relatedId,
+          number: relatedNumber,
+          statusLabel,
+          statusClassName,
+          total: relatedTotal,
+          totalLabel:
+            relatedTotal !== null
+              ? formatCurrency(relatedTotal, relatedCurrency)
+              : null,
+          placedAt: createdAt,
+          placedLabel: createdAt ? formatDateTime(createdAt) : null,
+        };
+      })
+      .filter(Boolean);
+  }, [relatedOrders, totals.currency]);
 
   const paymentStatusLabel = useMemo(() => {
     if (!order) return null;
@@ -1018,6 +1071,151 @@ export default function OrderDetails({ orderId }) {
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         <div className="xl:col-span-2 space-y-6">
+          <CustomCard>
+            <CustomCardHeader>
+              <CustomCardTitle>Actions</CustomCardTitle>
+              <CustomCardDescription>
+                Manage order status, payment, and customer notifications
+              </CustomCardDescription>
+            </CustomCardHeader>
+            <CustomCardContent className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">
+                  Order Status
+                </label>
+                <div className="flex items-center gap-2">
+                  <select
+                    value={statusSelectValue}
+                    onChange={handleStatusSelectChange}
+                    disabled={updatingStatus}
+                    className="w-full px-3 py-2 bg-background border border-input rounded-md text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100 dark:focus:ring-primary"
+                  >
+                    <option value="">
+                      {statusSelectValue
+                        ? "Select status"
+                        : "Select order status"}
+                    </option>
+                    {STATUS_OPTIONS.map((status) => (
+                      <option key={status} value={status}>
+                        {status.replace(/_/g, " ")}
+                      </option>
+                    ))}
+                  </select>
+                  {updatingStatus && (
+                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Changes apply immediately. Add notes in the order timeline to
+                  track updates.
+                </p>
+              </div>
+
+              <Divider />
+
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                <CustomButton
+                  className="w-full flex items-center justify-center gap-2"
+                  variant="outline"
+                  onClick={() => setShipModalOpen(true)}
+                  disabled={markingShipped}
+                >
+                  <Truck className="h-4 w-4" />
+                  Mark as Shipped
+                </CustomButton>
+                <CustomButton
+                  className="w-full flex items-center justify-center gap-2"
+                  variant="outline"
+                  onClick={() => setRefundModalOpen(true)}
+                  disabled={processingRefund}
+                >
+                  <DollarSign className="h-4 w-4" />
+                  Process Refund
+                </CustomButton>
+                <CustomButton
+                  className="w-full flex items-center justify-center gap-2"
+                  variant="outline"
+                  onClick={async () => {
+                    try {
+                      await capturePayment();
+                    } catch {
+                      // handled in hook
+                    }
+                  }}
+                  disabled={capturingPayment}
+                >
+                  <CreditCard className="h-4 w-4" />
+                  Capture Payment
+                </CustomButton>
+                <CustomButton
+                  className="w-full flex items-center justify-center gap-2"
+                  variant="outline"
+                  onClick={handlePaymentIntentOpen}
+                >
+                  <FileText className="h-4 w-4" />
+                  View Payment Intent
+                </CustomButton>
+                <CustomButton
+                  className="w-full flex items-center justify-center gap-2"
+                  variant="outline"
+                  onClick={async () => {
+                    try {
+                      await sendOrderDetailsToCustomer();
+                    } catch {
+                      // handled in hook
+                    }
+                  }}
+                  disabled={sendingOrderDetails}
+                >
+                  {sendingOrderDetails ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Send className="h-4 w-4" />
+                  )}
+                  Send Order Details
+                </CustomButton>
+                <CustomButton
+                  className="w-full flex items-center justify-center gap-2"
+                  variant="outline"
+                  onClick={async () => {
+                    try {
+                      await resendNewOrderNotification();
+                    } catch {
+                      // handled in hook
+                    }
+                  }}
+                  disabled={resendingOrderNotification}
+                >
+                  {resendingOrderNotification ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Bell className="h-4 w-4" />
+                  )}
+                  Resend New Order
+                </CustomButton>
+                <CustomButton
+                  className="w-full md:w-[250px] flex items-center justify-center gap-2"
+                  variant="outline"
+                  onClick={async () => {
+                    try {
+                      await regenerateDownloadPermissions();
+                    } catch {
+                      // handled in hook
+                    }
+                  }}
+                  disabled={regeneratingDownloadPermissions}
+                >
+                  {regeneratingDownloadPermissions ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <RefreshCcw className="h-4 w-4" />
+                  )}
+                  Regenerate Downloads
+                </CustomButton>
+              </div>
+            </CustomCardContent>
+          </CustomCard>
+
           <CustomCard>
             <CustomCardHeader className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
               <div className="space-y-1">
@@ -1570,12 +1768,26 @@ export default function OrderDetails({ orderId }) {
                     >
                       <div className="flex flex-wrap justify-between gap-2">
                         <div className="flex flex-col">
-                          <span className="font-medium text-foreground">
-                            {upload.originalName ||
-                              upload.filename ||
-                              attachment.type ||
-                              "Attachment"}
-                          </span>
+                          {upload.url ? (
+                            <a
+                              href={upload.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="font-medium text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 rounded-sm"
+                            >
+                              {upload.originalName ||
+                                upload.filename ||
+                                attachment.type ||
+                                "Attachment"}
+                            </a>
+                          ) : (
+                            <span className="font-medium text-foreground">
+                              {upload.originalName ||
+                                upload.filename ||
+                                attachment.type ||
+                                "Attachment"}
+                            </span>
+                          )}
                           <span className="text-xs text-muted-foreground">
                             {(attachment.type || "PHARMACY_HARDCOPY").replace(
                               /_/g,
@@ -1647,12 +1859,26 @@ export default function OrderDetails({ orderId }) {
                     >
                       <div className="flex flex-wrap justify-between gap-2">
                         <div className="flex flex-col">
-                          <span className="font-medium text-foreground">
-                            {upload.originalName ||
-                              upload.filename ||
-                              attachment.type ||
-                              "Attachment"}
-                          </span>
+                          {upload.url ? (
+                            <a
+                              href={upload.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="font-medium text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 rounded-sm"
+                            >
+                              {upload.originalName ||
+                                upload.filename ||
+                                attachment.type ||
+                                "Attachment"}
+                            </a>
+                          ) : (
+                            <span className="font-medium text-foreground">
+                              {upload.originalName ||
+                                upload.filename ||
+                                attachment.type ||
+                                "Attachment"}
+                            </span>
+                          )}
                           <span className="text-xs text-muted-foreground">
                             {(attachment.type || "SCANNED_DOCUMENT").replace(
                               /_/g,
@@ -1707,30 +1933,39 @@ export default function OrderDetails({ orderId }) {
                 Addresses associated with this order
               </CustomCardDescription>
             </CustomCardHeader>
-            <CustomCardContent className="space-y-4">
-              <div className="space-y-2">
-                <p className="text-sm font-medium text-foreground">
-                  Shipping Address
-                </p>
-                <div className="rounded-lg border border-border p-3 text-sm text-foreground">
-                  {renderAddress(order.shippingAddress)}
-                </div>
-                {order.trackingNumber && (
-                  <p className="text-xs text-muted-foreground">
-                    Tracking number:{" "}
-                    <span className="font-mono">{order.trackingNumber}</span>
+            <CustomCardContent>
+              <div className="flex flex-col gap-4 md:flex-row md:items-start">
+                <div className="flex-1 space-y-2">
+                  <p className="text-sm font-medium text-foreground">
+                    Shipping Address
                   </p>
-                )}
-              </div>
+                  <div className="rounded-lg border border-border p-3 text-sm text-foreground">
+                    {renderAddress(order.shippingAddress)}
+                  </div>
+                  {order.trackingNumber && (
+                    <p className="text-xs text-muted-foreground">
+                      Tracking number:{" "}
+                      <span className="font-mono">{order.trackingNumber}</span>
+                    </p>
+                  )}
+                </div>
 
-              <Divider className="border-dashed" />
+                <div
+                  className="hidden md:block self-stretch w-px bg-border/80"
+                  aria-hidden="true"
+                />
+                <div
+                  className="md:hidden border-t border-dashed border-border"
+                  aria-hidden="true"
+                />
 
-              <div className="space-y-2">
-                <p className="text-sm font-medium text-foreground">
-                  Billing Address
-                </p>
-                <div className="rounded-lg border border-border p-3 text-sm text-foreground">
-                  {renderAddress(order.billingAddress)}
+                <div className="flex-1 space-y-2">
+                  <p className="text-sm font-medium text-foreground">
+                    Billing Address
+                  </p>
+                  <div className="rounded-lg border border-border p-3 text-sm text-foreground">
+                    {renderAddress(order.billingAddress)}
+                  </div>
                 </div>
               </div>
             </CustomCardContent>
@@ -1751,104 +1986,6 @@ export default function OrderDetails({ orderId }) {
         </div>
 
         <div className="space-y-6">
-          <CustomCard>
-            <CustomCardHeader>
-              <CustomCardTitle>Actions</CustomCardTitle>
-              <CustomCardDescription>
-                Manage order status and payment
-              </CustomCardDescription>
-            </CustomCardHeader>
-            <CustomCardContent className="space-y-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">
-                  Order Status
-                </label>
-                <div className="flex items-center gap-2">
-                  <select
-                    value={statusSelectValue}
-                    onChange={handleStatusSelectChange}
-                    disabled={updatingStatus}
-                    className="w-full px-3 py-2 bg-background border border-input rounded-md text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100 dark:focus:ring-primary"
-                  >
-                    <option value="">
-                      {statusSelectValue
-                        ? "Select status"
-                        : "Select order status"}
-                    </option>
-                    {STATUS_OPTIONS.map((status) => (
-                      <option key={status} value={status}>
-                        {status.replace(/_/g, " ")}
-                      </option>
-                    ))}
-                  </select>
-                  {updatingStatus && (
-                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                  )}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Changes apply immediately. Use the dialog for notes or
-                  tracking updates.
-                </p>
-                <CustomButton
-                  variant="outline"
-                  size="sm"
-                  className="w-full justify-center gap-2"
-                  onClick={() => setStatusModalOpen(true)}
-                  disabled={updatingStatus}
-                >
-                  <FileText className="h-4 w-4" />
-                  Open Status Dialog
-                </CustomButton>
-              </div>
-
-              <Divider />
-
-              <div className="space-y-3">
-                <CustomButton
-                  className="w-full flex items-center justify-center gap-2"
-                  variant="outline"
-                  onClick={() => setShipModalOpen(true)}
-                  disabled={markingShipped}
-                >
-                  <Truck className="h-4 w-4" />
-                  Mark as Shipped
-                </CustomButton>
-                <CustomButton
-                  className="w-full flex items-center justify-center gap-2"
-                  variant="outline"
-                  onClick={() => setRefundModalOpen(true)}
-                  disabled={processingRefund}
-                >
-                  <DollarSign className="h-4 w-4" />
-                  Process Refund
-                </CustomButton>
-                <CustomButton
-                  className="w-full flex items-center justify-center gap-2"
-                  variant="outline"
-                  onClick={async () => {
-                    try {
-                      await capturePayment();
-                    } catch {
-                      // handled in hook
-                    }
-                  }}
-                  disabled={capturingPayment}
-                >
-                  <CreditCard className="h-4 w-4" />
-                  Capture Payment
-                </CustomButton>
-                <CustomButton
-                  className="w-full flex items-center justify-center gap-2"
-                  variant="outline"
-                  onClick={handlePaymentIntentOpen}
-                >
-                  <FileText className="h-4 w-4" />
-                  View Payment Intent
-                </CustomButton>
-              </div>
-            </CustomCardContent>
-          </CustomCard>
-
           <CustomCard>
             <CustomCardHeader>
               <CustomCardTitle>Summary</CustomCardTitle>
@@ -1929,6 +2066,53 @@ export default function OrderDetails({ orderId }) {
                   </>
                 )} */}
               </div>
+            </CustomCardContent>
+          </CustomCard>
+
+          <CustomCard>
+            <CustomCardHeader>
+              <CustomCardTitle>Applied Coupons</CustomCardTitle>
+              <CustomCardDescription>
+                Discounts applied to this order
+              </CustomCardDescription>
+            </CustomCardHeader>
+            <CustomCardContent className="space-y-2">
+              {Array.isArray(order.appliedCoupons) &&
+              order.appliedCoupons.length > 0 ? (
+                order.appliedCoupons.map((coupon, index) => {
+                  const code =
+                    coupon?.code ||
+                    coupon?.id ||
+                    coupon?.name ||
+                    `Coupon ${index + 1}`;
+                  const amount =
+                    coupon?.amount ??
+                    coupon?.discountAmount ??
+                    coupon?.value ??
+                    null;
+                  return (
+                    <div
+                      key={`${code}-${index}`}
+                      className="flex justify-between items-center text-sm border border-border rounded-lg px-3 py-2"
+                    >
+                      <span className="font-medium text-foreground">
+                        {code}
+                      </span>
+                      {amount !== null ? (
+                        <span className="text-muted-foreground">
+                          -{formatCurrency(amount, totals.currency)}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </div>
+                  );
+                })
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  No coupons applied to this order.
+                </p>
+              )}
             </CustomCardContent>
           </CustomCard>
 
@@ -2066,77 +2250,6 @@ export default function OrderDetails({ orderId }) {
             </CustomCardContent>
           </CustomCard>
 
-          {otherAttachments.length > 0 && (
-            <CustomCard>
-              <CustomCardHeader>
-                <CustomCardTitle className="flex items-center gap-2">
-                  <Paperclip className="h-5 w-5 text-muted-foreground" />
-                  Attachments
-                </CustomCardTitle>
-                <CustomCardDescription>
-                  Files linked to this order
-                </CustomCardDescription>
-              </CustomCardHeader>
-              <CustomCardContent className="space-y-3">
-                {otherAttachments.map((attachment) => {
-                  const upload = attachment.upload || {};
-                  const sizeLabel = formatFileSize(upload.size);
-                  return (
-                    <div
-                      key={attachment.id || upload.id}
-                      className="border border-border rounded-lg px-3 py-2 text-sm"
-                    >
-                      <div className="flex flex-wrap justify-between gap-2">
-                        <div className="flex flex-col">
-                          <span className="font-medium text-foreground">
-                            {upload.originalName ||
-                              upload.filename ||
-                              attachment.type ||
-                              "Attachment"}
-                          </span>
-                          <span className="text-xs text-muted-foreground capitalize">
-                            {attachment.type
-                              ? attachment.type.replace(/_/g, " ")
-                              : "Unknown type"}
-                          </span>
-                        </div>
-                        {sizeLabel && (
-                          <span className="text-xs text-muted-foreground">
-                            {sizeLabel}
-                          </span>
-                        )}
-                      </div>
-                      {attachment.notes && (
-                        <p className="text-xs text-muted-foreground mt-2">
-                          {attachment.notes}
-                        </p>
-                      )}
-                      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground mt-2">
-                        {upload.url && (
-                          <a
-                            href={upload.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-primary hover:underline"
-                          >
-                            View file
-                          </a>
-                        )}
-                        {attachment.createdAt && (
-                          <>
-                            <span aria-hidden="true">•</span>
-                            <span>
-                              Uploaded {formatDateTime(attachment.createdAt)}
-                            </span>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </CustomCardContent>
-            </CustomCard>
-          )}
           <div className="space-y-2">
             <label className="text-sm font-medium text-foreground">
               Assigned Doctor
@@ -2169,15 +2282,15 @@ export default function OrderDetails({ orderId }) {
               </p>
             )}
           </div>
-          {order.doctor && (
-            <CustomCard>
-              <CustomCardHeader>
-                <CustomCardTitle className="flex items-center gap-2">
-                  <Stethoscope className="h-5 w-5 text-muted-foreground" />
-                  Assigned Doctor
-                </CustomCardTitle>
-              </CustomCardHeader>
-              <CustomCardContent>
+          <CustomCard>
+            <CustomCardHeader>
+              <CustomCardTitle className="flex items-center gap-2">
+                <Stethoscope className="h-5 w-5 text-muted-foreground" />
+                Assigned Doctor
+              </CustomCardTitle>
+            </CustomCardHeader>
+            <CustomCardContent>
+              {order.doctor ? (
                 <div className="flex flex-col gap-2 text-sm">
                   <p className="font-medium text-foreground">
                     {[order.doctor.firstName, order.doctor.lastName]
@@ -2196,9 +2309,13 @@ export default function OrderDetails({ orderId }) {
                     </p>
                   )}
                 </div>
-              </CustomCardContent>
-            </CustomCard>
-          )}
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  No doctor assigned to this order.
+                </p>
+              )}
+            </CustomCardContent>
+          </CustomCard>
 
           <CustomCard>
             <CustomCardHeader>
@@ -2207,129 +2324,144 @@ export default function OrderDetails({ orderId }) {
                 Other orders associated with this customer
               </CustomCardDescription>
             </CustomCardHeader>
-            <CustomCardContent className="space-y-3">
-              {relatedOrders.length === 0 ? (
+            <CustomCardContent className="space-y-4">
+              {relatedOrdersForDisplay.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
                   No related orders found.
                 </p>
               ) : (
-                relatedOrders.map((related) => {
-                  const relatedId =
-                    related?.id ||
-                    related?.orderId ||
-                    related?.order_id ||
-                    related?.uuid ||
-                    null;
-                  const relatedNumber =
-                    related?.orderNumber ||
-                    related?.number ||
-                    related?.reference ||
-                    relatedId ||
-                    "Order";
-                  const relatedStatus = (
-                    related?.status ||
-                    related?.orderStatus ||
-                    "UNKNOWN"
-                  ).toString();
-                  const relatedTotal =
-                    related?.totalAmount ??
-                    related?.total ??
-                    related?.amount ??
-                    related?.grandTotal ??
-                    null;
-                  const relatedCurrency =
-                    related?.currency ||
-                    related?.currencyCode ||
-                    totals.currency;
-                  const createdAt = related?.createdAt || related?.created_at;
+                <>
+                  <div className="hidden sm:block overflow-x-auto">
+                    <table className="min-w-full text-sm">
+                      <thead>
+                        <tr className="text-left text-xs uppercase text-muted-foreground border-b border-border">
+                          <th className="py-3 pr-3 font-medium tracking-wide">
+                            Order
+                          </th>
+                          <th className="py-3 pr-3 font-medium tracking-wide">
+                            Status
+                          </th>
+                          <th className="py-3 pr-3 font-medium tracking-wide">
+                            Total
+                          </th>
+                          <th className="py-3 pr-3 font-medium tracking-wide">
+                            Placed
+                          </th>
+                          <th className="py-3 font-medium tracking-wide text-right">
+                            Action
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border">
+                        {relatedOrdersForDisplay.map((related) => (
+                          <tr key={`${related.id || related.number}-table`}>
+                            <td className="py-3 pr-3 font-medium text-foreground">
+                              {related.id ? (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    router.push(
+                                      `/dashboard/orders/${related.id}`
+                                    )
+                                  }
+                                  className="text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 rounded-sm"
+                                >
+                                  #{related.number}
+                                </button>
+                              ) : (
+                                <span>#{related.number}</span>
+                              )}
+                            </td>
+                            <td className="py-3 pr-3">
+                              <CustomBadge
+                                variant="outline"
+                                className={related.statusClassName}
+                              >
+                                {related.statusLabel}
+                              </CustomBadge>
+                            </td>
+                            <td className="py-3 pr-3 text-muted-foreground">
+                              {related.totalLabel || "-"}
+                            </td>
+                            <td className="py-3 pr-3 text-muted-foreground">
+                              {related.placedLabel || "-"}
+                            </td>
+                            <td className="py-3 text-right">
+                              {related.id ? (
+                                <CustomButton
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() =>
+                                    router.push(
+                                      `/dashboard/orders/${related.id}`
+                                    )
+                                  }
+                                >
+                                  View
+                                </CustomButton>
+                              ) : (
+                                <span className="text-xs text-muted-foreground">
+                                  Unavailable
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
 
-                  return (
-                    <div
-                      key={relatedId || relatedNumber}
-                      className="border border-border rounded-lg p-3 text-sm space-y-2"
-                    >
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <div>
-                          <p className="font-medium text-foreground">
-                            #{relatedNumber}
-                          </p>
-                          {createdAt && (
-                            <p className="text-xs text-muted-foreground">
-                              Placed {formatDateTime(createdAt)}
+                  <div className="sm:hidden space-y-3">
+                    {relatedOrdersForDisplay.map((related) => (
+                      <div
+                        key={`${related.id || related.number}-card`}
+                        className="border border-border rounded-lg p-3 text-sm space-y-2"
+                      >
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div>
+                            <p className="font-medium text-foreground">
+                              #{related.number}
                             </p>
-                          )}
+                            {related.placedLabel && (
+                              <p className="text-xs text-muted-foreground">
+                                Placed {related.placedLabel}
+                              </p>
+                            )}
+                          </div>
+                          <CustomBadge
+                            variant="outline"
+                            className={related.statusClassName}
+                          >
+                            {related.statusLabel}
+                          </CustomBadge>
                         </div>
-                        <CustomBadge variant="outline">
-                          {relatedStatus.replace(/_/g, " ")}
-                        </CustomBadge>
+                        {related.totalLabel && (
+                          <p className="text-xs text-muted-foreground">
+                            Total{" "}
+                            <span className="font-medium text-foreground">
+                              {related.totalLabel}
+                            </span>
+                          </p>
+                        )}
+                        {related.id && (
+                          <CustomButton
+                            variant="outline"
+                            size="sm"
+                            className="w-full justify-center"
+                            onClick={() =>
+                              router.push(`/dashboard/orders/${related.id}`)
+                            }
+                          >
+                            View Order
+                          </CustomButton>
+                        )}
                       </div>
-                      {relatedTotal !== null && (
-                        <p className="text-xs text-muted-foreground">
-                          Total{" "}
-                          <span className="font-medium text-foreground">
-                            {formatCurrency(relatedTotal, relatedCurrency)}
-                          </span>
-                        </p>
-                      )}
-                      {relatedId && (
-                        <CustomButton
-                          variant="outline"
-                          size="sm"
-                          className="w-full justify-center"
-                          onClick={() =>
-                            router.push(`/dashboard/orders/${relatedId}`)
-                          }
-                        >
-                          View Order
-                        </CustomButton>
-                      )}
-                    </div>
-                  );
-                })
+                    ))}
+                  </div>
+                </>
               )}
             </CustomCardContent>
           </CustomCard>
-
-          {Array.isArray(order.appliedCoupons) &&
-            order.appliedCoupons.length > 0 && (
-              <CustomCard>
-                <CustomCardHeader>
-                  <CustomCardTitle>Applied Coupons</CustomCardTitle>
-                  <CustomCardDescription>
-                    Discounts applied to this order
-                  </CustomCardDescription>
-                </CustomCardHeader>
-                <CustomCardContent className="space-y-2">
-                  {order.appliedCoupons.map((coupon, index) => {
-                    const code =
-                      coupon?.code ||
-                      coupon?.id ||
-                      coupon?.name ||
-                      `Coupon ${index + 1}`;
-                    const amount =
-                      coupon?.amount ??
-                      coupon?.discountAmount ??
-                      coupon?.value ??
-                      null;
-                    return (
-                      <div
-                        key={`${code}-${index}`}
-                        className="flex justify-between items-center text-sm border border-border rounded-lg px-3 py-2"
-                      >
-                        <span className="font-medium text-foreground">
-                          {code}
-                        </span>
-                        {amount !== null && (
-                          <span className="text-muted-foreground">
-                            -{formatCurrency(amount, totals.currency)}
-                          </span>
-                        )}
-                      </div>
-                    );
-                  })}
-                </CustomCardContent>
-              </CustomCard>
-            )}
         </div>
       </div>
 

@@ -51,7 +51,7 @@ export function ActivityTable({ items, loading, onViewDetails }) {
       {
         key: "occurredAt",
         label: "Timestamp",
-        width: "220px",
+        width: "160px",
         render: (row) => {
           const dateValue = row.occurredAt ? new Date(row.occurredAt) : null;
           let formattedDate = "—";
@@ -76,12 +76,12 @@ export function ActivityTable({ items, loading, onViewDetails }) {
 
           return (
             <Tooltip content={content} usePortal>
-              <div className="flex flex-col">
-                <span className="font-semibold text-foreground">
+              <div className="flex flex-col max-w-[140px] overflow-hidden">
+                <span className="font-semibold text-foreground truncate">
                   {formattedDate}
                 </span>
                 {formattedTime && (
-                  <span className="text-sm text-muted-foreground">
+                  <span className="text-sm text-muted-foreground truncate">
                     {formattedTime}
                   </span>
                 )}
@@ -93,24 +93,33 @@ export function ActivityTable({ items, loading, onViewDetails }) {
       {
         key: "scope",
         label: "Scope",
-        width: "140px",
-        render: (row) => (
-          <span className="uppercase tracking-wide text-xs font-semibold text-muted-foreground">
-            {row.scope || "—"}
-          </span>
-        ),
+        width: "180px",
+        render: (row) => {
+          const scope = row.scope || "—";
+          return (
+            <Tooltip content={scope} usePortal>
+              <div className="max-w-[100px]">
+                <span className="uppercase tracking-wide text-xs font-semibold text-muted-foreground block truncate overflow-hidden">
+                  {scope}
+                </span>
+              </div>
+            </Tooltip>
+          );
+        },
       },
       {
         key: "action",
         label: "Action",
-        width: "180px",
+        width: "210px",
         render: (row) => {
           const action = row.action || "—";
           return (
             <Tooltip content={action} usePortal>
-              <span className="max-w-[160px] truncate font-semibold text-foreground">
-                {action}
-              </span>
+              <div className="w-[200px]">
+                <span className="truncate font-semibold text-foreground block">
+                  {action}
+                </span>
+              </div>
             </Tooltip>
           );
         },
@@ -118,13 +127,13 @@ export function ActivityTable({ items, loading, onViewDetails }) {
       {
         key: "message",
         label: "Message",
-        width: "320px",
-        truncate: true,
+        width: "200px",
+        // truncate: true,
         render: (row) => {
           const messageContent = row.message || "";
           return (
             <Tooltip content={messageContent} usePortal>
-              <div className="flex flex-col gap-1 max-w-[300px]">
+              <div className="flex flex-col gap-1 max-w-[200px]">
                 <span className="block truncate text-sm text-muted-foreground">
                   {messageContent || "—"}
                 </span>
@@ -153,12 +162,12 @@ export function ActivityTable({ items, loading, onViewDetails }) {
         width: "220px",
         render: (row) => (
           <Tooltip content={row.actorEmail} usePortal>
-            <div className="flex flex-col">
+            <div className="flex flex-col max-w-[220px] overflow-hidden">
               <span className="truncate text-sm font-medium text-foreground">
                 {row.actorEmail || "Unknown"}
               </span>
               {row.actorRole && (
-                <span className="text-xs uppercase tracking-wide text-muted-foreground">
+                <span className="text-xs uppercase tracking-wide text-muted-foreground truncate">
                   {row.actorRole}
                 </span>
               )}
