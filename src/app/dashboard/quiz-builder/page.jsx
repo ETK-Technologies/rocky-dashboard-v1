@@ -331,6 +331,68 @@ export default function QuizBuilderPage() {
             .filter(Boolean);
     }, []);
 
+    const prepareDataForOutput = useCallback(
+        (inputData) => {
+            if (!inputData) return null;
+            const cloned = JSON.parse(JSON.stringify(inputData));
+            if (cloned.currentStep !== undefined) {
+                delete cloned.currentStep;
+            }
+
+            const hasQuestions =
+                cloned.questions && Array.isArray(cloned.questions);
+            if (hasQuestions) {
+                const sanitizedSteps = cloned.questions.map((q) => {
+                    const { required, ...rest } = q;
+                    const stepData = { ...rest };
+
+                    if (!stepData.stepType && stepData.type) {
+                        stepData.stepType = "question";
+                    }
+
+                    if (stepData.stepType === "question") {
+                        stepData.questionType = stepData.type || "";
+                        const hasOptions =
+                            stepData.type === "single-choice" ||
+                            stepData.type === "multiple-choice" ||
+                            stepData.type === "true-false" ||
+                            stepData.type === "dropdown-list";
+                        if (!hasOptions) {
+                            delete stepData.options;
+                        }
+                    } else {
+                        delete stepData.options;
+                    }
+
+                    if (stepData.stepType !== "question") {
+                        delete stepData.questionType;
+                    }
+
+                    return stepData;
+                });
+
+                cloned.steps = sanitizedSteps;
+            }
+
+            const flow = generateLogicFlow(cloned);
+            if (flow.length > 0) {
+                cloned.flow = flow;
+            }
+
+            const resultsFlow = generateResultsFlow(cloned);
+            if (resultsFlow.length > 0) {
+                cloned.resultsFlow = resultsFlow;
+            }
+
+            if (hasQuestions) {
+                delete cloned.questions;
+            }
+
+            return cloned;
+        },
+        [generateLogicFlow, generateResultsFlow]
+    );
+
     // Export to JSON file
     const handleExport = useCallback(() => {
         const data = quizDataRef.current || quizData;
@@ -340,37 +402,10 @@ export default function QuizBuilderPage() {
         }
 
         try {
-            // Remove currentStep from exported data (it's metadata, not part of quiz)
-            const { currentStep: _, ...cleanData } = data;
-
-            // Clean up questions: remove options from question types that don't have options
-            if (cleanData.questions && Array.isArray(cleanData.questions)) {
-                cleanData.questions = cleanData.questions.map((q) => {
-                    const hasOptions =
-                        q.type === "single-choice" ||
-                        q.type === "multiple-choice" ||
-                        q.type === "true-false";
-
-                    // If question type doesn't have options, remove the options field
-                    if (!hasOptions) {
-                        const { options, ...questionWithoutOptions } = q;
-                        return questionWithoutOptions;
-                    }
-
-                    return q;
-                });
-            }
-
-            // Generate formatted logic flow
-            const flow = generateLogicFlow(cleanData);
-            if (flow.length > 0) {
-                cleanData.flow = flow;
-            }
-
-            // Generate formatted results flow
-            const resultsFlow = generateResultsFlow(cleanData);
-            if (resultsFlow.length > 0) {
-                cleanData.resultsFlow = resultsFlow;
+            const cleanData = prepareDataForOutput(data);
+            if (!cleanData) {
+                toast.error("Unable to prepare quiz data for export");
+                return;
             }
 
             const jsonString = JSON.stringify(cleanData, null, 2);
@@ -390,7 +425,7 @@ export default function QuizBuilderPage() {
             console.error("Error exporting quiz:", error);
             toast.error("Failed to export quiz");
         }
-    }, [quizData, generateLogicFlow, generateResultsFlow]);
+    }, [quizData, prepareDataForOutput]);
 
     // Toggle preview mode
     const handlePreview = useCallback(() => {
@@ -563,10 +598,10 @@ export default function QuizBuilderPage() {
                             </div>
                         </div>
 
-                        {/* Questions */}
+                        {/* Steps */}
                         <div>
                             <h2 className="text-xl font-semibold mb-4 pb-2 border-b">
-                                Questions ({data?.questions?.length || 0})
+                                Steps ({data?.questions?.length || 0})
                             </h2>
                             {data?.questions && data.questions.length > 0 ? (
                                 <div className="space-y-4">
@@ -600,13 +635,35 @@ export default function QuizBuilderPage() {
                                                 className="bg-muted/50 p-4 rounded-lg"
                                             >
                                                 <div className="font-semibold mb-2">
-                                                    Question {idx + 1}:{" "}
-                                                    {q.title || "Untitled"}
+                                                    Step {idx + 1}:{" "}
+                                                    {q.title || "Untitled Step"}
                                                 </div>
-                                                <div className="text-sm text-muted-foreground mb-2">
-                                                    Type: {q.type || "N/A"} |
-                                                    Required:{" "}
-                                                    {q.required ? "Yes" : "No"}
+                                                <div className="text-sm text-muted-foreground mb-2 space-y-1">
+                                                    <div>
+                                                        Step Type:{" "}
+                                                        {q.stepType
+                                                            ? q.stepType
+                                                                  .charAt(0)
+                                                                  .toUpperCase() +
+                                                              q.stepType.slice(
+                                                                  1
+                                                              )
+                                                            : "N/A"}
+                                                    </div>
+                                                    {q.stepType ===
+                                                        "question" && (
+                                                        <div>
+                                                            Question Type:{" "}
+                                                            {q.type
+                                                                ? q.type
+                                                                      .charAt(0)
+                                                                      .toUpperCase() +
+                                                                  q.type.slice(
+                                                                      1
+                                                                  )
+                                                                : "N/A"}
+                                                        </div>
+                                                    )}
                                                 </div>
                                                 {q.description && (
                                                     <div className="text-sm text-muted-foreground mb-2">
@@ -616,11 +673,16 @@ export default function QuizBuilderPage() {
                                                 {/* Only show options for question types that have options */}
                                                 {(() => {
                                                     const hasOptions =
-                                                        q.type ===
+                                                        q.stepType ===
+                                                            "question" &&
+                                                        (q.type ===
                                                             "single-choice" ||
-                                                        q.type ===
-                                                            "multiple-choice" ||
-                                                        q.type === "true-false";
+                                                            q.type ===
+                                                                "multiple-choice" ||
+                                                            q.type ===
+                                                                "true-false" ||
+                                                            q.type ===
+                                                                "dropdown-list");
                                                     return (
                                                         hasOptions &&
                                                         q.options &&
@@ -703,7 +765,7 @@ export default function QuizBuilderPage() {
                                 </div>
                             ) : (
                                 <p className="text-muted-foreground">
-                                    No questions added yet.
+                                    No steps added yet.
                                 </p>
                             )}
                         </div>
@@ -1049,19 +1111,23 @@ export default function QuizBuilderPage() {
                                                     </span>
                                                 </div>
                                             )}
-                                            
+
                                             {/* Continue Popup and Add-ons */}
                                             <div className="space-y-2">
                                                 <div className="flex items-center gap-2">
                                                     <span className="font-semibold text-sm">
                                                         Continue Popup:
                                                     </span>
-                                                    <span className={`px-2 py-1 rounded text-xs ${
-                                                        r.continuePopup 
-                                                            ? "bg-green-500/10 text-green-500" 
-                                                            : "bg-gray-500/10 text-gray-500"
-                                                    }`}>
-                                                        {r.continuePopup ? "Yes" : "No"}
+                                                    <span
+                                                        className={`px-2 py-1 rounded text-xs ${
+                                                            r.continuePopup
+                                                                ? "bg-green-500/10 text-green-500"
+                                                                : "bg-gray-500/10 text-gray-500"
+                                                        }`}
+                                                    >
+                                                        {r.continuePopup
+                                                            ? "Yes"
+                                                            : "No"}
                                                     </span>
                                                 </div>
                                                 {r.continuePopup && (
@@ -1069,91 +1135,155 @@ export default function QuizBuilderPage() {
                                                         <span className="font-semibold text-sm">
                                                             Add-ons:
                                                         </span>
-                                                        <span className={`px-2 py-1 rounded text-xs ${
-                                                            r.addons 
-                                                                ? "bg-green-500/10 text-green-500" 
-                                                                : "bg-gray-500/10 text-gray-500"
-                                                        }`}>
-                                                            {r.addons ? "Yes" : "No"}
+                                                        <span
+                                                            className={`px-2 py-1 rounded text-xs ${
+                                                                r.addons
+                                                                    ? "bg-green-500/10 text-green-500"
+                                                                    : "bg-gray-500/10 text-gray-500"
+                                                            }`}
+                                                        >
+                                                            {r.addons
+                                                                ? "Yes"
+                                                                : "No"}
                                                         </span>
                                                     </div>
                                                 )}
                                             </div>
 
                                             {/* Products */}
-                                            {r.products && Array.isArray(r.products) && r.products.length > 0 && (
-                                                <div className="mt-4">
-                                                    <span className="font-semibold text-sm block mb-3">
-                                                        Products ({r.products.length}):
-                                                    </span>
-                                                    <div className="space-y-3">
-                                                        {r.products.map((product, productIdx) => {
-                                                            const productId = product.id || product._id;
-                                                            const productName = product.name || product.title || "Unnamed Product";
-                                                            const productPrice = product.basePrice || product.price || product.amount || "0.00";
-                                                            const productDescription = product.description || product.shortDescription || "";
-                                                            const productImage = product.images && product.images.length > 0 
-                                                                ? product.images[0].url || product.images[0].src 
-                                                                : null;
-                                                            const isPrimary = product.isPrimary || false;
+                                            {r.products &&
+                                                Array.isArray(r.products) &&
+                                                r.products.length > 0 && (
+                                                    <div className="mt-4">
+                                                        <span className="font-semibold text-sm block mb-3">
+                                                            Products (
+                                                            {r.products.length}
+                                                            ):
+                                                        </span>
+                                                        <div className="space-y-3">
+                                                            {r.products.map(
+                                                                (
+                                                                    product,
+                                                                    productIdx
+                                                                ) => {
+                                                                    const productId =
+                                                                        product.id ||
+                                                                        product._id;
+                                                                    const productName =
+                                                                        product.name ||
+                                                                        product.title ||
+                                                                        "Unnamed Product";
+                                                                    const productPrice =
+                                                                        product.basePrice ||
+                                                                        product.price ||
+                                                                        product.amount ||
+                                                                        "0.00";
+                                                                    const productDescription =
+                                                                        product.description ||
+                                                                        product.shortDescription ||
+                                                                        "";
+                                                                    const productImage =
+                                                                        product.images &&
+                                                                        product
+                                                                            .images
+                                                                            .length >
+                                                                            0
+                                                                            ? product
+                                                                                  .images[0]
+                                                                                  .url ||
+                                                                              product
+                                                                                  .images[0]
+                                                                                  .src
+                                                                            : null;
+                                                                    const isPrimary =
+                                                                        product.isPrimary ||
+                                                                        false;
 
-                                                            return (
-                                                                <div
-                                                                    key={productId || productIdx}
-                                                                    className="border rounded-lg p-3 bg-background"
-                                                                >
-                                                                    <div className="flex gap-3">
-                                                                        <div className="w-20 h-20 rounded-md border border-input flex items-center justify-center bg-muted shrink-0 relative overflow-hidden">
-                                                                            {productImage ? (
-                                                                                <img
-                                                                                    src={productImage}
-                                                                                    alt={productName}
-                                                                                    className="w-full h-full object-cover rounded-md"
-                                                                                    onError={(e) => {
-                                                                                        e.target.style.display = "none";
-                                                                                        const placeholder = e.target.parentElement.querySelector(".no-image-placeholder");
-                                                                                        if (placeholder) {
-                                                                                            placeholder.style.display = "flex";
-                                                                                        }
-                                                                                    }}
-                                                                                />
-                                                                            ) : null}
-                                                                            <div
-                                                                                className="no-image-placeholder w-full h-full flex items-center justify-center text-xs text-muted-foreground"
-                                                                                style={{
-                                                                                    display: productImage ? "none" : "flex"
-                                                                                }}
-                                                                            >
-                                                                                No Image
+                                                                    return (
+                                                                        <div
+                                                                            key={
+                                                                                productId ||
+                                                                                productIdx
+                                                                            }
+                                                                            className="border rounded-lg p-3 bg-background"
+                                                                        >
+                                                                            <div className="flex gap-3">
+                                                                                <div className="w-20 h-20 rounded-md border border-input flex items-center justify-center bg-muted shrink-0 relative overflow-hidden">
+                                                                                    {productImage ? (
+                                                                                        <img
+                                                                                            src={
+                                                                                                productImage
+                                                                                            }
+                                                                                            alt={
+                                                                                                productName
+                                                                                            }
+                                                                                            className="w-full h-full object-cover rounded-md"
+                                                                                            onError={(
+                                                                                                e
+                                                                                            ) => {
+                                                                                                e.target.style.display =
+                                                                                                    "none";
+                                                                                                const placeholder =
+                                                                                                    e.target.parentElement.querySelector(
+                                                                                                        ".no-image-placeholder"
+                                                                                                    );
+                                                                                                if (
+                                                                                                    placeholder
+                                                                                                ) {
+                                                                                                    placeholder.style.display =
+                                                                                                        "flex";
+                                                                                                }
+                                                                                            }}
+                                                                                        />
+                                                                                    ) : null}
+                                                                                    <div
+                                                                                        className="no-image-placeholder w-full h-full flex items-center justify-center text-xs text-muted-foreground"
+                                                                                        style={{
+                                                                                            display:
+                                                                                                productImage
+                                                                                                    ? "none"
+                                                                                                    : "flex",
+                                                                                        }}
+                                                                                    >
+                                                                                        No
+                                                                                        Image
+                                                                                    </div>
+                                                                                </div>
+                                                                                <div className="flex-1 space-y-1">
+                                                                                    <div className="flex items-center gap-2 flex-wrap">
+                                                                                        <span className="font-semibold">
+                                                                                            {
+                                                                                                productName
+                                                                                            }
+                                                                                        </span>
+                                                                                        {isPrimary && (
+                                                                                            <span className="px-2 py-1 bg-primary text-primary-foreground rounded-full text-xs font-medium">
+                                                                                                Primary
+                                                                                            </span>
+                                                                                        )}
+                                                                                        <span className="text-lg font-bold text-primary">
+                                                                                            $
+                                                                                            {
+                                                                                                productPrice
+                                                                                            }
+                                                                                        </span>
+                                                                                    </div>
+                                                                                    {productDescription && (
+                                                                                        <p className="text-sm text-muted-foreground line-clamp-2">
+                                                                                            {
+                                                                                                productDescription
+                                                                                            }
+                                                                                        </p>
+                                                                                    )}
+                                                                                </div>
                                                                             </div>
                                                                         </div>
-                                                                        <div className="flex-1 space-y-1">
-                                                                            <div className="flex items-center gap-2 flex-wrap">
-                                                                                <span className="font-semibold">
-                                                                                    {productName}
-                                                                                </span>
-                                                                                {isPrimary && (
-                                                                                    <span className="px-2 py-1 bg-primary text-primary-foreground rounded-full text-xs font-medium">
-                                                                                        Primary
-                                                                                    </span>
-                                                                                )}
-                                                                                <span className="text-lg font-bold text-primary">
-                                                                                    ${productPrice}
-                                                                                </span>
-                                                                            </div>
-                                                                            {productDescription && (
-                                                                                <p className="text-sm text-muted-foreground line-clamp-2">
-                                                                                    {productDescription}
-                                                                                </p>
-                                                                            )}
-                                                                        </div>
-                                                                    </div>
-                                                                </div>
-                                                            );
-                                                        })}
+                                                                    );
+                                                                }
+                                                            )}
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            )}
+                                                )}
                                         </div>
                                     ))}
                                 </div>
@@ -1372,60 +1502,7 @@ export default function QuizBuilderPage() {
                             {isRawJsonOpen && (
                                 <pre className="bg-muted p-4 rounded-lg overflow-x-auto text-sm">
                                     {JSON.stringify(
-                                        (() => {
-                                            // Prepare data for JSON display (similar to export)
-                                            const {
-                                                currentStep: _,
-                                                ...cleanData
-                                            } = data;
-
-                                            // Clean up questions: remove options from question types that don't have options
-                                            if (
-                                                cleanData.questions &&
-                                                Array.isArray(
-                                                    cleanData.questions
-                                                )
-                                            ) {
-                                                cleanData.questions =
-                                                    cleanData.questions.map(
-                                                        (q) => {
-                                                            const hasOptions =
-                                                                q.type ===
-                                                                    "single-choice" ||
-                                                                q.type ===
-                                                                    "multiple-choice" ||
-                                                                q.type ===
-                                                                    "true-false";
-
-                                                            if (!hasOptions) {
-                                                                const {
-                                                                    options,
-                                                                    ...questionWithoutOptions
-                                                                } = q;
-                                                                return questionWithoutOptions;
-                                                            }
-                                                            return q;
-                                                        }
-                                                    );
-                                            }
-
-                                            // Generate formatted logic flow
-                                            const flow =
-                                                generateLogicFlow(cleanData);
-                                            if (flow.length > 0) {
-                                                cleanData.flow = flow;
-                                            }
-
-                                            // Generate formatted results flow
-                                            const resultsFlow =
-                                                generateResultsFlow(cleanData);
-                                            if (resultsFlow.length > 0) {
-                                                cleanData.resultsFlow =
-                                                    resultsFlow;
-                                            }
-
-                                            return cleanData;
-                                        })(),
+                                        prepareDataForOutput(data),
                                         null,
                                         2
                                     )}

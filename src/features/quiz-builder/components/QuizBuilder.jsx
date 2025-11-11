@@ -18,7 +18,7 @@ import LogicResultsStep from "./steps/LogicResultsStep";
 
 const ALL_STEPS = [
     { id: 1, name: "Details", component: QuizDetailsStep },
-    { id: 2, name: "Questions", component: QuestionsStep },
+    { id: 2, name: "Steps", component: QuestionsStep },
     { id: 3, name: "Logic", component: LogicStep },
     { id: 4, name: "Results", component: ResultsStep },
     { id: 5, name: "Logic Results", component: LogicResultsStep },
@@ -49,7 +49,7 @@ export default function QuizBuilder({
                 thankYouImage: "",
                 thankYouImageType: "upload",
             },
-            // Step 2: Questions
+            // Step 2: Steps
             questions: [],
             // Step 3: Logic
             logic: {
