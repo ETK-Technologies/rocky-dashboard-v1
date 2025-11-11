@@ -16,6 +16,7 @@ export default function QuizDetailsStep({
         slug: "",
         requireLogin: false,
         preQuiz: false,
+        mainQuiz: "",
         addThankYouPage: false,
         thankYouTitle: "",
         thankYouDescription: "",
@@ -72,11 +73,26 @@ export default function QuizDetailsStep({
             isValid = false;
         }
 
+        if (formData.preQuiz) {
+            if (touched.mainQuiz && !formData.mainQuiz) {
+                newErrors.mainQuiz = "Main Quiz selection is required";
+                isValid = false;
+            } else if (!formData.mainQuiz) {
+                isValid = false;
+            }
+        }
+
         setErrors(newErrors);
 
         // Use ref to avoid dependency issues
         validationCallbackRef.current?.(isValid);
-    }, [formData.name, formData.slug, touched]);
+    }, [
+        formData.name,
+        formData.slug,
+        formData.preQuiz,
+        formData.mainQuiz,
+        touched,
+    ]);
 
     const handleChange = (field, value) => {
         // Mark field as touched when user starts typing
@@ -103,10 +119,17 @@ export default function QuizDetailsStep({
     };
 
     const handleToggle = (field) => {
-        updateData("quizDetails", {
+        const newValue = !formData[field];
+        const updatedData = {
             ...formData,
-            [field]: !formData[field],
-        });
+            [field]: newValue,
+        };
+
+        if (field === "preQuiz" && !newValue) {
+            updatedData.mainQuiz = "";
+        }
+
+        updateData("quizDetails", updatedData);
     };
 
     return (
@@ -181,7 +204,37 @@ export default function QuizDetailsStep({
                     </label>
                 </div>
 
-                <div className=" border sm:px-6 px-2 py-6 gap-2 rounded-md">
+                {formData.preQuiz && (
+                    <div className="border sm:px-6 px-2 py-6 rounded-md space-y-2">
+                        <CustomLabel htmlFor="mainQuiz">Main Quiz</CustomLabel>
+                        <select
+                            id="mainQuiz"
+                            value={formData.mainQuiz}
+                            onChange={(e) =>
+                                handleChange("mainQuiz", e.target.value)
+                            }
+                            onBlur={() => handleBlur("mainQuiz")}
+                            className={`w-full px-3 py-2 border rounded-md bg-background dark:bg-gray-800 text-black dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 ${
+                                errors.mainQuiz
+                                    ? "border-destructive focus:ring-destructive/50"
+                                    : "border-input"
+                            }`}
+                            required
+                        >
+                            <option value="">Select main quiz</option>
+                            <option value="quiz-1">Quiz 1</option>
+                            <option value="quiz-2">Quiz 2</option>
+                            <option value="quiz-3">Quiz 3</option>
+                        </select>
+                        {errors.mainQuiz && (
+                            <p className="text-sm text-destructive">
+                                {errors.mainQuiz}
+                            </p>
+                        )}
+                    </div>
+                )}
+
+                {/* <div className=" border sm:px-6 px-2 py-6 gap-2 rounded-md">
                     <div className="flex items-center justify-between ">
                         <div className="flex flex-col">
                             <CustomLabel>Add Thank You Page</CustomLabel>
@@ -343,7 +396,7 @@ export default function QuizDetailsStep({
                             </div>
                         </div>
                     )}
-                </div>
+                </div> */}
             </div>
         </div>
     );
