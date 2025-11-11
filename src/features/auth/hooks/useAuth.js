@@ -6,11 +6,11 @@
 
 "use client";
 
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { toast } from 'react-toastify';
-import { useAuthStore, ROLES } from '@/lib/store/authStore';
-import { authStorage } from '../utils/authStorage';
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { toast } from "react-toastify";
+import { useAuthStore, ROLES } from "@/lib/store/authStore";
+import { authStorage } from "../utils/authStorage";
 
 /**
  * Custom hook for authentication with RBAC support
@@ -66,14 +66,14 @@ export function useAuth() {
       const user = await login(response);
 
       if (user) {
-        const displayName = user.firstName || user.email || 'User';
+        const displayName = user.firstName || user.email || "User";
         toast.success(`Welcome back, ${displayName}!`);
         return user;
       }
 
-      throw new Error('Failed to fetch user profile');
+      throw new Error("Failed to fetch user profile");
     } catch (error) {
-      const errorMessage = error.message || 'Login failed';
+      const errorMessage = error.message || "Login failed";
       setError(errorMessage);
       toast.error(errorMessage);
       throw error;
@@ -88,11 +88,11 @@ export function useAuth() {
   const handleLogout = async () => {
     try {
       await logout();
-      toast.success('You have been logged out successfully');
-      router.push('/login');
+      toast.success("You have been logged out successfully");
+      router.push("/login");
     } catch (error) {
-      console.error('Logout error:', error);
-      toast.error('Error during logout');
+      console.error("Logout error:", error);
+      toast.error("Error during logout");
     }
   };
 
@@ -103,12 +103,12 @@ export function useAuth() {
     try {
       const profile = await fetchUserProfile();
       if (profile) {
-        toast.success('Profile updated');
+        toast.success("Profile updated");
         return profile;
       }
-      throw new Error('Failed to refresh profile');
+      throw new Error("Failed to refresh profile");
     } catch (error) {
-      toast.error('Failed to refresh profile');
+      toast.error("Failed to refresh profile");
       throw error;
     }
   };
@@ -125,9 +125,9 @@ export function useAuth() {
   /**
    * Require authentication - redirect to login if not authenticated
    */
-  const requireAuth = (redirectUrl = '/login') => {
+  const requireAuth = (redirectUrl = "/login") => {
     if (!isAuthenticated) {
-      toast.error('Please login to access this page');
+      toast.error("Please login to access this page");
       router.push(redirectUrl);
       return false;
     }
@@ -137,7 +137,7 @@ export function useAuth() {
   /**
    * Require specific role - redirect if unauthorized
    */
-  const requireRole = (allowedRoles = [], redirectUrl = '/dashboard') => {
+  const requireRole = (allowedRoles = [], redirectUrl = "/dashboard") => {
     if (!requireAuth()) return false;
 
     if (!isAuthorized(allowedRoles)) {
@@ -174,12 +174,12 @@ export function useAuth() {
    * Get user role display name
    */
   const getRoleDisplayName = () => {
-    if (!user || !user.role) return 'Unknown';
+    if (!user || !user.role) return "Unknown";
 
     const roleMap = {
-      [ROLES.USER]: 'User',
-      [ROLES.ADMIN]: 'Admin',
-      [ROLES.SUPER_ADMIN]: 'Super Admin',
+      [ROLES.USER]: "User",
+      [ROLES.ADMIN]: "Admin",
+      [ROLES.SUPER_ADMIN]: "Super Admin",
     };
 
     return roleMap[user.role] || user.role;
@@ -228,4 +228,3 @@ export function useAuth() {
 }
 
 export default useAuth;
-

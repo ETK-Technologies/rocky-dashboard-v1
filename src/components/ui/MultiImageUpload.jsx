@@ -1,14 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
-import {
-  Upload,
-  X,
-  Image as ImageIcon,
-  Loader2,
-  Trash2,
-  FolderOpen,
-} from "lucide-react";
+import { Upload, X, Image as ImageIcon, Loader2, Trash2 } from "lucide-react";
 import { cn } from "@/utils/cn";
 import { CustomLabel } from "./CustomLabel";
 import { CustomButton } from "./CustomButton";
@@ -41,6 +34,7 @@ export function MultiImageUpload({
   const [isUploading, setIsUploading] = useState(false);
   const [uploadingIndex, setUploadingIndex] = useState(null);
   const [galleryOpen, setGalleryOpen] = useState(false);
+  const [initialGalleryTab, setInitialGalleryTab] = useState("library");
   const fileInputRef = useRef(null);
   const { uploadFiles } = useUploads();
 
@@ -104,7 +98,8 @@ export function MultiImageUpload({
 
   const handleClick = () => {
     if (!isUploading && value.length < maxImages) {
-      fileInputRef.current?.click();
+      setInitialGalleryTab("library");
+      setGalleryOpen(true);
     }
   };
 
@@ -200,7 +195,7 @@ export function MultiImageUpload({
                     <Upload className="h-5 w-5 text-gray-400 dark:text-gray-500" />
                   </div>
                   <p className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">
-                    Click to upload images
+                    Click to choose from media or drag and drop
                   </p>
                   <p className="text-xs text-gray-500 dark:text-gray-400">
                     PNG, JPG, GIF up to 10MB
@@ -216,20 +211,7 @@ export function MultiImageUpload({
             </div>
           </div>
 
-          {/* Gallery Button */}
-          <CustomButton
-            type="button"
-            variant="outline"
-            onClick={(e) => {
-              e.stopPropagation();
-              setGalleryOpen(true);
-            }}
-            className="w-full"
-            disabled={isUploading || value.length >= maxImages}
-          >
-            <FolderOpen className="h-4 w-4 mr-2" />
-            Choose from Gallery
-          </CustomButton>
+          {/* Additional buttons removed; instructions provided in dropzone */}
         </div>
       )}
 
@@ -247,6 +229,7 @@ export function MultiImageUpload({
         onSelect={handleGallerySelect}
         multiple={true}
         selectedUrls={value}
+        initialTab={initialGalleryTab}
       />
     </div>
   );

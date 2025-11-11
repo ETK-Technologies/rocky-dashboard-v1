@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Search, X, Check, Loader2, Image as ImageIcon } from "lucide-react";
+import { Search, Check, Loader2, Image as ImageIcon } from "lucide-react";
 import Image from "next/image";
 import { CustomModal } from "./CustomModal";
 import { CustomInput } from "./CustomInput";
@@ -10,6 +10,8 @@ import { LoadingState } from "./LoadingState";
 import { ErrorState } from "./ErrorState";
 import { uploadService } from "@/features/uploads/services/uploadService";
 import { cn } from "@/utils/cn";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "./Tabs";
+import { FileUpload } from "@/features/uploads/components/FileUpload";
 
 /**
  * ImageGalleryModal component for browsing and selecting images from uploads
@@ -26,6 +28,7 @@ export function ImageGalleryModal({
   onSelect,
   multiple = false,
   selectedUrls = [],
+  initialTab = "library",
 }) {
   const [images, setImages] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -35,6 +38,7 @@ export function ImageGalleryModal({
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [activeTab, setActiveTab] = useState(initialTab);
 
   const limit = 20;
 
@@ -108,9 +112,10 @@ export function ImageGalleryModal({
     if (isOpen) {
       setPage(1);
       setHasMore(true);
+      setActiveTab(initialTab);
       fetchImages(1, true);
     }
-  }, [isOpen, searchTerm, fetchImages]);
+  }, [isOpen, searchTerm, fetchImages, initialTab]);
 
   // Load more images
   const loadMore = () => {
@@ -143,6 +148,33 @@ export function ImageGalleryModal({
     }
   };
 
+  const handleUploadComplete = async (uploadedFiles) => {
+    if (!uploadedFiles || uploadedFiles.length === 0) {
+      return;
+    }
+
+    const urls = uploadedFiles
+      .map((file) => file?.cdnUrl)
+      .filter((url) => typeof url === "string" && url.length > 0);
+
+    if (urls.length === 0) {
+      return;
+    }
+
+    await fetchImages(1, true);
+    setActiveTab("library");
+
+    if (multiple) {
+      const existing = new Set(selectedImages);
+      urls.forEach((url) => existing.add(url));
+      setSelectedImages(existing);
+      onSelect?.(urls);
+    } else {
+      onSelect?.(urls[0]);
+      onClose();
+    }
+  };
+
   // Update selected images when selectedUrls prop changes
   useEffect(() => {
     if (multiple && selectedUrls.length > 0) {
@@ -159,119 +191,142 @@ export function ImageGalleryModal({
       className="max-h-[90vh]"
     >
       <div className="flex flex-col h-full max-h-[calc(90vh-120px)]">
-        {/* Search Bar */}
-        <div className="mb-4 flex-shrink-0">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <CustomInput
-              type="text"
-              placeholder="Search images..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-        </div>
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <TabsList className="mb-4" variant="pills">
+            <TabsTrigger value="library">Media Library</TabsTrigger>
+            <TabsTrigger value="upload">Upload</TabsTrigger>
+          </TabsList>
 
-        {/* Images Grid */}
-        <div className="flex-1 overflow-y-auto">
-          {loading && images.length === 0 ? (
-            <div className="flex items-center justify-center py-12">
-              <LoadingState message="Loading images..." />
-            </div>
-          ) : error && images.length === 0 ? (
-            <ErrorState
-              title="Error loading images"
-              message={error}
-              action={
-                <CustomButton onClick={() => fetchImages(1, true)}>
-                  Retry
-                </CustomButton>
-              }
-            />
-          ) : images.length === 0 ? (
-            <div className="text-center py-12">
-              <ImageIcon className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-              <h3 className="text-lg font-semibold mb-2">No images found</h3>
-              <p className="text-sm text-muted-foreground">
-                {searchTerm
-                  ? "Try adjusting your search term"
-                  : "Upload some images to get started"}
-              </p>
-            </div>
-          ) : (
-            <>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-                {images.map((image) => {
-                  const isSelected = selectedImages.has(image.cdnUrl);
-                  return (
-                    <div
-                      key={image.id || image.cdnUrl}
-                      className={cn(
-                        "relative aspect-square rounded-lg overflow-hidden cursor-pointer border-2 transition-all group",
-                        isSelected
-                          ? "border-blue-500 ring-2 ring-blue-200 dark:ring-blue-800"
-                          : "border-border hover:border-blue-400"
-                      )}
-                      onClick={() => handleImageSelect(image.cdnUrl)}
-                    >
-                      <Image
-                        src={image.cdnUrl}
-                        alt={image.originalName || image.filename || "Image"}
-                        fill
-                        className="object-cover"
-                        unoptimized
-                      />
-                      {isSelected && (
-                        <div className="absolute inset-0 bg-blue-500/20 flex items-center justify-center">
-                          <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center">
-                            <Check className="h-5 w-5 text-white" />
-                          </div>
-                        </div>
-                      )}
-                      {multiple && (
-                        <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <div
-                            className={cn(
-                              "w-6 h-6 rounded-full border-2 flex items-center justify-center",
-                              isSelected
-                                ? "bg-blue-500 border-blue-600"
-                                : "bg-white/90 border-gray-300 dark:bg-gray-800/90 dark:border-gray-600"
-                            )}
-                          >
-                            {isSelected && (
-                              <Check className="h-4 w-4 text-white" />
-                            )}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
+          <TabsContent value="library" className="flex-1 flex flex-col">
+            {/* Search Bar */}
+            <div className="mb-4 flex-shrink-0">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <CustomInput
+                  type="text"
+                  placeholder="Search images..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
               </div>
+            </div>
 
-              {/* Load More Button */}
-              {hasMore && (
-                <div className="mt-4 flex justify-center">
-                  <CustomButton
-                    variant="outline"
-                    onClick={loadMore}
-                    disabled={loadingMore}
-                  >
-                    {loadingMore ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Loading...
-                      </>
-                    ) : (
-                      "Load More"
-                    )}
-                  </CustomButton>
+            {/* Images Grid */}
+            <div className="flex-1 overflow-y-auto">
+              {loading && images.length === 0 ? (
+                <div className="flex items-center justify-center py-12">
+                  <LoadingState message="Loading images..." />
                 </div>
+              ) : error && images.length === 0 ? (
+                <ErrorState
+                  title="Error loading images"
+                  message={error}
+                  action={
+                    <CustomButton onClick={() => fetchImages(1, true)}>
+                      Retry
+                    </CustomButton>
+                  }
+                />
+              ) : images.length === 0 ? (
+                <div className="text-center py-12">
+                  <ImageIcon className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+                  <h3 className="text-lg font-semibold mb-2">
+                    No images found
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    {searchTerm
+                      ? "Try adjusting your search term"
+                      : "Upload some images to get started"}
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                    {images.map((image) => {
+                      const isSelected = selectedImages.has(image.cdnUrl);
+                      return (
+                        <div
+                          key={image.id || image.cdnUrl}
+                          className={cn(
+                            "relative aspect-square rounded-lg overflow-hidden cursor-pointer border-2 transition-all group",
+                            isSelected
+                              ? "border-blue-500 ring-2 ring-blue-200 dark:ring-blue-800"
+                              : "border-border hover:border-blue-400"
+                          )}
+                          onClick={() => handleImageSelect(image.cdnUrl)}
+                        >
+                          <Image
+                            src={image.cdnUrl}
+                            alt={
+                              image.originalName || image.filename || "Image"
+                            }
+                            fill
+                            className="object-cover"
+                            unoptimized
+                          />
+                          {isSelected && (
+                            <div className="absolute inset-0 bg-blue-500/20 flex items-center justify-center">
+                              <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center">
+                                <Check className="h-5 w-5 text-white" />
+                              </div>
+                            </div>
+                          )}
+                          {multiple && (
+                            <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <div
+                                className={cn(
+                                  "w-6 h-6 rounded-full border-2 flex items-center justify-center",
+                                  isSelected
+                                    ? "bg-blue-500 border-blue-600"
+                                    : "bg-white/90 border-gray-300 dark:bg-gray-800/90 dark:border-gray-600"
+                                )}
+                              >
+                                {isSelected && (
+                                  <Check className="h-4 w-4 text-white" />
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Load More Button */}
+                  {hasMore && (
+                    <div className="mt-4 flex justify-center">
+                      <CustomButton
+                        variant="outline"
+                        onClick={loadMore}
+                        disabled={loadingMore}
+                      >
+                        {loadingMore ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Loading...
+                          </>
+                        ) : (
+                          "Load More"
+                        )}
+                      </CustomButton>
+                    </div>
+                  )}
+                </>
               )}
-            </>
-          )}
-        </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="upload" className="flex-1 flex flex-col">
+            <div className="flex-1 overflow-y-auto">
+              <FileUpload
+                onUploadComplete={handleUploadComplete}
+                multiple={multiple}
+                className="max-w-2xl mx-auto"
+              />
+            </div>
+          </TabsContent>
+        </Tabs>
 
         {/* Footer Actions */}
         {multiple && (
