@@ -110,6 +110,39 @@ export const orderService = {
   },
 
   /**
+   * Send the order details email to the customer
+   * @param {string} id - Order ID
+   * @returns {Promise<Object>} Email dispatch response
+   */
+  async sendOrderDetailsToCustomer(id) {
+    return makeRequest(`/api/v1/admin/orders/${id}/email-customer`, {
+      method: "POST",
+    });
+  },
+
+  /**
+   * Resend the new order notification email
+   * @param {string} id - Order ID
+   * @returns {Promise<Object>} Email dispatch response
+   */
+  async resendNewOrderNotification(id) {
+    return makeRequest(`/api/v1/admin/orders/${id}/resend-notification`, {
+      method: "POST",
+    });
+  },
+
+  /**
+   * Regenerate download permissions for downloadable products
+   * @param {string} id - Order ID
+   * @returns {Promise<Object>} Regeneration response
+   */
+  async regenerateDownloadPermissions(id) {
+    return makeRequest(`/api/v1/admin/orders/${id}/downloads/regenerate`, {
+      method: "POST",
+    });
+  },
+
+  /**
    * Create an order note (customer-visible or internal)
    * @param {string} id - Order ID
    * @param {Object} data - Note payload

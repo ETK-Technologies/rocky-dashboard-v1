@@ -1,13 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import {
-  Upload,
-  X,
-  Image as ImageIcon,
-  Loader2,
-  FolderOpen,
-} from "lucide-react";
+import { Upload, X, Image as ImageIcon, Loader2 } from "lucide-react";
 import { cn } from "@/utils/cn";
 import { CustomLabel } from "./CustomLabel";
 import { CustomButton } from "./CustomButton";
@@ -42,6 +36,7 @@ export function SingleImageUpload({
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [galleryOpen, setGalleryOpen] = useState(false);
+  const [initialGalleryTab, setInitialGalleryTab] = useState("library");
   const fileInputRef = useRef(null);
   const { uploadFiles } = useUploads();
 
@@ -128,7 +123,8 @@ export function SingleImageUpload({
 
   const handleClick = () => {
     if (!isUploading) {
-      fileInputRef.current?.click();
+      setInitialGalleryTab("library");
+      setGalleryOpen(true);
     }
   };
 
@@ -227,7 +223,7 @@ export function SingleImageUpload({
                   <p className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">
                     {isDragging
                       ? "Drop image here"
-                      : "Click to upload or drag and drop"}
+                      : "Click to choose from media or drag and drop"}
                   </p>
                   <p className="text-xs text-gray-500 dark:text-gray-400">
                     PNG, JPG, GIF up to 10MB
@@ -238,52 +234,7 @@ export function SingleImageUpload({
           )}
         </div>
 
-        {/* Gallery Button */}
-        {!preview && (
-          <CustomButton
-            type="button"
-            variant="outline"
-            onClick={(e) => {
-              e.stopPropagation();
-              setGalleryOpen(true);
-            }}
-            className="w-full"
-            disabled={isUploading}
-          >
-            <FolderOpen className="h-4 w-4 mr-2" />
-            Choose from Gallery
-          </CustomButton>
-        )}
-
-        {/* Replace Image Buttons (when image is selected) */}
-        {preview && !isUploading && (
-          <div className="flex flex-col gap-2">
-            <CustomButton
-              type="button"
-              variant="outline"
-              onClick={(e) => {
-                e.stopPropagation();
-                fileInputRef.current?.click();
-              }}
-              className="flex-1 "
-            >
-              <Upload className="h-4 w-4 mr-2" />
-              Upload New
-            </CustomButton>
-            <CustomButton
-              type="button"
-              variant="outline"
-              onClick={(e) => {
-                e.stopPropagation();
-                setGalleryOpen(true);
-              }}
-              className="flex-1 "
-            >
-              <FolderOpen className="h-4 w-4 mr-2" />
-              Choose from Gallery
-            </CustomButton>
-          </div>
-        )}
+        {/* Additional buttons removed; instructions are provided within the dropzone */}
       </div>
 
       {error && (
@@ -299,6 +250,7 @@ export function SingleImageUpload({
         onClose={() => setGalleryOpen(false)}
         onSelect={handleGallerySelect}
         multiple={false}
+        initialTab={initialGalleryTab}
       />
     </div>
   );

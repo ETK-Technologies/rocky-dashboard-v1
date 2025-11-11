@@ -60,15 +60,21 @@ export const authStorage = {
     let success = true;
 
     if (data.access_token) {
-      success = safeStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, data.access_token) && success;
+      success =
+        safeStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, data.access_token) &&
+        success;
     }
 
     if (data.refresh_token) {
-      success = safeStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, data.refresh_token) && success;
+      success =
+        safeStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, data.refresh_token) &&
+        success;
     }
 
     if (data.user) {
-      success = safeStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(data.user)) && success;
+      success =
+        safeStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(data.user)) &&
+        success;
     }
 
     return success;

@@ -23,6 +23,11 @@ export function useOrderDetails(orderId) {
   const [capturingPayment, setCapturingPayment] = useState(false);
   const [assigningDoctor, setAssigningDoctor] = useState(false);
   const [loadingDoctorOptions, setLoadingDoctorOptions] = useState(false);
+  const [sendingOrderDetails, setSendingOrderDetails] = useState(false);
+  const [resendingOrderNotification, setResendingOrderNotification] =
+    useState(false);
+  const [regeneratingDownloadPermissions, setRegeneratingDownloadPermissions] =
+    useState(false);
 
   const normalizeDoctorOptions = useCallback((orderData) => {
     if (!orderData) {
@@ -256,6 +261,54 @@ export function useOrderDetails(orderId) {
     [orderId, fetchOrder]
   );
 
+  const sendOrderDetailsToCustomer = useCallback(async () => {
+    if (!orderId) return;
+    setSendingOrderDetails(true);
+
+    try {
+      await orderService.sendOrderDetailsToCustomer(orderId);
+      toast.success("Order details sent to customer");
+    } catch (err) {
+      toast.error(err.message || "Failed to send order details");
+      console.error("Error sending order details:", err);
+      throw err;
+    } finally {
+      setSendingOrderDetails(false);
+    }
+  }, [orderId]);
+
+  const resendNewOrderNotification = useCallback(async () => {
+    if (!orderId) return;
+    setResendingOrderNotification(true);
+
+    try {
+      await orderService.resendNewOrderNotification(orderId);
+      toast.success("New order notification resent");
+    } catch (err) {
+      toast.error(err.message || "Failed to resend notification");
+      console.error("Error resending new order notification:", err);
+      throw err;
+    } finally {
+      setResendingOrderNotification(false);
+    }
+  }, [orderId]);
+
+  const regenerateDownloadPermissions = useCallback(async () => {
+    if (!orderId) return;
+    setRegeneratingDownloadPermissions(true);
+
+    try {
+      await orderService.regenerateDownloadPermissions(orderId);
+      toast.success("Download permissions regenerated");
+    } catch (err) {
+      toast.error(err.message || "Failed to regenerate download permissions");
+      console.error("Error regenerating download permissions:", err);
+      throw err;
+    } finally {
+      setRegeneratingDownloadPermissions(false);
+    }
+  }, [orderId]);
+
   return {
     order,
     loading,
@@ -278,5 +331,11 @@ export function useOrderDetails(orderId) {
     assignDoctor,
     assigningDoctor,
     addOrderNote,
+    sendOrderDetailsToCustomer,
+    sendingOrderDetails,
+    resendNewOrderNotification,
+    resendingOrderNotification,
+    regenerateDownloadPermissions,
+    regeneratingDownloadPermissions,
   };
 }

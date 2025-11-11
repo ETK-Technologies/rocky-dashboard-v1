@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   LayoutDashboard,
   Package,
@@ -156,6 +157,36 @@ export function Sidebar({
   const pathname = usePathname();
   const { isAuthorized } = useAuth();
   const [expandedItems, setExpandedItems] = useState({});
+  const [hoveredGroup, setHoveredGroup] = useState(null);
+  const hoverTimeoutRef = useRef(null);
+
+  const cancelCloseHoveredGroup = () => {
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current);
+      hoverTimeoutRef.current = null;
+    }
+  };
+
+  const openHoveredGroup = (payload) => {
+    cancelCloseHoveredGroup();
+    setHoveredGroup(payload);
+  };
+
+  const scheduleCloseHoveredGroup = () => {
+    cancelCloseHoveredGroup();
+    hoverTimeoutRef.current = setTimeout(() => {
+      setHoveredGroup(null);
+      hoverTimeoutRef.current = null;
+    }, 120);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (hoverTimeoutRef.current) {
+        clearTimeout(hoverTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const toggleExpand = (itemName) => {
     setExpandedItems((prev) => ({
@@ -165,11 +196,12 @@ export function Sidebar({
   };
 
   const NavItem = ({ item, isCollapsed }) => {
+    const itemRef = useRef(null);
     const hasChildren = item.children && item.children.length > 0;
-    const isExpanded = expandedItems[item.name] ?? true;
     const isActive =
       pathname === item.href ||
       (hasChildren && item.children.some((child) => pathname === child.href));
+    const isExpanded = expandedItems[item.name] ?? isActive;
     const isToggleOnly = hasChildren && !item.href;
 
     // Check if user has required role for this nav item
@@ -184,8 +216,39 @@ export function Sidebar({
         )
       : [];
 
+    const handleMouseEnter = () => {
+      if (
+        !isCollapsed ||
+        !hasChildren ||
+        visibleChildren.length === 0 ||
+        !itemRef.current
+      ) {
+        return;
+      }
+
+      const rect = itemRef.current.getBoundingClientRect();
+      openHoveredGroup({
+        key: item.name,
+        title: item.name,
+        top: rect.top,
+        left: rect.right + 12,
+        children: visibleChildren,
+      });
+    };
+
+    const handleMouseLeave = () => {
+      if (!isCollapsed || !hasChildren || visibleChildren.length === 0) {
+        return;
+      }
+      scheduleCloseHoveredGroup();
+    };
+
     return (
-      <li>
+      <li
+        ref={itemRef}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+      >
         <div>
           <div
             className={cn(
@@ -204,7 +267,10 @@ export function Sidebar({
             role={isToggleOnly ? "button" : undefined}
             tabIndex={isToggleOnly ? 0 : undefined}
             onKeyDown={(event) => {
-              if (isToggleOnly && (event.key === "Enter" || event.key === " ")) {
+              if (
+                isToggleOnly &&
+                (event.key === "Enter" || event.key === " ")
+              ) {
                 event.preventDefault();
                 toggleExpand(item.name);
               }
@@ -213,7 +279,16 @@ export function Sidebar({
             {/* {!hasChildren && <div className="w-4" />} */}
             {isCollapsed ? (
               <Tooltip content={item.name} side="right" usePortal={true}>
-                {item.href && !isToggleOnly ? (
+                {hasChildren ? (
+                  <button
+                    type="button"
+                    onClick={() => toggleExpand(item.name)}
+                    className="flex items-center justify-center w-full bg-transparent border-0 text-current"
+                    aria-label={item.name}
+                  >
+                    <item.icon className="h-5 w-5 flex-shrink-0" />
+                  </button>
+                ) : item.href ? (
                   <Link
                     href={item.href}
                     onClick={onClose}
@@ -403,6 +478,50 @@ export function Sidebar({
           </div>
         </nav>
       </aside>
+      {typeof window !== "undefined" &&
+        hoveredGroup &&
+        hoveredGroup.children.length > 0 &&
+        createPortal(
+          <div
+            className="fixed z-[1050]"
+            style={{
+              top: hoveredGroup.top,
+              left: hoveredGroup.left,
+            }}
+            onMouseEnter={cancelCloseHoveredGroup}
+            onMouseLeave={scheduleCloseHoveredGroup}
+          >
+            <div className="min-w-[220px] max-w-xs px-3 py-3 bg-popover text-popover-foreground border border-border rounded-lg shadow-lg space-y-3">
+              <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                {hoveredGroup.title}
+              </div>
+              <ul className="space-y-1">
+                {hoveredGroup.children.map((child) => (
+                  <li key={child.name}>
+                    <Link
+                      href={child.href}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        scheduleCloseHoveredGroup();
+                        onClose?.();
+                      }}
+                      className={cn(
+                        "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
+                        pathname === child.href
+                          ? "bg-primary/10 text-primary font-medium"
+                          : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                      )}
+                    >
+                      <child.icon className="h-4 w-4" />
+                      {child.name}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>,
+          document.body
+        )}
     </>
   );
 }
