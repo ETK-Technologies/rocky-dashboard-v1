@@ -55,8 +55,7 @@ const STATUS_STYLES = {
   },
   UNPAID: {
     label: "Unpaid",
-    className:
-      "bg-red-100 text-red-700 dark:bg-red-400/20 dark:text-red-200",
+    className: "bg-red-100 text-red-700 dark:bg-red-400/20 dark:text-red-200",
   },
   INCOMPLETE: {
     label: "Incomplete",
@@ -224,11 +223,24 @@ export default function SubscriptionDetails({ subscriptionId }) {
     user.email ||
     "Unknown";
 
+  // Helper to parse string numbers
+  const parseNumber = (value) => {
+    if (value === null || value === undefined) return 0;
+    if (typeof value === "number") return value;
+    if (typeof value === "string") {
+      const parsed = parseFloat(value);
+      return isNaN(parsed) ? 0 : parsed;
+    }
+    return 0;
+  };
+
   return (
     <PageContainer>
       <PageHeader
         title="Subscription Details"
-        description={`Subscription ${subscription.id || subscription.subscriptionId || ""}`}
+        description={`Subscription ${
+          subscription.id || subscription.subscriptionId || ""
+        }`}
         action={
           <div className="flex items-center gap-2">
             <CustomButton
@@ -285,7 +297,9 @@ export default function SubscriptionDetails({ subscriptionId }) {
                     WordPress ID
                   </p>
                   <p className="text-sm text-foreground mt-1">
-                    {subscription.wordpressId || subscription.wordpress_id || "-"}
+                    {subscription.wordpressId ||
+                      subscription.wordpress_id ||
+                      "-"}
                   </p>
                 </div>
                 <div>
@@ -347,7 +361,9 @@ export default function SubscriptionDetails({ subscriptionId }) {
                     Currency
                   </p>
                   <p className="text-sm text-foreground mt-1">
-                    {subscription.currency || subscription.currencyCode || "USD"}
+                    {subscription.currency ||
+                      subscription.currencyCode ||
+                      "USD"}
                   </p>
                 </div>
                 <div>
@@ -356,7 +372,9 @@ export default function SubscriptionDetails({ subscriptionId }) {
                   </p>
                   <p className="text-sm text-foreground mt-1">
                     {formatCurrency(
-                      subscription.subtotal || subscription.subtotalAmount || 0,
+                      parseNumber(
+                        subscription.subtotal || subscription.subtotalAmount
+                      ),
                       subscription.currency || "USD"
                     )}
                   </p>
@@ -367,7 +385,9 @@ export default function SubscriptionDetails({ subscriptionId }) {
                   </p>
                   <p className="text-sm text-foreground mt-1">
                     {formatCurrency(
-                      subscription.taxAmount || subscription.tax_amount || 0,
+                      parseNumber(
+                        subscription.taxAmount || subscription.tax_amount
+                      ),
                       subscription.currency || "USD"
                     )}
                   </p>
@@ -378,7 +398,9 @@ export default function SubscriptionDetails({ subscriptionId }) {
                   </p>
                   <p className="text-lg font-semibold text-foreground mt-1">
                     {formatCurrency(
-                      subscription.totalAmount || subscription.total || 0,
+                      parseNumber(
+                        subscription.totalAmount || subscription.total
+                      ),
                       subscription.currency || "USD"
                     )}
                   </p>
@@ -438,8 +460,7 @@ export default function SubscriptionDetails({ subscriptionId }) {
                   </p>
                   <p className="text-sm text-foreground mt-1">
                     {formatDateTime(
-                      subscription.nextBillingAt ||
-                        subscription.next_billing_at
+                      subscription.nextBillingAt || subscription.next_billing_at
                     )}
                   </p>
                 </div>
@@ -467,7 +488,9 @@ export default function SubscriptionDetails({ subscriptionId }) {
             <CustomCard>
               <CustomCardHeader>
                 <CustomCardTitle>Trial Information</CustomCardTitle>
-                <CustomCardDescription>Trial period details</CustomCardDescription>
+                <CustomCardDescription>
+                  Trial period details
+                </CustomCardDescription>
               </CustomCardHeader>
               <CustomCardContent className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
@@ -497,95 +520,139 @@ export default function SubscriptionDetails({ subscriptionId }) {
           )}
 
           {/* Subscription Items */}
-          {subscription.items && Array.isArray(subscription.items) && subscription.items.length > 0 && (
-            <CustomCard>
-              <CustomCardHeader>
-                <CustomCardTitle>Subscription Items</CustomCardTitle>
-                <CustomCardDescription>
-                  Products included in this subscription
-                </CustomCardDescription>
-              </CustomCardHeader>
-              <CustomCardContent>
-                <div className="space-y-4">
-                  {subscription.items.map((item, index) => (
-                    <div
-                      key={index}
-                      className="p-4 border border-border rounded-lg"
-                    >
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <p className="font-medium text-foreground">
-                            {item.productName || item.product?.name || "Product"}
-                          </p>
-                          {item.variantName ||
-                            (item.variant?.name && (
-                              <p className="text-sm text-muted-foreground mt-1">
-                                {item.variantName || item.variant?.name}
+          {subscription.items &&
+            Array.isArray(subscription.items) &&
+            subscription.items.length > 0 && (
+              <CustomCard>
+                <CustomCardHeader>
+                  <CustomCardTitle>Subscription Items</CustomCardTitle>
+                  <CustomCardDescription>
+                    Products included in this subscription
+                  </CustomCardDescription>
+                </CustomCardHeader>
+                <CustomCardContent>
+                  <div className="space-y-4">
+                    {subscription.items.map((item, index) => {
+                      const product = item.product || {};
+                      const variant = item.variant || {};
+                      const productName =
+                        product.name || item.productName || "Product";
+                      const variantName = variant.name || item.variantName;
+                      const quantity = item.quantity || 1;
+                      const unitPrice = parseNumber(
+                        item.unitPrice ||
+                          item.unit_price ||
+                          variant.price ||
+                          product.basePrice ||
+                          0
+                      );
+                      const totalPrice = parseNumber(
+                        item.totalPrice ||
+                          item.total_price ||
+                          unitPrice * quantity
+                      );
+                      const currency = subscription.currency || "USD";
+
+                      return (
+                        <div
+                          key={item.id || index}
+                          className="p-4 border border-border rounded-lg"
+                        >
+                          <div className="flex justify-between items-start">
+                            <div className="flex-1">
+                              <p className="font-medium text-foreground">
+                                {productName}
                               </p>
-                            ))}
-                          <p className="text-sm text-muted-foreground mt-1">
-                            Quantity: {item.quantity || 1}
-                          </p>
+                              {variantName && (
+                                <p className="text-sm text-muted-foreground mt-1">
+                                  Variant: {variantName}
+                                </p>
+                              )}
+                              {product.sku && (
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  SKU: {product.sku}
+                                </p>
+                              )}
+                              {variant.sku && variant.sku !== product.sku && (
+                                <p className="text-xs text-muted-foreground mt-0.5">
+                                  Variant SKU: {variant.sku}
+                                </p>
+                              )}
+                              <div className="mt-2 flex items-center gap-4">
+                                <p className="text-sm text-muted-foreground">
+                                  Quantity:{" "}
+                                  <span className="font-medium text-foreground">
+                                    {quantity}
+                                  </span>
+                                </p>
+                                {quantity > 1 && (
+                                  <p className="text-sm text-muted-foreground">
+                                    Unit Price:{" "}
+                                    <span className="font-medium text-foreground">
+                                      {formatCurrency(unitPrice, currency)}
+                                    </span>
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                            <div className="text-right ml-4">
+                              <p className="font-semibold text-lg text-foreground">
+                                {formatCurrency(totalPrice, currency)}
+                              </p>
+                              {quantity > 1 && (
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  {formatCurrency(unitPrice, currency)} each
+                                </p>
+                              )}
+                            </div>
+                          </div>
                         </div>
-                        <div className="text-right">
-                          <p className="font-medium text-foreground">
-                            {formatCurrency(
-                              item.totalPrice ||
-                                item.total_price ||
-                                item.unitPrice ||
-                                item.unit_price ||
-                                0,
-                              subscription.currency || "USD"
-                            )}
-                          </p>
-                          {item.unitPrice && item.quantity > 1 && (
-                            <p className="text-xs text-muted-foreground mt-1">
-                              {formatCurrency(
-                                item.unitPrice || item.unit_price || 0,
-                                subscription.currency || "USD"
-                              )}{" "}
-                              each
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CustomCardContent>
-            </CustomCard>
-          )}
+                      );
+                    })}
+                  </div>
+                </CustomCardContent>
+              </CustomCard>
+            )}
         </div>
 
         {/* Sidebar */}
         <div className="space-y-6">
           {/* Customer Information */}
-          <CustomCard>
+          <CustomCard
+            className="cursor-pointer hover:bg-accent/50 transition-colors"
+            onClick={() => {
+              const userId =
+                user.id || subscription.userId || subscription.user_id;
+              if (userId) {
+                router.push(`/dashboard/super-admin/users/${userId}/edit`);
+              }
+            }}
+          >
             <CustomCardHeader>
               <CustomCardTitle>Customer</CustomCardTitle>
             </CustomCardHeader>
-            <CustomCardContent className="space-y-4">
+            <CustomCardContent>
               <div className="flex items-center gap-3">
                 <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
                   <UserIcon className="h-5 w-5 text-primary" />
                 </div>
-                <div>
-                  <p className="font-medium text-foreground">{userName}</p>
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-foreground truncate">
+                    {userName}
+                  </p>
                   {user.email && (
-                    <p className="text-sm text-muted-foreground">{user.email}</p>
+                    <p className="text-sm text-muted-foreground truncate">
+                      {user.email}
+                    </p>
+                  )}
+                  {(user.id || subscription.userId || subscription.user_id) && (
+                    <p className="text-xs text-muted-foreground truncate mt-0.5 font-mono">
+                      ID:{" "}
+                      {user.id || subscription.userId || subscription.user_id}
+                    </p>
                   )}
                 </div>
               </div>
-              {user.id || subscription.userId || subscription.user_id ? (
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">
-                    User ID
-                  </p>
-                  <p className="text-sm text-foreground mt-1">
-                    {user.id || subscription.userId || subscription.user_id}
-                  </p>
-                </div>
-              ) : null}
             </CustomCardContent>
           </CustomCard>
 
@@ -655,18 +722,18 @@ export default function SubscriptionDetails({ subscriptionId }) {
                   )}
                 </p>
               </div>
-              {subscription.lastPaymentStatus ||
-                (subscription.last_payment_status && (
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">
-                      Payment Status
-                    </p>
-                    <p className="text-sm text-foreground mt-1">
-                      {subscription.lastPaymentStatus ||
-                        subscription.last_payment_status}
-                    </p>
-                  </div>
-                ))}
+              {(subscription.lastPaymentStatus ||
+                subscription.last_payment_status) && (
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">
+                    Payment Status
+                  </p>
+                  <p className="text-sm text-foreground mt-1">
+                    {subscription.lastPaymentStatus ||
+                      subscription.last_payment_status}
+                  </p>
+                </div>
+              )}
               {subscription.cancelAtPeriodEnd !== undefined && (
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">
@@ -674,7 +741,7 @@ export default function SubscriptionDetails({ subscriptionId }) {
                   </p>
                   <p className="text-sm text-foreground mt-1">
                     {subscription.cancelAtPeriodEnd ||
-                      subscription.cancel_at_period_end
+                    subscription.cancel_at_period_end
                       ? "Yes"
                       : "No"}
                   </p>
@@ -692,18 +759,18 @@ export default function SubscriptionDetails({ subscriptionId }) {
                   </p>
                 </div>
               ) : null}
-              {subscription.cancellationReason ||
-                (subscription.cancellation_reason && (
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">
-                      Cancellation Reason
-                    </p>
-                    <p className="text-sm text-foreground mt-1">
-                      {subscription.cancellationReason ||
-                        subscription.cancellation_reason}
-                    </p>
-                  </div>
-                ))}
+              {(subscription.cancellationReason ||
+                subscription.cancellation_reason) && (
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">
+                    Cancellation Reason
+                  </p>
+                  <p className="text-sm text-foreground mt-1">
+                    {subscription.cancellationReason ||
+                      subscription.cancellation_reason}
+                  </p>
+                </div>
+              )}
             </CustomCardContent>
           </CustomCard>
         </div>
@@ -720,8 +787,8 @@ export default function SubscriptionDetails({ subscriptionId }) {
       >
         <div className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            Are you sure you want to cancel this subscription? This action cannot
-            be undone.
+            Are you sure you want to cancel this subscription? This action
+            cannot be undone.
           </p>
           <div>
             <label className="text-sm font-medium text-foreground mb-2 block">
@@ -764,4 +831,3 @@ export default function SubscriptionDetails({ subscriptionId }) {
     </PageContainer>
   );
 }
-

@@ -310,7 +310,7 @@ export default function DashboardMain() {
               icon={TrendingUp}
               label="View full analytics"
               variant="ghost"
-              onClick={() => router.push("/dashboard/super-admin/analytics")}
+              onClick={() => router.push("/dashboard/analytics")}
             />
           }
         />
