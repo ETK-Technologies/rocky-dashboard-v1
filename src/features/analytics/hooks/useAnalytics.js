@@ -27,59 +27,66 @@ export function useAnalytics(options = {}) {
   /**
    * Fetch analytics data
    */
-  const fetchData = useCallback(async (newParams = {}) => {
-    const mergedParams = { ...queryParams, ...newParams };
-    setLoading(true);
-    setError(null);
+  const fetchData = useCallback(
+    async (newParams = {}) => {
+      const mergedParams = { ...queryParams, ...newParams };
+      setLoading(true);
+      setError(null);
 
-    try {
-      let response;
+      try {
+        let response;
 
-      switch (endpoint) {
-        case "overview":
-          response = await analyticsService.getOverview(mergedParams);
-          break;
-        case "sales":
-          response = await analyticsService.getSales(mergedParams);
-          break;
-        case "sales/period":
-        case "salesPeriod":
-          response = await analyticsService.getSalesByPeriod(mergedParams);
-          break;
-        case "products":
-          response = await analyticsService.getProducts(mergedParams);
-          break;
-        case "customers":
-          response = await analyticsService.getCustomers(mergedParams);
-          break;
-        case "subscriptions":
-          response = await analyticsService.getSubscriptions(mergedParams);
-          break;
-        case "coupons":
-          response = await analyticsService.getCoupons(mergedParams);
-          break;
-        default:
-          throw new Error(`Unknown analytics endpoint: ${endpoint}`);
+        switch (endpoint) {
+          case "overview":
+            response = await analyticsService.getOverview(mergedParams);
+            break;
+          case "sales":
+            response = await analyticsService.getSales(mergedParams);
+            break;
+          case "sales/period":
+          case "salesPeriod":
+            response = await analyticsService.getSalesByPeriod(mergedParams);
+            break;
+          case "products":
+            response = await analyticsService.getProducts(mergedParams);
+            break;
+          case "customers":
+            response = await analyticsService.getCustomers(mergedParams);
+            break;
+          case "subscriptions":
+            response = await analyticsService.getSubscriptions(mergedParams);
+            break;
+          case "coupons":
+            response = await analyticsService.getCoupons(mergedParams);
+            break;
+          default:
+            throw new Error(`Unknown analytics endpoint: ${endpoint}`);
+        }
+
+        setData(response);
+        setQueryParams(mergedParams);
+        return response;
+      } catch (err) {
+        const errorMessage =
+          err.message || `Failed to fetch ${endpoint} analytics`;
+        const errorObj = {
+          message: errorMessage,
+          statusCode: err.statusCode || err.status || null,
+        };
+        setError(errorObj);
+
+        // Only show toast for non-401/403 errors (auth errors are handled elsewhere)
+        if (errorObj.statusCode !== 401 && errorObj.statusCode !== 403) {
+          toast.error(errorMessage);
+        }
+
+        throw err;
+      } finally {
+        setLoading(false);
       }
-
-      setData(response);
-      setQueryParams(mergedParams);
-      return response;
-    } catch (err) {
-      const errorMessage =
-        err.message || `Failed to fetch ${endpoint} analytics`;
-      setError(errorMessage);
-      
-      // Only show toast for non-401/403 errors (auth errors are handled elsewhere)
-      if (err.statusCode !== 401 && err.statusCode !== 403) {
-        toast.error(errorMessage);
-      }
-      
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  }, [endpoint, queryParams]);
+    },
+    [endpoint, queryParams]
+  );
 
   /**
    * Update query parameters

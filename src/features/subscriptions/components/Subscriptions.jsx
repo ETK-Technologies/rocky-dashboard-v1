@@ -337,9 +337,9 @@ export default function Subscriptions() {
         width: "220px",
         render: (subscription) => {
           const subscriptionId =
-            subscription.id ||
-            subscription.subscriptionId ||
-            `#${subscription.id || "-"}`;
+            subscription.id || subscription.subscriptionId || "-";
+          const wordpressId =
+            subscription.wordpressId || subscription.wordpress_id;
           const createdAt = formatDate(
             subscription.createdAt || subscription.created_at
           );
@@ -349,6 +349,11 @@ export default function Subscriptions() {
               <span className="font-medium text-foreground">
                 {subscriptionId}
               </span>
+              {wordpressId && (
+                <span className="text-xs text-muted-foreground mt-0.5">
+                  WP ID: {wordpressId}
+                </span>
+              )}
               <span className="text-xs text-muted-foreground mt-1">
                 Created {createdAt}
               </span>
@@ -377,6 +382,11 @@ export default function Subscriptions() {
               {email && (
                 <span className="text-xs text-muted-foreground truncate mt-1">
                   {email}
+                </span>
+              )}
+              {user.id && (
+                <span className="text-xs text-muted-foreground truncate mt-0.5">
+                  ID: {user.id}
                 </span>
               )}
             </div>
@@ -433,9 +443,13 @@ export default function Subscriptions() {
             subscription.amount ??
             0;
 
+          // Handle string numbers
+          const totalValue =
+            typeof total === "string" ? parseFloat(total) : total;
+
           return (
             <span className="font-medium text-foreground">
-              {formatCurrency(total, currency)}
+              {formatCurrency(totalValue || 0, currency)}
             </span>
           );
         },

@@ -25,11 +25,15 @@ import {
   ChevronLeft,
   ChevronRight as ChevronRightIcon,
   ShoppingCart,
+  ShoppingBag,
   Activity,
   Server,
   PlusCircle,
   Info,
   Repeat,
+  BarChart3,
+  AlertTriangle,
+  Trash2,
 } from "lucide-react";
 import { cn } from "@/utils/cn";
 import { RoleGuard } from "@/components/common/ProtectedRoute";
@@ -48,10 +52,63 @@ const navigation = [
   },
 
   {
+    name: "Carts",
+    icon: ShoppingBag,
+    roles: ["admin", "super_admin"],
+    children: [
+      {
+        name: "Redundant Carts",
+        href: "/dashboard/carts/redundant",
+        icon: Trash2,
+        roles: ["admin", "super_admin"],
+      },
+      {
+        name: "Abandoned Carts",
+        href: "/dashboard/carts/abandoned",
+        icon: AlertTriangle,
+        roles: ["admin", "super_admin"],
+      },
+    ],
+  },
+
+  {
+    name: "Coupons",
+    href: "/dashboard/coupons",
+    icon: Tag,
+    roles: ["admin", "super_admin"],
+  },
+
+  {
+    name: "Analytics",
+    href: "/dashboard/analytics",
+    icon: BarChart3,
+    roles: ["admin", "super_admin"],
+  },
+
+  {
     name: "Subscriptions",
-    href: "/dashboard/subscriptions",
     icon: Repeat,
     roles: ["admin", "super_admin"],
+    children: [
+      {
+        name: "All Subscriptions",
+        href: "/dashboard/subscriptions",
+        icon: Repeat,
+        roles: ["admin", "super_admin"],
+      },
+      {
+        name: "Plans",
+        href: "/dashboard/subscriptions/plans",
+        icon: Package,
+        roles: ["admin", "super_admin"],
+      },
+      {
+        name: "Billing Settings",
+        href: "/dashboard/subscriptions/billing-settings",
+        icon: Settings,
+        roles: ["admin", "super_admin"],
+      },
+    ],
   },
 
   {
