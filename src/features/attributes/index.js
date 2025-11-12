@@ -1,5 +1,7 @@
 // Components
 export { default as GlobalAttributes } from "./components/GlobalAttributes";
+export { AttributeAutocomplete } from "./components/AttributeAutocomplete";
+export { TermAutocomplete } from "./components/TermAutocomplete";
 
 // Hooks
 export { useGlobalAttributes } from "./hooks/useGlobalAttributes";

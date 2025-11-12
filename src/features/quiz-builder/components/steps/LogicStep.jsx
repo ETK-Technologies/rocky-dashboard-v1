@@ -66,29 +66,40 @@ function QuestionNode({ id, data, selected }) {
             />
 
             {/* Question Title */}
-            <div className="font-semibold text-sm mb-2 text-foreground">
-                {data.title || `Question ${data.index + 1}`}
-            </div>
-
-            {/* Question Type Badge */}
-            <div className="text-xs text-muted-foreground mb-2">
-                {data.type === "single-choice"
-                    ? "Single Choice"
-                    : data.type === "multiple-choice"
-                    ? "Multiple Choice"
-                    : data.type === "dropdown-list"
-                    ? "Dropdown List"
-                    : data.type === "true-false"
-                    ? "True/False"
-                    : data.type === "short-answer"
-                    ? "Short Answer"
-                    : data.type === "textarea"
-                    ? "Textarea"
-                    : data.type === "file"
-                    ? "File Upload"
-                    : data.type === "date"
-                    ? "Date"
-                    : data.type}
+            <div className="flex items-start justify-between gap-2 mb-3">
+                <div>
+                    <div className="text-xs uppercase tracking-wide text-primary/70 mb-1">
+                        Step {data.index + 1}
+                    </div>
+                    <div className="font-semibold text-sm text-foreground">
+                        {data.title || `Question ${data.index + 1}`}
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-1">
+                        {data?.stepType === "question"
+                            ? "Question -"
+                            : data?.stepType?.charAt(0).toUpperCase() +
+                              data?.stepType?.slice(1)}{" "}
+                        {data?.stepType === "question"
+                            ? data.type === "single-choice"
+                                ? "Single Choice"
+                                : data.type === "multiple-choice"
+                                ? "Multiple Choice"
+                                : data.type === "dropdown-list"
+                                ? "Dropdown List"
+                                : data.type === "true-false"
+                                ? "True/False"
+                                : data.type === "short-answer"
+                                ? "Short Answer"
+                                : data.type === "textarea"
+                                ? "Textarea"
+                                : data.type === "file"
+                                ? "File Upload"
+                                : data.type === "date"
+                                ? "Date"
+                                : data.type
+                            : null}
+                    </div>
+                </div>
             </div>
 
             {/* Options if available */}
@@ -241,6 +252,7 @@ export default function LogicStep({
                     options: hasOptions ? question.options : [],
                     index,
                     questionId: question.id,
+                    stepType: question.stepType,
                 },
             };
         });
@@ -318,6 +330,7 @@ export default function LogicStep({
                     options: hasOptions ? question.options : [],
                     index,
                     questionId: question.id,
+                    stepType: question.stepType,
                 },
             };
         });
@@ -382,12 +395,14 @@ export default function LogicStep({
 
     const onConnect = useCallback((params) => {
         setEdges((edgesSnapshot) => {
-            // Check if an edge already exists from the same source and sourceHandle
-            const existingEdge = edgesSnapshot.find(
-                (edge) =>
+            const normalizedHandle = params.sourceHandle ?? "__default__";
+            const existingEdge = edgesSnapshot.find((edge) => {
+                const edgeHandle = edge.sourceHandle ?? "__default__";
+                return (
                     edge.source === params.source &&
-                    edge.sourceHandle === params.sourceHandle
-            );
+                    edgeHandle === normalizedHandle
+                );
+            });
 
             // If an edge already exists from this source handle, don't create a new one
             if (existingEdge) {

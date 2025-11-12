@@ -67,29 +67,40 @@ function QuestionNode({ id, data, selected }) {
             />
 
             {/* Question Title */}
-            <div className="font-semibold text-sm mb-2 text-foreground">
-                {data.title || `Question ${data.index + 1}`}
-            </div>
-
-            {/* Question Type Badge */}
-            <div className="text-xs text-muted-foreground mb-2">
-                {data.type === "single-choice"
-                    ? "Single Choice"
-                    : data.type === "multiple-choice"
-                    ? "Multiple Choice"
-                    : data.type === "dropdown-list"
-                    ? "Dropdown List"
-                    : data.type === "true-false"
-                    ? "True/False"
-                    : data.type === "short-answer"
-                    ? "Short Answer"
-                    : data.type === "textarea"
-                    ? "Textarea"
-                    : data.type === "file"
-                    ? "File Upload"
-                    : data.type === "date"
-                    ? "Date"
-                    : data.type}
+            <div className="flex items-start justify-between gap-2 mb-3">
+                <div>
+                    <div className="text-xs uppercase tracking-wide text-primary/70 mb-1">
+                        Step {data.index + 1}
+                    </div>
+                    <div className="font-semibold text-sm text-foreground">
+                        {data.title || `Question ${data.index + 1}`}
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-1">
+                        {data?.stepType === "question"
+                            ? "Question -"
+                            : data?.stepType?.charAt(0).toUpperCase() +
+                              data?.stepType?.slice(1)}{" "}
+                        {data?.stepType === "question"
+                            ? data.type === "single-choice"
+                                ? "Single Choice"
+                                : data.type === "multiple-choice"
+                                ? "Multiple Choice"
+                                : data.type === "dropdown-list"
+                                ? "Dropdown List"
+                                : data.type === "true-false"
+                                ? "True/False"
+                                : data.type === "short-answer"
+                                ? "Short Answer"
+                                : data.type === "textarea"
+                                ? "Textarea"
+                                : data.type === "file"
+                                ? "File Upload"
+                                : data.type === "date"
+                                ? "Date"
+                                : data.type
+                            : null}
+                    </div>
+                </div>
             </div>
 
             {/* Options if available */}
@@ -180,7 +191,9 @@ function ResultNode({ id, data, selected }) {
 
             {/* Result Badge */}
             <div className="text-xs text-green-700 dark:text-green-300">
-                {data.isDefault ? "Default Result" : "Result"}
+                {`${data.resultType} Result${
+                    data.isDefault ? " (Default)" : ""
+                }`}
             </div>
 
             {/* NO OUTPUT HANDLE - Results only have input */}
@@ -271,6 +284,10 @@ export default function LogicResultsStep({
 }) {
     const questions = useMemo(() => data?.questions || [], [data?.questions]);
     const results = useMemo(() => data?.results || [], [data?.results]);
+    const logicNodes = useMemo(
+        () => data?.logic?.nodes || [],
+        [data?.logic?.nodes]
+    );
     const logicResultsEdges = useMemo(
         () => data?.logicResults?.edges || [],
         [data?.logicResults?.edges]
@@ -297,6 +314,9 @@ export default function LogicResultsStep({
                     question.type === "true-false");
 
             // Try to restore position from saved nodes
+            const logicNode = logicNodes.find(
+                (n) => n.id === `question-${question.id}`
+            );
             const savedNode = savedNodes.find(
                 (n) => n.id === `question-${question.id}`
             );
@@ -304,21 +324,23 @@ export default function LogicResultsStep({
             return {
                 id: `question-${question.id}`,
                 type: "questionNode",
-                position: savedNode?.position || {
-                    x: (index % 3) * 300,
-                    y: Math.floor(index / 3) * 200,
-                },
+                position: logicNode?.position ||
+                    savedNode?.position || {
+                        x: (index % 3) * 300,
+                        y: Math.floor(index / 3) * 200,
+                    },
                 data: {
                     title: question.title || `Question ${index + 1}`,
                     type: question.type,
                     options: hasOptions ? question.options : [],
                     index,
                     questionId: question.id,
+                    stepType: question.stepType,
                 },
                 draggable: true, // Can still move them around
             };
         });
-    }, [questions, savedNodes]);
+    }, [questions, savedNodes, logicNodes]);
 
     // Initialize result nodes (from saved nodes or add them when needed)
     const initialResultNodes = useMemo(() => {
@@ -335,6 +357,7 @@ export default function LogicResultsStep({
                         title: result?.title || "Untitled Result",
                         isDefault: result?.isDefault || false,
                         resultId: parseInt(resultId),
+                        resultType: result?.resultType,
                     },
                     draggable: true,
                 };
@@ -418,6 +441,9 @@ export default function LogicResultsStep({
             const existingNode = nodes.find(
                 (n) => n.id === `question-${question.id}`
             );
+            const logicNode = logicNodes.find(
+                (n) => n.id === `question-${question.id}`
+            );
             const savedNode = savedNodes.find(
                 (n) => n.id === `question-${question.id}`
             );
@@ -425,7 +451,8 @@ export default function LogicResultsStep({
             return {
                 id: `question-${question.id}`,
                 type: "questionNode",
-                position: existingNode?.position ||
+                position: logicNode?.position ||
+                    existingNode?.position ||
                     savedNode?.position || {
                         x: (index % 3) * 300,
                         y: Math.floor(index / 3) * 200,
@@ -436,6 +463,7 @@ export default function LogicResultsStep({
                     options: hasOptions ? question.options : [],
                     index,
                     questionId: question.id,
+                    stepType: question.stepType,
                 },
                 draggable: true,
             };
@@ -475,7 +503,7 @@ export default function LogicResultsStep({
             return [...logicStepEdges, ...validLogicResultsEdges];
         });
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [questions, logicEdges]);
+    }, [questions, logicEdges, logicNodes]);
 
     // Sync edges when logicEdges changes (from Logic step)
     useEffect(() => {
@@ -505,7 +533,7 @@ export default function LogicResultsStep({
             return [...logicStepEdges, ...logicResultsEdgesOnly];
         });
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [logicEdges]);
+    }, [logicEdges, logicNodes]);
 
     // Add result node to flow
     const addResultNode = useCallback((result, position = null) => {
@@ -550,6 +578,7 @@ export default function LogicResultsStep({
                 title: result.title || "Untitled Result",
                 isDefault: result.isDefault || false,
                 resultId: result.id,
+                resultType: result.resultType,
             },
             draggable: true,
         };
@@ -623,11 +652,14 @@ export default function LogicResultsStep({
                 // Don't allow connecting if an edge already exists from the same source and sourceHandle
                 // (prevent multiple edges from the same option or single question)
                 // Check ALL edges including logic edges from step 3
-                const existingEdge = edgesSnapshot.find(
-                    (e) =>
+                const normalizedHandle = params.sourceHandle ?? "__default__";
+                const existingEdge = edgesSnapshot.find((e) => {
+                    const edgeHandle = e.sourceHandle ?? "__default__";
+                    return (
                         e.source === params.source &&
-                        e.sourceHandle === params.sourceHandle
-                );
+                        edgeHandle === normalizedHandle
+                    );
+                });
                 if (existingEdge) return edgesSnapshot;
 
                 const newEdge = addEdge(
@@ -703,10 +735,17 @@ export default function LogicResultsStep({
             return;
         }
 
+        const currentResultNodes = nodes.filter((node) =>
+            node.id.startsWith("result-")
+        );
+        const previousResultNodes = prevNodesRef.current.filter((node) =>
+            node.id.startsWith("result-")
+        );
+
         const nodesChanged =
-            nodes.length !== prevNodesRef.current.length ||
-            nodes.some((node, idx) => {
-                const prevNode = prevNodesRef.current[idx];
+            currentResultNodes.length !== previousResultNodes.length ||
+            currentResultNodes.some((node, idx) => {
+                const prevNode = previousResultNodes[idx];
                 return (
                     !prevNode ||
                     node.id !== prevNode.id ||
@@ -735,7 +774,7 @@ export default function LogicResultsStep({
             );
 
             const logicResultsData = {
-                nodes: nodes.map((node) => ({
+                nodes: currentResultNodes.map((node) => ({
                     id: node.id,
                     position: node.position,
                 })),
@@ -802,9 +841,11 @@ export default function LogicResultsStep({
                                             {result.title || "Untitled Result"}
                                         </div>
                                         <div className="text-xs text-muted-foreground mt-1">
-                                            {result.isDefault
-                                                ? "Default Result"
-                                                : "Result"}
+                                            {`${result.resultType} Result${
+                                                result.isDefault
+                                                    ? " (Default)"
+                                                    : ""
+                                            }`}
                                         </div>
                                     </div>
                                 ))

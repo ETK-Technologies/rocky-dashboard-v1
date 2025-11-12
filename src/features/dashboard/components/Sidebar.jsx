@@ -29,6 +29,7 @@ import {
   Server,
   PlusCircle,
   Info,
+  Repeat,
 } from "lucide-react";
 import { cn } from "@/utils/cn";
 import { RoleGuard } from "@/components/common/ProtectedRoute";
@@ -43,6 +44,13 @@ const navigation = [
     name: "Orders",
     href: "/dashboard/orders",
     icon: ShoppingCart,
+    roles: ["admin", "super_admin"],
+  },
+
+  {
+    name: "Subscriptions",
+    href: "/dashboard/subscriptions",
+    icon: Repeat,
     roles: ["admin", "super_admin"],
   },
 

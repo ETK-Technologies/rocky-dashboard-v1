@@ -115,7 +115,7 @@ export const orderService = {
    * @returns {Promise<Object>} Email dispatch response
    */
   async sendOrderDetailsToCustomer(id) {
-    return makeRequest(`/api/v1/admin/orders/${id}/email-customer`, {
+    return makeRequest(`/api/v1/admin/orders/${id}/actions/send-details`, {
       method: "POST",
     });
   },
@@ -126,9 +126,12 @@ export const orderService = {
    * @returns {Promise<Object>} Email dispatch response
    */
   async resendNewOrderNotification(id) {
-    return makeRequest(`/api/v1/admin/orders/${id}/resend-notification`, {
-      method: "POST",
-    });
+    return makeRequest(
+      `/api/v1/admin/orders/${id}/actions/resend-new-order-notification`,
+      {
+        method: "POST",
+      }
+    );
   },
 
   /**
@@ -137,9 +140,12 @@ export const orderService = {
    * @returns {Promise<Object>} Regeneration response
    */
   async regenerateDownloadPermissions(id) {
-    return makeRequest(`/api/v1/admin/orders/${id}/downloads/regenerate`, {
-      method: "POST",
-    });
+    return makeRequest(
+      `/api/v1/admin/orders/${id}/actions/regenerate-download-permissions`,
+      {
+        method: "POST",
+      }
+    );
   },
 
   /**

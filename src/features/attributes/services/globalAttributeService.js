@@ -99,4 +99,26 @@ export const globalAttributeService = {
       method: "DELETE",
     });
   },
+
+  /**
+   * Create a term for a global attribute
+   * @param {string} id - Global attribute ID
+   * @param {Object} data - Term data
+   * @param {string} data.name - Term name
+   * @param {string} [data.slug] - Term slug (auto-generated if not provided)
+   * @param {string} [data.description] - Term description
+   * @param {number} [data.position] - Position/order
+   * @returns {Promise<Object>} Created term object
+   */
+  async createTerm(id, data) {
+    const response = await makeRequest(
+      `/api/v1/admin/global-attributes/${id}/terms`,
+      {
+        method: "POST",
+        body: JSON.stringify(data),
+      }
+    );
+    // Normalize response - extract data if wrapped
+    return response?.data || response;
+  },
 };
