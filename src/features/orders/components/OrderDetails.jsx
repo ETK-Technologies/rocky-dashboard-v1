@@ -377,6 +377,7 @@ export default function OrderDetails({ orderId }) {
   const [internalNoteContent, setInternalNoteContent] = useState("");
   const [addingInternalNote, setAddingInternalNote] = useState(false);
   const notesEndRef = useRef(null);
+  const previousNotesLengthRef = useRef(0);
 
   useEffect(() => {
     if (!statusModalOpen && order) {
@@ -459,9 +460,20 @@ export default function OrderDetails({ orderId }) {
   );
 
   useEffect(() => {
-    if (notesEndRef.current) {
+    // Only scroll if a new note was added (length increased), not on initial load
+    const currentLength = internalOrderNotes.length;
+    const previousLength = previousNotesLengthRef.current;
+
+    if (
+      currentLength > previousLength &&
+      previousLength > 0 &&
+      notesEndRef.current
+    ) {
       notesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
+
+    // Update the previous length for next comparison
+    previousNotesLengthRef.current = currentLength;
   }, [internalOrderNotes]);
 
   const attachments = useMemo(() => {

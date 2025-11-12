@@ -43,6 +43,9 @@ import { useCategories } from "@/features/categories/hooks/useCategories";
 import {
   useGlobalAttributes,
   useProductGlobalAttributes,
+  AttributeAutocomplete,
+  TermAutocomplete,
+  globalAttributeService,
 } from "@/features/attributes";
 import { cn } from "@/utils/cn";
 import { generateSlug } from "@/utils/generateSlug";
@@ -110,6 +113,9 @@ const AttributeValuesEditor = ({
   disabled = false,
   placeholder = "Type a value and press Enter",
   helperText,
+  attributeId, // Optional: if provided, use TermAutocomplete for global attributes
+  attribute, // Optional: attribute object with terms (preferred over attributeId)
+  onAttributeUpdate, // Optional: callback when attribute is updated (for refreshing terms)
 }) => {
   const [inputValue, setInputValue] = useState("");
   const values = parseAttributeValues(value);
@@ -171,6 +177,16 @@ const AttributeValuesEditor = ({
     addValue(inputValue);
   };
 
+  // Handle term selection from TermAutocomplete
+  const handleTermSelect = (termName) => {
+    addValue(termName);
+  };
+
+  // Handle term input change from TermAutocomplete
+  const handleTermInputChange = (event) => {
+    setInputValue(event.target.value);
+  };
+
   return (
     <div className="space-y-2">
       {label && <CustomLabel htmlFor={id}>{label}</CustomLabel>}
@@ -202,21 +218,45 @@ const AttributeValuesEditor = ({
           </span>
         ))}
 
-        <input
-          id={id}
-          value={inputValue}
-          onChange={(event) => setInputValue(event.target.value)}
-          onBlur={handleBlur}
-          onKeyDown={handleKeyDown}
-          placeholder={values.length === 0 ? placeholder : "Add another value"}
-          className={cn(
-            " min-w-[150px] rounded-md border border-dashed border-border bg-background px-2 py-1 text-sm outline-none transition-colors",
-            "focus-visible:border-foreground focus-visible:ring-0",
-            "dark:bg-gray-900/80 dark:focus-visible:border-gray-100",
-            disabled && "cursor-not-allowed bg-muted text-muted-foreground"
-          )}
-          disabled={disabled}
-        />
+        {attributeId || attribute ? (
+          // Use TermAutocomplete for global attributes
+          <div className="min-w-[150px] flex-1">
+            <TermAutocomplete
+              attributeId={attributeId}
+              attribute={attribute}
+              value={inputValue}
+              onChange={handleTermInputChange}
+              onSelect={handleTermSelect}
+              onAttributeUpdate={onAttributeUpdate}
+              disabled={disabled}
+              placeholder={
+                values.length === 0
+                  ? placeholder
+                  : "Search or type to add term..."
+              }
+              className="w-full"
+            />
+          </div>
+        ) : (
+          // Regular input for inline attributes
+          <input
+            id={id}
+            value={inputValue}
+            onChange={(event) => setInputValue(event.target.value)}
+            onBlur={handleBlur}
+            onKeyDown={handleKeyDown}
+            placeholder={
+              values.length === 0 ? placeholder : "Add another value"
+            }
+            className={cn(
+              " min-w-[150px] rounded-md border border-dashed border-border bg-background px-2 py-1 text-sm outline-none transition-colors",
+              "focus-visible:border-foreground focus-visible:ring-0",
+              "dark:bg-gray-900/80 dark:focus-visible:border-gray-100",
+              disabled && "cursor-not-allowed bg-muted text-muted-foreground"
+            )}
+            disabled={disabled}
+          />
+        )}
       </div>
 
       {helperText && (
@@ -627,15 +667,7 @@ export default function ProductForm({ productId = null }) {
   }, [fetchedProductGlobalAttributes, isEditMode, formValues.type]);
 
   // Add global attribute to product
-  const handleAddGlobalAttribute = (globalAttributeId) => {
-    const globalAttr = globalAttributes.find(
-      (ga) => ga.id === globalAttributeId
-    );
-    if (!globalAttr) {
-      toast.error("Attribute not found");
-      return;
-    }
-
+  const handleAddGlobalAttribute = async (globalAttributeId) => {
     // Check if already added
     if (
       productGlobalAttributes.some(
@@ -644,6 +676,23 @@ export default function ProductForm({ productId = null }) {
     ) {
       toast.error("This attribute is already added");
       return;
+    }
+
+    // Try to find in cached attributes first
+    let globalAttr = globalAttributes.find((ga) => ga.id === globalAttributeId);
+
+    // If not found or doesn't have terms, fetch it with terms
+    if (!globalAttr || !globalAttr.terms) {
+      try {
+        globalAttr = await globalAttributeService.getById(globalAttributeId);
+      } catch (error) {
+        console.error("Failed to fetch attribute with terms:", error);
+        // Fallback to cached attribute if fetch fails
+        if (!globalAttr) {
+          toast.error("Attribute not found");
+          return;
+        }
+      }
     }
 
     setProductGlobalAttributes((prev) => [
@@ -666,6 +715,20 @@ export default function ProductForm({ productId = null }) {
     setProductGlobalAttributes((prev) => {
       const updated = [...prev];
       updated[index] = { ...updated[index], [field]: value };
+      return updated;
+    });
+  };
+
+  // Handle attribute update (when terms are added)
+  const handleAttributeUpdate = (index, updatedAttribute) => {
+    setProductGlobalAttributes((prev) => {
+      const updated = [...prev];
+      if (updated[index]) {
+        updated[index] = {
+          ...updated[index],
+          globalAttribute: updatedAttribute,
+        };
+      }
       return updated;
     });
   };
@@ -2159,52 +2222,17 @@ export default function ProductForm({ productId = null }) {
                           {/* Add Attribute */}
                           <div className="space-y-2">
                             <CustomLabel>Add Attribute</CustomLabel>
-                            <div className="flex gap-2">
-                              <CustomButton
-                                type="button"
-                                variant="outline"
-                                onClick={addAttribute}
-                                disabled={loading}
-                                className="flex-shrink-0"
-                              >
-                                <Plus className="h-4 w-4 mr-2" />
-                                New
-                              </CustomButton>
-                              <select
-                                value=""
-                                onChange={(e) => {
-                                  if (e.target.value) {
-                                    handleAddGlobalAttribute(e.target.value);
-                                    e.target.value = "";
-                                  }
-                                }}
-                                disabled={loading || globalAttributesLoading}
-                                className={cn(
-                                  "flex-1 h-10 rounded-md border px-3 py-2 text-sm transition-colors",
-                                  "bg-white text-gray-900 border-gray-300",
-                                  "dark:bg-gray-800 dark:text-gray-100 dark:border-gray-600",
-                                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
-                                  "focus-visible:ring-blue-500 dark:focus-visible:ring-blue-400",
-                                  "disabled:cursor-not-allowed disabled:opacity-50"
-                                )}
-                              >
-                                <option value="">Add existing...</option>
-                                {globalAttributes
-                                  .filter(
-                                    (ga) =>
-                                      !productGlobalAttributes.some(
-                                        (pga) => pga.globalAttributeId === ga.id
-                                      )
-                                  )
-                                  .map((attr) => (
-                                    <option key={attr.id} value={attr.id}>
-                                      {attr.name}
-                                      {attr.description &&
-                                        ` - ${attr.description}`}
-                                    </option>
-                                  ))}
-                              </select>
-                            </div>
+                            <AttributeAutocomplete
+                              excludeIds={productGlobalAttributes.map(
+                                (pga) => pga.globalAttributeId
+                              )}
+                              onSelect={(attribute) => {
+                                handleAddGlobalAttribute(attribute.id);
+                              }}
+                              disabled={loading || globalAttributesLoading}
+                              placeholder="Search or type to create attribute..."
+                              className="w-full"
+                            />
                           </div>
 
                           {/* Assigned Attributes - Global and Inline */}
@@ -2261,7 +2289,15 @@ export default function ProductForm({ productId = null }) {
                                         )
                                       }
                                       disabled={loading}
-                                      helperText="Press Enter or comma to add each value."
+                                      helperText="Search or type to add terms. Press Enter to add."
+                                      attributeId={attr.globalAttributeId}
+                                      attribute={globalAttr}
+                                      onAttributeUpdate={(updatedAttribute) =>
+                                        handleAttributeUpdate(
+                                          index,
+                                          updatedAttribute
+                                        )
+                                      }
                                     />
                                     <div className="flex items-center gap-4 text-sm">
                                       <label className="flex items-center gap-2 cursor-pointer">
