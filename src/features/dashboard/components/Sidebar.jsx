@@ -189,36 +189,52 @@ const navigation = [
 ];
 
 const adminNavigation = [
-    {
-        name: "Admin Panel",
-        href: "/dashboard/admin",
-        icon: Shield,
-    },
-    {
-        name: "Super Admin",
-        href: "/dashboard/super-admin",
-        icon: Crown,
-    },
-    {
-        name: "Users",
-        href: "/dashboard/users",
-        icon: Users,
-    },
-    {
-        name: "Roles & Permissions",
-        href: "/dashboard/roles-permissions",
-        icon: Shield,
-    },
-    {
-        name: "Media",
-        href: "/dashboard/uploads",
+  {
+    name: "Admin Panel",
+    href: "/dashboard/admin",
+    icon: Shield,
+  },
+  {
+    name: "Super Admin",
+    href: "/dashboard/super-admin",
+    icon: Crown,
+  },
+  {
+    name: "Users",
+    href: "/dashboard/users",
+    icon: Users,
+  },
+  {
+    name: "Roles & Permissions",
+    href: "/dashboard/roles-permissions",
+    icon: Shield,
+  },
+  {
+    name: "Media",
+    href: "/dashboard/uploads",
+    icon: Upload,
+  },
+  {
+    name: "Quiz Builder",
+    href: "/dashboard/quiz-builder",
+    icon: ClipboardList,
+  },
+  {
+    name: "System Settings",
+    icon: Settings,
+    children: [
+      {
+        name: "Renewals",
+        href: "/dashboard/system-settings/renewals",
+        icon: Repeat,
+      },
+      {
+        name: "Storage",
+        href: "/dashboard/system-settings/storage",
         icon: Upload,
-    },
-    {
-        name: "Quiz Builder",
-        href: "/dashboard/quiz-builder",
-        icon: ClipboardList,
-    },
+      },
+    ],
+  },
 ];
 
 const bottomNavigation = [
