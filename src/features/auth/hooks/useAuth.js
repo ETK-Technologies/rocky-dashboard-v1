@@ -25,11 +25,14 @@ export function useAuth() {
     isAuthenticated,
     isLoading,
     error,
+    permissions,
+    permissionsLoaded,
     setUser,
     setLoading,
     setError,
     clearError,
     fetchUserProfile,
+    fetchUserPermissions,
     login,
     logout,
     initializeAuth,
@@ -40,6 +43,10 @@ export function useAuth() {
     isAdmin,
     isSuperAdmin,
     canAccess,
+    hasPermission,
+    hasAnyPermission,
+    hasAllPermissions,
+    hasResourcePermission,
     getUserFullName,
     getUserDisplayName,
   } = useAuthStore();
@@ -114,12 +121,36 @@ export function useAuth() {
   };
 
   /**
-   * Check if user is authorized for a route
+   * Check if user is authorized for a route (role-based)
    */
   const isAuthorized = (allowedRoles = []) => {
     if (!isAuthenticated) return false;
     if (allowedRoles.length === 0) return true;
     return canAccess(allowedRoles);
+  };
+
+  /**
+   * Check if user is authorized by permissions
+   * @param {string|Array<string>} permissionSlugs - Permission slug(s) to check
+   * @param {Object} options - Options for permission check
+   * @param {boolean} options.requireAll - If true, requires all permissions (default: false)
+   * @returns {boolean}
+   */
+  const isAuthorizedByPermission = (permissionSlugs, options = {}) => {
+    if (!isAuthenticated || !permissionsLoaded) return false;
+
+    if (!permissionSlugs) return true; // No permission requirement
+
+    const slugs = Array.isArray(permissionSlugs)
+      ? permissionSlugs
+      : [permissionSlugs];
+    if (slugs.length === 0) return true;
+
+    if (options.requireAll) {
+      return hasAllPermissions(slugs);
+    }
+
+    return hasAnyPermission(slugs);
   };
 
   /**
@@ -191,14 +222,22 @@ export function useAuth() {
     isAuthenticated,
     isLoading,
     error,
+    permissions,
+    permissionsLoaded,
 
     // Basic actions
     login: handleLogin,
     logout: handleLogout,
     refreshProfile,
+    refreshPermissions: () => {
+      if (user && user.id) {
+        return fetchUserPermissions(user.id);
+      }
+      return Promise.resolve([]);
+    },
     clearError,
 
-    // Role checking
+    // Role checking (legacy - still supported)
     hasRole,
     hasAnyRole,
     hasMinimumRole,
@@ -208,9 +247,27 @@ export function useAuth() {
     canAccess,
     isAuthorized,
 
+    // Permission checking
+    hasPermission,
+    hasAnyPermission,
+    hasAllPermissions,
+    hasResourcePermission,
+    isAuthorizedByPermission,
+
     // Route protection
     requireAuth,
     requireRole,
+    requirePermission: (permissionSlugs, options = {}) => {
+      if (!requireAuth()) return false;
+
+      if (!isAuthorizedByPermission(permissionSlugs, options)) {
+        toast.error("You don't have permission to access this page");
+        router.push("/dashboard");
+        return false;
+      }
+
+      return true;
+    },
 
     // Token management
     getAccessToken,
