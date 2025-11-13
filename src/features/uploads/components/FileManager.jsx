@@ -332,7 +332,7 @@ export default function FileManager() {
             <CustomButton
               variant="outline"
               onClick={() =>
-                router.push("/dashboard/super-admin/uploads/settings")
+                router.push("/dashboard/uploads/settings")
               }
               size="sm"
               className="flex items-center gap-2"

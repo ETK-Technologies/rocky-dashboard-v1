@@ -64,7 +64,7 @@ export function ActivityLogs() {
         return;
       }
 
-      router.push(`/dashboard/activity/${activityId}`);
+      router.push(`/dashboard/system/activity/${activityId}`);
     },
     [router]
   );

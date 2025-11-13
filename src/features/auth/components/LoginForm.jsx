@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useLogin } from "../hooks/useLogin";
 import { redirectIfAuthenticated } from "../middleware";
 import {
@@ -13,7 +13,7 @@ import {
   CustomCardHeader,
   CustomCardTitle,
 } from "@/components/ui";
-import { Loader2 } from "lucide-react";
+import { Loader2, Eye, EyeOff } from "lucide-react";
 
 /**
  * Login form component
@@ -25,6 +25,7 @@ export function LoginForm() {
     register,
     formState: { errors },
   } = form;
+  const [showPassword, setShowPassword] = useState(false);
 
   // Redirect if already authenticated
   useEffect(() => {
@@ -66,15 +67,31 @@ export function LoginForm() {
           {/* Password Field */}
           <div className="space-y-2">
             <CustomLabel htmlFor="password">Password</CustomLabel>
-            <CustomInput
-              id="password"
-              type="password"
-              placeholder="Enter your password"
-              error={errors.password}
-              {...register("password")}
-              disabled={isLoading}
-              autoComplete="current-password"
-            />
+            <div className="relative">
+              <CustomInput
+                id="password"
+                type={showPassword ? "text" : "password"}
+                placeholder="Enter your password"
+                error={errors.password}
+                {...register("password")}
+                disabled={isLoading}
+                autoComplete="current-password"
+                className="pr-10"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                aria-label={showPassword ? "Hide password" : "Show password"}
+                disabled={isLoading}
+              >
+                {showPassword ? (
+                  <EyeOff className="h-4 w-4" />
+                ) : (
+                  <Eye className="h-4 w-4" />
+                )}
+              </button>
+            </div>
             {errors.password && (
               <p className="text-sm text-red-600 dark:text-red-400">
                 {errors.password.message}

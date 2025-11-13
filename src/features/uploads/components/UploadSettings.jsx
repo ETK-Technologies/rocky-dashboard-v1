@@ -16,6 +16,7 @@ import {
   LoadingState,
   ErrorState,
 } from "@/components/ui";
+import { Eye, EyeOff } from "lucide-react";
 import { useUploads } from "../hooks/useUploads";
 import { uploadService } from "../services/uploadService";
 
@@ -41,6 +42,7 @@ export default function UploadSettings() {
   const [isSaving, setIsSaving] = useState(false);
   const [debugInfo, setDebugInfo] = useState(null);
   const [showDebug, setShowDebug] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     fetchSettings();
@@ -271,14 +273,31 @@ export default function UploadSettings() {
                   <CustomLabel htmlFor="bunnyCdnAccessKey">
                     Access Key
                   </CustomLabel>
-                  <CustomInput
-                    id="bunnyCdnAccessKey"
-                    name="bunnyCdnAccessKey"
-                    type="password"
-                    value={formValues.bunnyCdnAccessKey}
-                    onChange={handleChange}
-                    placeholder="Your access key"
-                  />
+                  <div className="relative">
+                    <CustomInput
+                      id="bunnyCdnAccessKey"
+                      name="bunnyCdnAccessKey"
+                      type={showPassword ? "text" : "password"}
+                      value={formValues.bunnyCdnAccessKey}
+                      onChange={handleChange}
+                      placeholder="Your access key"
+                      className="pr-10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                      aria-label={
+                        showPassword ? "Hide password" : "Show password"
+                      }
+                    >
+                      {showPassword ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
+                    </button>
+                  </div>
                 </div>
 
                 <div>
