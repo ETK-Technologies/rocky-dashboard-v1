@@ -182,7 +182,7 @@ export default function DashboardMain() {
       icon: Upload,
       iconColor: "text-green-600 dark:text-green-400",
       bgColor: "bg-green-50 dark:bg-green-950/30",
-      onClick: () => router.push("/dashboard/super-admin/uploads"),
+      onClick: () => router.push("/dashboard/uploads"),
     },
     {
       title: "Global Attributes",
@@ -218,7 +218,7 @@ export default function DashboardMain() {
       icon: Upload,
       iconColor: "text-green-600 dark:text-green-400",
       bgColor: "bg-green-50 dark:bg-green-950/30",
-      onClick: () => router.push("/dashboard/super-admin/uploads"),
+      onClick: () => router.push("/dashboard/uploads"),
     },
     {
       title: "Global Attributes",
