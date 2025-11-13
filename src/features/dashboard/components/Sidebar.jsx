@@ -36,115 +36,80 @@ import {
     Trash2,
 } from "lucide-react";
 import { cn } from "@/utils/cn";
-import { RoleGuard } from "@/components/common/ProtectedRoute";
-import { useAuth } from "@/features/auth/hooks/useAuth";
 import { Tooltip } from "@/components/ui/Tooltip";
 import Image from "next/image";
 
 const navigation = [
     { name: "Home", href: "/dashboard", icon: LayoutDashboard },
-
-    {
-        name: "Orders",
-        href: "/dashboard/orders",
-        icon: ShoppingCart,
-        roles: ["admin", "super_admin"],
-    },
-
+    { name: "Orders", href: "/dashboard/orders", icon: ShoppingCart },
     {
         name: "Carts",
         icon: ShoppingBag,
-        roles: ["admin", "super_admin"],
-        // children: [
-        //   {
-        //     name: "Redundant Carts",
-        //     href: "/dashboard/carts/redundant",
-        //     icon: Trash2,
-        //     roles: ["admin", "super_admin"],
-        //   },
-        //   {
-        //     name: "Abandoned Carts",
-        //     href: "/dashboard/carts/abandoned",
-        //     icon: AlertTriangle,
-        //     roles: ["admin", "super_admin"],
-        //   },
-        // ],
-    },
-
-    {
-        name: "Coupons",
-        href: "/dashboard/coupons",
-        icon: Tag,
-        roles: ["admin", "super_admin"],
-    },
-
-    {
-        name: "Analytics",
-        href: "/dashboard/analytics",
-        icon: BarChart3,
-        roles: ["admin", "super_admin"],
-    },
-
-    {
-        name: "Subscriptions",
-        icon: Repeat,
-        roles: ["admin", "super_admin"],
         children: [
             {
-                name: "All Subscriptions",
-                href: "/dashboard/subscriptions",
-                icon: Repeat,
-                roles: ["admin", "super_admin"],
+                name: "Abandoned",
+                href: "/dashboard/carts/abandoned",
+                icon: AlertTriangle,
             },
             {
-                name: "Plans",
-                href: "/dashboard/subscriptions/plans",
-                icon: Package,
-                roles: ["admin", "super_admin"],
-            },
-            {
-                name: "Billing Settings",
-                href: "/dashboard/subscriptions/billing-settings",
-                icon: Settings,
-                roles: ["admin", "super_admin"],
+                name: "Redundant",
+                href: "/dashboard/carts/redundant",
+                icon: Trash2,
             },
         ],
     },
-
+    { name: "Coupons", href: "/dashboard/coupons", icon: Tag },
+    { name: "Analytics", href: "/dashboard/analytics", icon: BarChart3 },
+    {
+        name: "Subscriptions",
+        icon: Repeat,
+        href: "/dashboard/subscriptions",
+        // children: [
+        //   {
+        //     name: "All Subscriptions",
+        //     href: "/dashboard/subscriptions",
+        //     icon: Repeat,
+        //   },
+        //   {
+        //     name: "Plans",
+        //     href: "/dashboard/subscriptions/plans",
+        //     icon: Package,
+        //   },
+        //   {
+        //     name: "Billing Settings",
+        //     href: "/dashboard/subscriptions/billing-settings",
+        //     icon: Settings,
+        //   },
+        // ],
+    },
     {
         name: "Products",
         icon: Package,
-        roles: ["admin", "super_admin"],
         children: [
             {
                 name: "All Products",
                 href: "/dashboard/products",
                 icon: Package,
-                roles: ["admin", "super_admin"],
             },
             {
                 name: "Add Product",
                 href: "/dashboard/products/new",
                 icon: PlusCircle,
-                roles: ["admin", "super_admin"],
             },
             {
                 name: "Categories",
                 href: "/dashboard/categories",
                 icon: Folder,
-                roles: ["admin", "super_admin"],
             },
             {
                 name: "Attributes",
                 href: "/dashboard/products/global-attributes",
                 icon: Globe,
-                roles: ["admin", "super_admin"],
             },
             {
                 name: "Import Jobs",
                 href: "/dashboard/products/import-jobs",
                 icon: Upload,
-                roles: ["admin", "super_admin"],
             },
         ],
     },
@@ -152,6 +117,7 @@ const navigation = [
         name: "Blogs",
         icon: FileText,
         roles: ["admin", "super_admin"],
+
         children: [
             {
                 name: "All Blogs",
@@ -183,6 +149,7 @@ const navigation = [
         name: "Pages",
         icon: FileText,
         roles: ["admin", "super_admin"],
+
         children: [
             {
                 name: "All Pages",
@@ -201,25 +168,21 @@ const navigation = [
     {
         name: "System",
         icon: Server,
-        roles: ["admin", "super_admin"],
         children: [
             {
                 name: "Info",
                 href: "/dashboard/system/info",
                 icon: Info,
-                roles: ["admin", "super_admin"],
             },
             {
                 name: "Activity",
-                href: "/dashboard/activity",
+                href: "/dashboard/system/activity",
                 icon: GitBranch,
-                roles: ["admin", "super_admin"],
             },
             {
                 name: "Health",
-                href: "/dashboard/super-admin/health",
+                href: "/dashboard/system/health",
                 icon: Activity,
-                roles: ["super_admin"],
             },
         ],
     },
@@ -230,31 +193,31 @@ const adminNavigation = [
         name: "Admin Panel",
         href: "/dashboard/admin",
         icon: Shield,
-        roles: ["admin", "super_admin"],
     },
     {
         name: "Super Admin",
         href: "/dashboard/super-admin",
         icon: Crown,
-        roles: ["super_admin"],
     },
     {
         name: "Users",
-        href: "/dashboard/super-admin/users",
+        href: "/dashboard/users",
         icon: Users,
-        roles: ["super_admin"],
+    },
+    {
+        name: "Roles & Permissions",
+        href: "/dashboard/roles-permissions",
+        icon: Shield,
     },
     {
         name: "Media",
-        href: "/dashboard/super-admin/uploads",
+        href: "/dashboard/uploads",
         icon: Upload,
-        roles: ["super_admin"],
     },
     {
         name: "Quiz Builder",
         href: "/dashboard/quiz-builder",
         icon: ClipboardList,
-        roles: ["admin", "super_admin"],
     },
 ];
 
@@ -270,7 +233,6 @@ export function Sidebar({
     onToggleCollapse,
 }) {
     const pathname = usePathname();
-    const { isAuthorized } = useAuth();
     const [expandedItems, setExpandedItems] = useState({});
     const [hoveredGroup, setHoveredGroup] = useState(null);
     const hoverTimeoutRef = useRef(null);
@@ -320,17 +282,8 @@ export function Sidebar({
         const isExpanded = expandedItems[item.name] ?? isActive;
         const isToggleOnly = hasChildren && !item.href;
 
-        // Check if user has required role for this nav item
-        if (item.roles && !isAuthorized(item.roles)) {
-            return null;
-        }
-
-        // Filter children by role
-        const visibleChildren = hasChildren
-            ? item.children.filter(
-                  (child) => !child.roles || isAuthorized(child.roles)
-              )
-            : [];
+        // Get all children (no role filtering)
+        const visibleChildren = hasChildren ? item.children : [];
 
         const handleMouseEnter = () => {
             if (
@@ -583,24 +536,20 @@ export function Sidebar({
                         ))}
 
                         {/* Admin Navigation Section */}
-                        {isAuthorized(["admin", "super_admin"]) && (
-                            <>
-                                {!isCollapsed && (
-                                    <li className="pt-4 pb-2">
-                                        <div className="px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                                            Administration
-                                        </div>
-                                    </li>
-                                )}
-                                {adminNavigation.map((item) => (
-                                    <NavItem
-                                        key={item.name}
-                                        item={item}
-                                        isCollapsed={isCollapsed}
-                                    />
-                                ))}
-                            </>
+                        {!isCollapsed && (
+                            <li className="pt-4 pb-2">
+                                <div className="px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                                    Administration
+                                </div>
+                            </li>
                         )}
+                        {adminNavigation.map((item) => (
+                            <NavItem
+                                key={item.name}
+                                item={item}
+                                isCollapsed={isCollapsed}
+                            />
+                        ))}
                     </ul>
 
                     {/* Bottom Navigation */}

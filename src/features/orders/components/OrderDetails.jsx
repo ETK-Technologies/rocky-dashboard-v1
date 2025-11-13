@@ -1254,7 +1254,7 @@ export default function OrderDetails({ orderId }) {
                   onClick={() =>
                     customer?.id
                       ? router.push(
-                          `/dashboard/super-admin/users/${customer.id}`
+                          `/dashboard/users/${customer.id}`
                         )
                       : undefined
                   }

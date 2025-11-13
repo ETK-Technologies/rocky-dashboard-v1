@@ -9,3 +9,4 @@ export default function RedundantCartsPage() {
   return <RedundantCarts />;
 }
 
+
