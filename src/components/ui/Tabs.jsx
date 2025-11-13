@@ -7,6 +7,7 @@ const TabsContext = createContext({
   activeTab: "",
   setActiveTab: () => {},
   variant: "default",
+  disableScroll: false,
 });
 
 export function Tabs({
@@ -16,6 +17,7 @@ export function Tabs({
   onValueChange,
   className,
   variant = "default",
+  disableScroll = false,
 }) {
   const [internalActiveTab, setInternalActiveTab] = useState(
     defaultValue || ""
@@ -32,7 +34,7 @@ export function Tabs({
   };
 
   return (
-    <TabsContext.Provider value={{ activeTab, setActiveTab, variant }}>
+    <TabsContext.Provider value={{ activeTab, setActiveTab, variant, disableScroll }}>
       <div className={cn("w-full", className)}>{children}</div>
     </TabsContext.Provider>
   );
@@ -64,27 +66,29 @@ export function TabsList({ children, className, orientation = "horizontal" }) {
 }
 
 export function TabsTrigger({ value, children, className, icon: Icon }) {
-  const { activeTab, setActiveTab, variant } = useContext(TabsContext);
+  const { activeTab, setActiveTab, variant, disableScroll } = useContext(TabsContext);
   const isActive = activeTab === value;
 
   const handleClick = () => {
     setActiveTab(value);
-    // Scroll to top of the page when tab is clicked
-    // The dashboard uses a <main> element with overflow-auto as the scrollable container
-    setTimeout(() => {
-      // First try to find and scroll the main element (dashboard scroll container)
-      const mainElement = document.querySelector("main");
+    // Scroll to top of the page when tab is clicked (unless disabled)
+    if (!disableScroll) {
+      // The dashboard uses a <main> element with overflow-auto as the scrollable container
+      setTimeout(() => {
+        // First try to find and scroll the main element (dashboard scroll container)
+        const mainElement = document.querySelector("main");
 
-      if (mainElement) {
-        // Scroll the main element to top - this is the actual scrollable container
-        mainElement.scrollTo({ top: 0, behavior: "smooth" });
-      } else {
-        // Fallback to window scroll if main element not found
-        window.scrollTo({ top: 0, behavior: "smooth" });
-        document.documentElement.scrollTo({ top: 0, behavior: "smooth" });
-        document.body.scrollTo({ top: 0, behavior: "smooth" });
-      }
-    }, 50);
+        if (mainElement) {
+          // Scroll the main element to top - this is the actual scrollable container
+          mainElement.scrollTo({ top: 0, behavior: "smooth" });
+        } else {
+          // Fallback to window scroll if main element not found
+          window.scrollTo({ top: 0, behavior: "smooth" });
+          document.documentElement.scrollTo({ top: 0, behavior: "smooth" });
+          document.body.scrollTo({ top: 0, behavior: "smooth" });
+        }
+      }, 50);
+    }
   };
 
   return (

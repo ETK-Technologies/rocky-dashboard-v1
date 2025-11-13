@@ -167,6 +167,22 @@ const adminNavigation = [
     href: "/dashboard/quiz-builder",
     icon: ClipboardList,
   },
+  {
+    name: "System Settings",
+    icon: Settings,
+    children: [
+      {
+        name: "Renewals",
+        href: "/dashboard/system-settings/renewals",
+        icon: Repeat,
+      },
+      {
+        name: "Storage",
+        href: "/dashboard/system-settings/storage",
+        icon: Upload,
+      },
+    ],
+  },
 ];
 
 const bottomNavigation = [
