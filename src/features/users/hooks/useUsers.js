@@ -28,13 +28,32 @@ export function useUsers() {
     setError(null);
     try {
       const data = await userService.getUsers(params);
-      if (Array.isArray(data?.users)) {
+      // Handle response structure: { users: [...], pagination: {...} }
+      if (data && Array.isArray(data.users)) {
         setUsers(data.users);
-        if (data.pagination) setPagination(data.pagination);
+        if (data.pagination) {
+          setPagination(data.pagination);
+        } else {
+          // Fallback pagination if not provided
+          setPagination({
+            total: data.users.length,
+            limit: params.limit || 20,
+            offset: params.offset || 0,
+            pages: 1,
+          });
+        }
       } else if (Array.isArray(data)) {
+        // Fallback for array response (shouldn't happen with new API)
         setUsers(data);
+        setPagination({
+          total: data.length,
+          limit: params.limit || 20,
+          offset: params.offset || 0,
+          pages: 1,
+        });
       } else {
         setUsers([]);
+        setPagination({ total: 0, limit: params.limit || 20, offset: params.offset || 0, pages: 0 });
       }
     } catch (err) {
       const message = err?.message || "Failed to fetch users";

@@ -207,9 +207,7 @@ export default function Users() {
           label="Edit"
           variant="ghost"
           size="sm"
-          onClick={() =>
-            router.push(`/dashboard/super-admin/users/${user.id}/edit`)
-          }
+          onClick={() => router.push(`/dashboard/super-admin/users/${user.id}`)}
         />
       </div>
       <div data-tooltip-id="user-tooltip" data-tooltip-content="Delete user">

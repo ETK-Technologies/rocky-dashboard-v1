@@ -55,20 +55,20 @@ const navigation = [
     name: "Carts",
     icon: ShoppingBag,
     roles: ["admin", "super_admin"],
-    children: [
-      {
-        name: "Redundant Carts",
-        href: "/dashboard/carts/redundant",
-        icon: Trash2,
-        roles: ["admin", "super_admin"],
-      },
-      {
-        name: "Abandoned Carts",
-        href: "/dashboard/carts/abandoned",
-        icon: AlertTriangle,
-        roles: ["admin", "super_admin"],
-      },
-    ],
+    // children: [
+    //   {
+    //     name: "Redundant Carts",
+    //     href: "/dashboard/carts/redundant",
+    //     icon: Trash2,
+    //     roles: ["admin", "super_admin"],
+    //   },
+    //   {
+    //     name: "Abandoned Carts",
+    //     href: "/dashboard/carts/abandoned",
+    //     icon: AlertTriangle,
+    //     roles: ["admin", "super_admin"],
+    //   },
+    // ],
   },
 
   {
