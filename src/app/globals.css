@@ -3,146 +3,146 @@
 @tailwind utilities;
 
 @layer base {
-  :root {
-    --foreground: 221 39% 11%;
+    :root {
+        --foreground: 221 39% 11%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 221 39% 11%;
+        --card: 0 0% 100%;
+        --card-foreground: 221 39% 11%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 221 39% 11%;
+        --popover: 0 0% 100%;
+        --popover-foreground: 221 39% 11%;
 
-    --primary: 27 38% 51%;
-    --primary-foreground: 0 0% 100%;
+        --primary: 27 38% 51%;
+        --primary-foreground: 0 0% 100%;
 
-    --secondary: 220 13% 95%;
-    --secondary-foreground: 221 39% 11%;
+        --secondary: 220 13% 95%;
+        --secondary-foreground: 221 39% 11%;
 
-    --muted: 220 13% 95%;
-    --muted-foreground: 215 16% 47%;
+        --muted: 220 13% 95%;
+        --muted-foreground: 215 16% 47%;
 
-    --accent: 25 82% 94%;
-    --accent-foreground: 221 39% 11%;
+        --accent: 25 82% 94%;
+        --accent-foreground: 221 39% 11%;
 
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 0 0% 100%;
+        --destructive: 0 84% 60%;
+        --destructive-foreground: 0 0% 100%;
 
-    --border: 220 13% 91%;
-    --input: 220 13% 91%;
-    --ring: 27 38% 51%;
+        --border: 220 13% 91%;
+        --input: 220 13% 91%;
+        --ring: 27 38% 51%;
 
-    --radius: 0.75rem;
+        --radius: 0.75rem;
 
-    --background: 220 13% 97%;
-  }
+        --background: 220 13% 97%;
+    }
 
-  .dark {
-    --foreground: 210 40% 98%;
+    .dark {
+        --foreground: 210 40% 98%;
 
-    --card: 222 47% 11%;
-    --card-foreground: 210 40% 98%;
+        --card: 222 47% 11%;
+        --card-foreground: 210 40% 98%;
 
-    --popover: 222 47% 11%;
-    --popover-foreground: 210 40% 98%;
+        --popover: 222 47% 11%;
+        --popover-foreground: 210 40% 98%;
 
-    --primary: 27 35% 60%;
-    --primary-foreground: 222 47% 11%;
+        --primary: 27 35% 60%;
+        --primary-foreground: 222 47% 11%;
 
-    --secondary: 217 33% 17%;
-    --secondary-foreground: 210 40% 98%;
+        --secondary: 217 33% 17%;
+        --secondary-foreground: 210 40% 98%;
 
-    --muted: 217 33% 17%;
-    --muted-foreground: 215 20% 65%;
+        --muted: 217 33% 17%;
+        --muted-foreground: 215 20% 65%;
 
-    --accent: 231 72% 7%;
-    --accent-foreground: 210 40% 98%;
+        --accent: 231 72% 7%;
+        --accent-foreground: 210 40% 98%;
 
-    --destructive: 0 63% 31%;
-    --destructive-foreground: 210 40% 98%;
+        --destructive: 0 63% 31%;
+        --destructive-foreground: 210 40% 98%;
 
-    --border: 217 33% 17%;
-    --input: 217 33% 17%;
-    --ring: 27 35% 60%;
+        --border: 217 33% 17%;
+        --input: 217 33% 17%;
+        --ring: 27 35% 60%;
 
-    --background: 222 47% 8%;
-  }
+        --background: 222 47% 8%;
+    }
 }
 
 @layer base {
-  * {
-    border-color: hsl(var(--border));
-  }
-  body {
-    background-color: hsl(var(--background));
-    color: hsl(var(--foreground));
-    font-family: Inter, system-ui, sans-serif;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-    transition: background-color 0.3s ease, color 0.3s ease;
-  }
+    * {
+        border-color: hsl(var(--border));
+    }
+    body {
+        background-color: hsl(var(--background));
+        color: hsl(var(--foreground));
+        font-family: Inter, system-ui, sans-serif;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        transition: background-color 0.3s ease, color 0.3s ease;
+    }
 }
 
 /* Custom WordPress-style scrollbar */
 ::-webkit-scrollbar {
-  width: 12px;
-  height: 12px;
+    width: 12px;
+    height: 12px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #f1f1f1;
+    background: #f1f1f1;
 }
 
 .dark ::-webkit-scrollbar-track {
-  background: #1f2937;
+    background: #1f2937;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #d1d5db;
-  border-radius: 6px;
+    background: #d1d5db;
+    border-radius: 6px;
 }
 
 .dark ::-webkit-scrollbar-thumb {
-  background: #4b5563;
+    background: #4b5563;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #9ca3af;
+    background: #9ca3af;
 }
 
 .dark ::-webkit-scrollbar-thumb:hover {
-  background: #6b7280;
+    background: #6b7280;
 }
 
 /* Override yellow/amber colors with neutral grays */
 .Toastify__toast--warning {
-  background: #6c757d !important;
-  color: white !important;
+    background: #6c757d !important;
+    color: white !important;
 }
 
 .Toastify__progress-bar--warning {
-  background: white !important;
+    background: white !important;
 }
 
 /* Ensure toast notifications appear above modals and dialogs */
 .Toastify__toast-container {
-  z-index: 10000 !important;
+    z-index: 10000 !important;
 }
 
 .Toastify__toast {
-  z-index: 10000 !important;
+    z-index: 10000 !important;
 }
 
 /* Remove any yellow/amber accents from disabled states */
 .disabled\:opacity-50:disabled {
-  opacity: 0.5 !important;
+    opacity: 0.5 !important;
 }
 
 /* Remove yellow color from input focus rings */
 input:focus,
 input:focus-visible {
-  border-color: hsl(var(--ring)) !important;
-  outline: none !important;
-  box-shadow: 0 0 0 2px hsla(27, 38%, 51%, 0.2) !important;
+    border-color: hsl(var(--ring)) !important;
+    outline: none !important;
+    box-shadow: 0 0 0 2px hsla(27, 38%, 51%, 0.2) !important;
 }
 
 /* Completely remove yellow/amber highlights on autofill */
@@ -150,39 +150,330 @@ input:-webkit-autofill,
 input:-webkit-autofill:hover,
 input:-webkit-autofill:focus,
 input:-webkit-autofill:active {
-  -webkit-box-shadow: 0 0 0 1000px white inset !important;
-  -webkit-text-fill-color: rgb(29, 35, 39) !important;
-  background-color: white !important;
-  background: white !important;
-  border-color: hsl(var(--input)) !important;
+    -webkit-box-shadow: 0 0 0 1000px white inset !important;
+    -webkit-text-fill-color: rgb(29, 35, 39) !important;
+    background-color: white !important;
+    background: white !important;
+    border-color: hsl(var(--input)) !important;
 }
 
 .dark input:-webkit-autofill,
 .dark input:-webkit-autofill:hover,
 .dark input:-webkit-autofill:focus,
 .dark input:-webkit-autofill:active {
-  -webkit-box-shadow: 0 0 0 1000px hsl(var(--card)) inset !important;
-  -webkit-text-fill-color: hsl(var(--foreground)) !important;
-  background-color: hsl(var(--card)) !important;
-  background: hsl(var(--card)) !important;
-  border-color: hsl(var(--input)) !important;
+    -webkit-box-shadow: 0 0 0 1000px hsl(var(--card)) inset !important;
+    -webkit-text-fill-color: hsl(var(--foreground)) !important;
+    background-color: hsl(var(--card)) !important;
+    background: hsl(var(--card)) !important;
+    border-color: hsl(var(--input)) !important;
 }
 
 input:-webkit-autofill:focus {
-  -webkit-box-shadow: 0 0 0 1000px white inset,
-    0 0 0 2px hsla(27, 38%, 51%, 0.2) !important;
-  border-color: hsl(var(--ring)) !important;
+    -webkit-box-shadow: 0 0 0 1000px white inset,
+        0 0 0 2px hsla(27, 38%, 51%, 0.2) !important;
+    border-color: hsl(var(--ring)) !important;
 }
 
 .dark input:-webkit-autofill:focus {
-  -webkit-box-shadow: 0 0 0 1000px hsl(var(--card)) inset,
-    0 0 0 2px hsla(27, 35%, 60%, 0.2) !important;
-  border-color: hsl(var(--ring)) !important;
+    -webkit-box-shadow: 0 0 0 1000px hsl(var(--card)) inset,
+        0 0 0 2px hsla(27, 35%, 60%, 0.2) !important;
+    border-color: hsl(var(--ring)) !important;
 }
 
 /* Prevent flash when resizing from mobile to desktop */
 @media (min-width: 1024px) {
-  aside {
-    transform: translateX(0) !important;
-  }
+    aside {
+        transform: translateX(0) !important;
+    }
+}
+
+/* React Quill Editor Styles */
+.quill {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+}
+
+.ql-toolbar {
+    background-color: hsl(var(--card));
+    border-color: hsl(var(--border)) !important;
+    border-radius: 0.5rem 0.5rem 0 0;
+}
+
+.ql-container {
+    background-color: hsl(var(--background));
+    border-color: hsl(var(--border)) !important;
+    border-radius: 0 0 0.5rem 0.5rem;
+    font-family: Inter, system-ui, sans-serif;
+    font-size: 1rem;
+    min-height: 400px;
+}
+
+.ql-editor {
+    min-height: 400px;
+    color: hsl(var(--foreground));
+}
+
+.ql-editor.ql-blank::before {
+    color: hsl(var(--muted-foreground));
+    font-style: normal;
+}
+
+/* Toolbar buttons */
+.ql-toolbar .ql-stroke {
+    stroke: hsl(var(--foreground));
+}
+
+.ql-toolbar .ql-fill {
+    fill: hsl(var(--foreground));
+}
+
+.ql-toolbar .ql-picker-label {
+    color: hsl(var(--foreground));
+}
+
+.ql-toolbar button:hover,
+.ql-toolbar button:focus,
+.ql-toolbar button.ql-active {
+    color: hsl(var(--primary));
+}
+
+.ql-toolbar button:hover .ql-stroke,
+.ql-toolbar button:focus .ql-stroke,
+.ql-toolbar button.ql-active .ql-stroke {
+    stroke: hsl(var(--primary));
+}
+
+.ql-toolbar button:hover .ql-fill,
+.ql-toolbar button:focus .ql-fill,
+.ql-toolbar button.ql-active .ql-fill {
+    fill: hsl(var(--primary));
+}
+
+/* Picker options */
+.ql-picker-options {
+    background-color: hsl(var(--card));
+    border-color: hsl(var(--border));
+    box-shadow: 0 2px 4px rgb(0 0 0 / 0.1);
+}
+
+.ql-picker-item {
+    color: hsl(var(--foreground));
+}
+
+.ql-picker-item:hover {
+    background-color: hsl(var(--muted));
+    color: hsl(var(--foreground));
+}
+
+.ql-picker-item.ql-selected {
+    background-color: hsl(var(--muted));
+    color: hsl(var(--primary));
+}
+
+/* Picker label styling */
+.ql-snow .ql-picker-label {
+    color: hsl(var(--foreground));
+}
+
+.ql-snow .ql-picker.ql-expanded .ql-picker-label {
+    background-color: hsl(var(--muted));
+}
+
+/* Snow theme tooltip */
+.ql-snow .ql-tooltip {
+    background-color: hsl(var(--card));
+    border-color: hsl(var(--border));
+    color: hsl(var(--foreground));
+    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+}
+
+.ql-snow .ql-tooltip input[type="text"] {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    border-color: hsl(var(--border));
+}
+
+.ql-snow .ql-tooltip a {
+    color: hsl(var(--primary));
+}
+
+/* Dark mode specific adjustments */
+.dark .ql-toolbar {
+    background-color: hsl(var(--card));
+    border-bottom-color: hsl(var(--border));
+}
+
+.dark .ql-container {
+    background-color: hsl(217 33% 17%);
+}
+
+.dark .ql-editor {
+    color: hsl(var(--foreground));
+    background-color: hsl(217 33% 17%);
+}
+
+/* Dark mode placeholder */
+.dark .ql-editor.ql-blank::before {
+    color: hsl(215 20% 50%);
+    opacity: 0.8;
+}
+
+/* Dark mode toolbar buttons */
+.dark .ql-toolbar .ql-stroke {
+    stroke: hsl(var(--foreground)) !important;
+}
+
+.dark .ql-toolbar .ql-fill {
+    fill: hsl(var(--foreground)) !important;
+}
+
+.dark .ql-toolbar .ql-picker-label {
+    color: hsl(var(--foreground)) !important;
+}
+
+.dark .ql-toolbar .ql-picker-label:hover,
+.dark .ql-toolbar button:hover {
+    background-color: hsl(217 33% 25%);
+    border-radius: 4px;
+}
+
+.dark .ql-toolbar button:hover .ql-stroke,
+.dark .ql-toolbar button:focus .ql-stroke,
+.dark .ql-toolbar button.ql-active .ql-stroke {
+    stroke: hsl(var(--primary)) !important;
+}
+
+.dark .ql-toolbar button:hover .ql-fill,
+.dark .ql-toolbar button:focus .ql-fill,
+.dark .ql-toolbar button.ql-active .ql-fill {
+    fill: hsl(var(--primary)) !important;
+}
+
+/* Dark mode active state */
+.dark .ql-toolbar button.ql-active {
+    background-color: hsl(217 33% 25%);
+}
+
+/* Dark mode picker options */
+.dark .ql-picker-options {
+    background-color: hsl(217 33% 20%) !important;
+    border: 1px solid hsl(var(--border)) !important;
+    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.3), 0 2px 4px -2px rgb(0 0 0 / 0.3);
+}
+
+.dark .ql-picker-item {
+    color: hsl(var(--foreground)) !important;
+}
+
+.dark .ql-picker-item:hover {
+    background-color: hsl(217 33% 30%) !important;
+    color: hsl(var(--foreground)) !important;
+}
+
+.dark .ql-picker.ql-expanded .ql-picker-label {
+    color: hsl(var(--foreground)) !important;
+    border-color: hsl(var(--border)) !important;
+    background-color: hsl(217 33% 25%) !important;
+}
+
+.dark .ql-picker.ql-expanded .ql-picker-options {
+    border-color: hsl(var(--border)) !important;
+    background-color: hsl(217 33% 20%) !important;
+}
+
+/* Dark mode - specific picker label text */
+.dark .ql-snow .ql-picker-label {
+    color: hsl(var(--foreground)) !important;
+}
+
+.dark .ql-snow .ql-picker-label::before {
+    color: hsl(var(--foreground)) !important;
+}
+
+/* Dark mode - picker options specific styles */
+.dark .ql-snow .ql-picker-options {
+    background-color: hsl(217 33% 20%) !important;
+}
+
+.dark .ql-snow .ql-picker.ql-expanded .ql-picker-options {
+    display: block !important;
+    background-color: hsl(217 33% 20%) !important;
+    border: 1px solid hsl(var(--border)) !important;
+}
+
+.dark .ql-snow .ql-picker-item {
+    color: hsl(var(--foreground)) !important;
+}
+
+.dark .ql-snow .ql-picker-item.ql-selected {
+    background-color: hsl(217 33% 30%) !important;
+    color: hsl(var(--primary)) !important;
+}
+
+/* Dark mode - header picker specific */
+.dark .ql-snow .ql-picker.ql-header .ql-picker-label[data-label]::before,
+.dark .ql-snow .ql-picker.ql-header .ql-picker-item[data-label]::before {
+    color: hsl(var(--foreground)) !important;
+}
+
+/* Dark mode - font and size pickers */
+.dark .ql-snow .ql-picker.ql-font .ql-picker-label::before,
+.dark .ql-snow .ql-picker.ql-font .ql-picker-item::before,
+.dark .ql-snow .ql-picker.ql-size .ql-picker-label::before,
+.dark .ql-snow .ql-picker.ql-size .ql-picker-item::before {
+    color: hsl(var(--foreground)) !important;
+}
+
+/* Dark mode - ensure all picker text is visible */
+.dark .ql-picker-label[data-value]::before,
+.dark .ql-picker-item[data-value]::before {
+    color: hsl(var(--foreground)) !important;
+}
+
+/* Dark mode tooltip */
+.dark .ql-snow .ql-tooltip {
+    background-color: hsl(var(--card));
+    border-color: hsl(var(--border));
+    color: hsl(var(--foreground));
+    box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.3),
+        0 4px 6px -4px rgb(0 0 0 / 0.3);
+}
+
+.dark .ql-snow .ql-tooltip input[type="text"] {
+    background-color: hsl(217 33% 17%);
+    color: hsl(var(--foreground));
+    border-color: hsl(var(--border));
+}
+
+.dark .ql-snow .ql-tooltip input[type="text"]:focus {
+    border-color: hsl(var(--ring));
+    outline: none;
+}
+
+.dark .ql-snow .ql-tooltip a {
+    color: hsl(var(--primary));
+}
+
+.dark .ql-snow .ql-tooltip .ql-preview {
+    color: hsl(var(--foreground));
+}
+
+/* Dark mode color picker */
+.dark .ql-color-picker .ql-picker-options {
+    background-color: hsl(var(--card));
+    padding: 4px;
+}
+
+/* Focus state for editor */
+.ql-container.ql-snow {
+    border-color: hsl(var(--border));
+}
+
+.quill:focus-within .ql-container {
+    border-color: hsl(var(--ring));
+    box-shadow: 0 0 0 2px hsla(27, 38%, 51%, 0.2);
+}
+
+.dark .quill:focus-within .ql-container {
+    box-shadow: 0 0 0 2px hsla(27, 35%, 60%, 0.2);
 }
