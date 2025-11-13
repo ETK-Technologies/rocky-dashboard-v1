@@ -1,6 +1,5 @@
 "use client";
 
-import { ProtectedRoute } from "@/components/common";
 import {
   PageContainer,
   PageHeader,
@@ -215,8 +214,7 @@ export default function AnalyticsPage() {
   const error = overviewError || salesError;
 
   return (
-    <ProtectedRoute roles={["admin", "super_admin"]}>
-      <PageContainer>
+    <PageContainer>
         <PageHeader
           title="Analytics Dashboard"
           subtitle="Comprehensive analytics and reporting for your business"
@@ -743,6 +741,5 @@ export default function AnalyticsPage() {
           </>
         )}
       </PageContainer>
-    </ProtectedRoute>
   );
 }

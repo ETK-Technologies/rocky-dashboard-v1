@@ -207,7 +207,7 @@ export default function Users() {
           label="Edit"
           variant="ghost"
           size="sm"
-          onClick={() => router.push(`/dashboard/super-admin/users/${user.id}`)}
+          onClick={() => router.push(`/dashboard/users/${user.id}`)}
         />
       </div>
       <div data-tooltip-id="user-tooltip" data-tooltip-content="Delete user">
@@ -242,7 +242,7 @@ export default function Users() {
           description="Manage all users. Only super admins can access this section."
           action={
             <CustomButton
-              onClick={() => router.push("/dashboard/super-admin/users/new")}
+              onClick={() => router.push("/dashboard/users/new")}
               className="flex items-center gap-2"
               size="sm"
             >
@@ -272,7 +272,7 @@ export default function Users() {
         description="Manage all users. Only super admins can access this section."
         action={
           <CustomButton
-            onClick={() => router.push("/dashboard/super-admin/users/new")}
+            onClick={() => router.push("/dashboard/users/new")}
             className="flex items-center gap-2"
             size="sm"
           >
@@ -317,7 +317,7 @@ export default function Users() {
               <select
                 value={params.role || ""}
                 onChange={(e) => setRole(e.target.value)}
-                className="w-full px-3 py-2 bg-background border border-input rounded-md text-foreground"
+                className="flex h-10 w-full rounded-md border px-3 py-2 text-sm transition-colors bg-white text-gray-900 border-gray-300 dark:bg-gray-800 dark:text-gray-100 dark:border-gray-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500 dark:focus-visible:ring-blue-400 focus-visible:border-blue-500 dark:focus-visible:border-blue-400 disabled:cursor-not-allowed disabled:opacity-50 disabled:bg-gray-100 dark:disabled:bg-gray-900"
               >
                 <option value="">All Roles</option>
                 {APP_ROLES.map((r) => (
@@ -333,7 +333,7 @@ export default function Users() {
               <select
                 value={params.isActive || ""}
                 onChange={(e) => setActive(e.target.value)}
-                className="w-full px-3 py-2 bg-background border border-input rounded-md text-foreground"
+                className="flex h-10 w-full rounded-md border px-3 py-2 text-sm transition-colors bg-white text-gray-900 border-gray-300 dark:bg-gray-800 dark:text-gray-100 dark:border-gray-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500 dark:focus-visible:ring-blue-400 focus-visible:border-blue-500 dark:focus-visible:border-blue-400 disabled:cursor-not-allowed disabled:opacity-50 disabled:bg-gray-100 dark:disabled:bg-gray-900"
               >
                 <option value="">All Status</option>
                 <option value="true">Active</option>
@@ -346,7 +346,7 @@ export default function Users() {
               <select
                 value={params.sortBy || "createdAt"}
                 onChange={(e) => setSort(e.target.value, params.sortOrder)}
-                className="w-full px-3 py-2 bg-background border border-input rounded-md text-foreground"
+                className="flex h-10 w-full rounded-md border px-3 py-2 text-sm transition-colors bg-white text-gray-900 border-gray-300 dark:bg-gray-800 dark:text-gray-100 dark:border-gray-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500 dark:focus-visible:ring-blue-400 focus-visible:border-blue-500 dark:focus-visible:border-blue-400 disabled:cursor-not-allowed disabled:opacity-50 disabled:bg-gray-100 dark:disabled:bg-gray-900"
               >
                 <option value="createdAt">Created Date</option>
                 <option value="email">Email</option>
@@ -361,7 +361,7 @@ export default function Users() {
               <select
                 value={params.sortOrder || "desc"}
                 onChange={(e) => setSort(params.sortBy, e.target.value)}
-                className="w-full px-3 py-2 bg-background border border-input rounded-md text-foreground"
+                className="flex h-10 w-full rounded-md border px-3 py-2 text-sm transition-colors bg-white text-gray-900 border-gray-300 dark:bg-gray-800 dark:text-gray-100 dark:border-gray-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500 dark:focus-visible:ring-blue-400 focus-visible:border-blue-500 dark:focus-visible:border-blue-400 disabled:cursor-not-allowed disabled:opacity-50 disabled:bg-gray-100 dark:disabled:bg-gray-900"
               >
                 <option value="asc">Ascending</option>
                 <option value="desc">Descending</option>
@@ -405,7 +405,7 @@ export default function Users() {
             </CustomButton>
           ) : (
             <CustomButton
-              onClick={() => router.push("/dashboard/super-admin/users/new")}
+              onClick={() => router.push("/dashboard/users/new")}
               className="flex items-center gap-2"
             >
               <Plus className="h-4 w-4" />
