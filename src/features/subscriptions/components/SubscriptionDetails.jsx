@@ -624,7 +624,7 @@ export default function SubscriptionDetails({ subscriptionId }) {
               const userId =
                 user.id || subscription.userId || subscription.user_id;
               if (userId) {
-                router.push(`/dashboard/super-admin/users/${userId}/edit`);
+                router.push(`/dashboard/super-admin/users/${userId}`);
               }
             }}
           >

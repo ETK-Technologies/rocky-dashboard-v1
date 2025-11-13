@@ -16,7 +16,10 @@ import { LoadingState } from "@/components/ui/LoadingState";
  * ProtectedRoute Component
  * @param {Object} props
  * @param {React.ReactNode} props.children - Content to protect
- * @param {string[]} props.roles - Allowed roles (empty = any authenticated user)
+ * @param {string[]} props.roles - Allowed roles (empty = any authenticated user) - DEPRECATED: Use permissions instead
+ * @param {string|string[]} props.permissions - Required permission(s) (e.g., "products.read" or ["products.read", "products.create"])
+ * @param {Object} props.permissionOptions - Options for permission checking
+ * @param {boolean} props.permissionOptions.requireAll - If true, requires all permissions (default: false)
  * @param {string} props.redirectTo - Where to redirect unauthorized users
  * @param {string} props.loadingMessage - Loading message to display
  * @param {React.ReactNode} props.fallback - Custom fallback component
@@ -25,6 +28,8 @@ import { LoadingState } from "@/components/ui/LoadingState";
 export default function ProtectedRoute({
   children,
   roles = [],
+  permissions = null,
+  permissionOptions = {},
   redirectTo = "/login",
   loadingMessage = "Checking permissions...",
   fallback = null,
@@ -32,11 +37,21 @@ export default function ProtectedRoute({
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { isAuthenticated, isLoading, user, isAuthorized } = useAuth();
+  const {
+    isAuthenticated,
+    isLoading,
+    user,
+    isAuthorized,
+    isAuthorizedByPermission,
+    permissionsLoaded,
+  } = useAuth();
 
   useEffect(() => {
     // Wait for loading to complete
     if (isLoading) return;
+
+    // Wait for permissions to load if permissions are required
+    if (permissions && !permissionsLoaded) return;
 
     // Check if user is authenticated
     if (!isAuthenticated) {
@@ -59,8 +74,17 @@ export default function ProtectedRoute({
       return;
     }
 
-    // Check if user has required role
-    if (roles.length > 0 && !isAuthorized(roles)) {
+    // Check permissions first (if provided), then fall back to roles
+    if (permissions) {
+      if (!isAuthorizedByPermission(permissions, permissionOptions)) {
+        if (showAccessDenied) {
+          toast.error("You don't have permission to access this page");
+        }
+        router.push("/dashboard"); // Redirect to dashboard if unauthorized
+        return;
+      }
+    } else if (roles.length > 0 && !isAuthorized(roles)) {
+      // Legacy role-based check (deprecated but still supported)
       if (showAccessDenied) {
         toast.error("You don't have permission to access this page");
       }
@@ -72,15 +96,19 @@ export default function ProtectedRoute({
     isLoading,
     user,
     roles,
+    permissions,
+    permissionOptions,
+    permissionsLoaded,
     router,
     redirectTo,
     isAuthorized,
+    isAuthorizedByPermission,
     showAccessDenied,
     searchParams,
   ]);
 
   // Show loading state
-  if (isLoading) {
+  if (isLoading || (permissions && !permissionsLoaded)) {
     if (fallback) {
       return fallback;
     }
@@ -96,7 +124,14 @@ export default function ProtectedRoute({
     return null; // Will redirect via useEffect
   }
 
-  // Check authorization
+  // Check authorization (permissions first, then roles)
+  if (
+    permissions &&
+    !isAuthorizedByPermission(permissions, permissionOptions)
+  ) {
+    return null; // Will redirect via useEffect
+  }
+
   if (roles.length > 0 && !isAuthorized(roles)) {
     return null; // Will redirect via useEffect
   }
@@ -124,6 +159,7 @@ export function withProtection(Component, options = {}) {
 /**
  * RoleGuard - Shows content only for specific roles
  * Doesn't redirect, just hides content
+ * @deprecated Use PermissionGuard instead
  */
 export function RoleGuard({ children, roles = [], fallback = null }) {
   const { isAuthenticated, isAuthorized } = useAuth();
@@ -133,6 +169,36 @@ export function RoleGuard({ children, roles = [], fallback = null }) {
   }
 
   if (roles.length > 0 && !isAuthorized(roles)) {
+    return fallback;
+  }
+
+  return <>{children}</>;
+}
+
+/**
+ * PermissionGuard - Shows content only if user has required permissions
+ * Doesn't redirect, just hides content
+ * @param {Object} props
+ * @param {React.ReactNode} props.children - Content to show/hide
+ * @param {string|string[]} props.permissions - Required permission(s)
+ * @param {Object} props.options - Options for permission checking
+ * @param {boolean} props.options.requireAll - If true, requires all permissions (default: false)
+ * @param {React.ReactNode} props.fallback - Content to show if permission check fails
+ */
+export function PermissionGuard({
+  children,
+  permissions,
+  options = {},
+  fallback = null,
+}) {
+  const { isAuthenticated, isAuthorizedByPermission, permissionsLoaded } =
+    useAuth();
+
+  if (!isAuthenticated || !permissionsLoaded) {
+    return fallback;
+  }
+
+  if (permissions && !isAuthorizedByPermission(permissions, options)) {
     return fallback;
   }
 
