@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import "react-quill-new/dist/quill.snow.css";
+import { X, ChevronDown, Check } from "lucide-react";
 import {
     CustomButton,
     PageContainer,
@@ -20,6 +21,8 @@ import { cn } from "@/utils/cn";
 import { generateSlug } from "@/utils/generateSlug";
 import { toast } from "react-toastify";
 import { useAuthStore } from "@/lib/store/authStore";
+import { useBlogCategories } from "@/features/blog-categories/hooks/useBlogCategories";
+import { useBlogTags } from "@/features/blog-tags/hooks/useBlogTags";
 
 // Dynamic import for ReactQuill to avoid SSR issues
 const ReactQuill = dynamic(() => import("react-quill-new"), { ssr: false });
@@ -79,10 +82,18 @@ export default function BlogForm({ blogId = null }) {
     // Get authenticated user for authorId
     const { user } = useAuthStore();
 
+    // Fetch blog categories and tags
+    const { categories: availableCategories, loading: categoriesLoading } =
+        useBlogCategories({ limit: 100 });
+    const { tags: availableTags, loading: tagsLoading } = useBlogTags({
+        limit: 100,
+    });
+
     // Form state
     const [formData, setFormData] = useState({
         title: "",
         slug: "",
+        shortDescription: "",
         content: "",
         featuredImageId: null, // Store the upload ID
         status: "DRAFT", // Default status
@@ -95,6 +106,15 @@ export default function BlogForm({ blogId = null }) {
     const [imageInputType, setImageInputType] = useState("upload"); // "upload" or "url"
     const [imageUrl, setImageUrl] = useState("");
     const [imagePreviewUrl, setImagePreviewUrl] = useState(null); // For preview display
+    const [selectedCategoryIds, setSelectedCategoryIds] = useState([]);
+    const [selectedTagIds, setSelectedTagIds] = useState([]);
+    const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
+    const [tagDropdownOpen, setTagDropdownOpen] = useState(false);
+    const [categorySearchQuery, setCategorySearchQuery] = useState("");
+    const [tagSearchQuery, setTagSearchQuery] = useState("");
+    const categoryDropdownRef = useRef(null);
+    const tagDropdownRef = useRef(null);
+    const formRef = useRef(null);
 
     // Initialize form data when blogData is loaded (edit mode)
     useEffect(() => {
@@ -175,6 +195,11 @@ export default function BlogForm({ blogId = null }) {
             setFormData({
                 title: blogData.title || "",
                 slug: blogData.slug || "",
+                shortDescription:
+                    blogData.excerpt ||
+                    blogData.metaDescription ||
+                    blogData.shortDescription ||
+                    "",
                 content: content,
                 featuredImageId:
                     blogData.featuredImageId ||
@@ -196,9 +221,63 @@ export default function BlogForm({ blogId = null }) {
                 setImageInputType("upload");
             }
 
+            // Set selected categories and tags
+            if (blogData.categories && Array.isArray(blogData.categories)) {
+                const categoryIds = blogData.categories.map(
+                    (c) => c.categoryId || c.category?.id || c.id
+                );
+                setSelectedCategoryIds(categoryIds.filter(Boolean));
+            }
+
+            if (blogData.tags && Array.isArray(blogData.tags)) {
+                const tagIds = blogData.tags.map(
+                    (t) => t.tagId || t.tag?.id || t.id
+                );
+                setSelectedTagIds(tagIds.filter(Boolean));
+            }
+
             setAutoSlug(false);
         }
     }, [blogData]);
+
+    // Close dropdowns when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (
+                categoryDropdownRef.current &&
+                !categoryDropdownRef.current.contains(event.target)
+            ) {
+                setCategoryDropdownOpen(false);
+            }
+            if (
+                tagDropdownRef.current &&
+                !tagDropdownRef.current.contains(event.target)
+            ) {
+                setTagDropdownOpen(false);
+            }
+        };
+
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => {
+            document.removeEventListener("mousedown", handleClickOutside);
+        };
+    }, []);
+
+    // Filter categories and tags based on search query
+    const filteredCategories = availableCategories.filter((category) =>
+        category.name.toLowerCase().includes(categorySearchQuery.toLowerCase())
+    );
+    const filteredTags = availableTags.filter((tag) =>
+        tag.name.toLowerCase().includes(tagSearchQuery.toLowerCase())
+    );
+
+    // Get selected category and tag names for display
+    const selectedCategories = availableCategories.filter((cat) =>
+        selectedCategoryIds.includes(cat.id)
+    );
+    const selectedTags = availableTags.filter((tag) =>
+        selectedTagIds.includes(tag.id)
+    );
 
     // Handle form field changes
     const handleChange = (field, value) => {
@@ -296,26 +375,26 @@ export default function BlogForm({ blogId = null }) {
             }
 
             // Prepare submission data
-            // Generate excerpt from content (first 160 characters)
             const contentText = formData.content?.trim() || "";
+            const shortDescription = formData.shortDescription?.trim() || "";
+
+            // Use short description for both excerpt and metaDescription
+            // If no short description provided, generate from content (first 160 characters)
             const excerpt =
-                contentText.length > 160
+                shortDescription ||
+                (contentText.length > 160
                     ? contentText.substring(0, 160) + "..."
-                    : contentText;
+                    : contentText);
 
             const submitData = {
                 title: formData.title.trim(),
                 slug: formData.slug.trim(),
                 excerpt: excerpt,
+                metaDescription: excerpt,
                 content: contentText,
                 status: formData.status, // Use status from form data
-                // Extract category IDs from nested structure
-                categoryIds:
-                    blogData?.categories?.map(
-                        (c) => c.categoryId || c.category?.id
-                    ) || [],
-                // Extract tag IDs from nested structure
-                tagIds: blogData?.tags?.map((t) => t.tagId || t.tag?.id) || [],
+                categoryIds: selectedCategoryIds,
+                tagIds: selectedTagIds,
             };
 
             // Only add authorId when creating (not editing)
@@ -363,16 +442,21 @@ export default function BlogForm({ blogId = null }) {
     };
 
     // Show loading state while fetching post data
-    if (fetchLoading) {
-        return (
-            <PageContainer>
-                <LoadingState message="Loading post..." />
-            </PageContainer>
-        );
-    }
+    // if (fetchLoading) {
+    //     return (
+    //         <PageContainer>
+    //             <LoadingState message="Loading post..." />
+    //         </PageContainer>
+    //     );
+    // }
 
     return (
         <PageContainer>
+            <LoadingState
+                message="Loading post..."
+                loading={fetchLoading || loading}
+                fullScreen={true}
+            />
             <PageHeader
                 title={isEditMode ? "Edit Blog" : "Add Blog"}
                 description={
@@ -381,372 +465,828 @@ export default function BlogForm({ blogId = null }) {
                         : "Create a new blog post"
                 }
                 action={
-                    <CustomButton
-                        variant="outline"
-                        onClick={() => router.push("/dashboard/blogs")}
-                    >
-                        Back to Blogs
-                    </CustomButton>
+                    <div className="flex gap-2">
+                        <CustomButton
+                            variant="outline"
+                            onClick={() => router.push("/dashboard/blogs")}
+                        >
+                            Back to Blogs
+                        </CustomButton>
+                        <CustomButton
+                            onClick={(e) => {
+                                e.preventDefault();
+                                if (formRef.current) {
+                                    formRef.current.requestSubmit();
+                                }
+                            }}
+                            disabled={loading}
+                            className="bg-[#af7f56] hover:bg-[#9d6f46] text-white"
+                        >
+                            {loading
+                                ? isEditMode
+                                    ? "Updating..."
+                                    : "Creating..."
+                                : isEditMode
+                                ? "Update Blog"
+                                : "Add Blog"}
+                        </CustomButton>
+                    </div>
                 }
             />
 
             <div className="max-w-full mx-auto">
-                <CustomCard>
-                    <CustomCardContent className="pt-6">
-                        <form onSubmit={handleSubmit} className="space-y-6">
-                            {/* Title */}
-                            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-start">
-                                <div className="md:col-span-1">
-                                    <CustomLabel
-                                        htmlFor="title"
-                                        className="text-sm font-medium"
-                                    >
-                                        Title
-                                    </CustomLabel>
-                                </div>
-                                <div className="md:col-span-3">
-                                    <CustomInput
-                                        id="title"
-                                        value={formData.title}
-                                        onChange={(e) =>
-                                            handleChange(
-                                                "title",
-                                                e.target.value
-                                            )
-                                        }
-                                        placeholder="Enter blog title"
-                                        className={
-                                            errors.title ? "border-red-500" : ""
-                                        }
-                                    />
-                                    <p className="text-xs text-muted-foreground mt-1">
-                                        The title is how it appears on your
-                                        site.
-                                    </p>
-                                    {errors.title && (
-                                        <p className="text-xs text-red-500 mt-1">
-                                            {errors.title}
-                                        </p>
-                                    )}
-                                </div>
-                            </div>
-
-                            {/* Slug */}
-                            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-start">
-                                <div className="md:col-span-1">
-                                    <CustomLabel
-                                        htmlFor="slug"
-                                        className="text-sm font-medium"
-                                    >
-                                        Slug
-                                    </CustomLabel>
-                                </div>
-                                <div className="md:col-span-3">
-                                    <CustomInput
-                                        id="slug"
-                                        value={formData.slug}
-                                        onChange={(e) =>
-                                            handleSlugChange(e.target.value)
-                                        }
-                                        placeholder="blog-slug"
-                                        className={
-                                            errors.slug ? "border-red-500" : ""
-                                        }
-                                    />
-                                    <p className="text-xs text-muted-foreground mt-1">
-                                        The &quot;slug&quot; is the URL-friendly
-                                        version of the title. It is usually all
-                                        lowercase and contains only letters,
-                                        numbers, and hyphens.
-                                    </p>
-                                    {errors.slug && (
-                                        <p className="text-xs text-red-500 mt-1">
-                                            {errors.slug}
-                                        </p>
-                                    )}
-                                </div>
-                            </div>
-
-                            {/* Status */}
-                            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-start">
-                                <div className="md:col-span-1">
-                                    <CustomLabel
-                                        htmlFor="status"
-                                        className="text-sm font-medium"
-                                    >
-                                        Status
-                                    </CustomLabel>
-                                </div>
-                                <div className="md:col-span-3">
-                                    <select
-                                        id="status"
-                                        value={formData.status}
-                                        onChange={(e) =>
-                                            handleChange(
-                                                "status",
-                                                e.target.value
-                                            )
-                                        }
-                                        className="w-full px-3 py-2 text-sm bg-background border border-input rounded-md text-foreground focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-800 dark:border-gray-700"
-                                    >
-                                        <option value="DRAFT">Draft</option>
-                                        <option value="PUBLISHED">
-                                            Published
-                                        </option>
-                                        <option value="SCHEDULED">
-                                            Scheduled
-                                        </option>
-                                    </select>
-                                    <p className="text-xs text-muted-foreground mt-1">
-                                        Set the publication status of your blog
-                                        post.
-                                    </p>
-                                </div>
-                            </div>
-
-                            {/* Published Date (only for SCHEDULED status) */}
-                            {formData.status === "SCHEDULED" && (
-                                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-start">
-                                    <div className="md:col-span-1">
+                <form
+                    ref={formRef}
+                    onSubmit={handleSubmit}
+                    className="space-y-6"
+                >
+                    {/* Two-column layout for large screens */}
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                        {/* Left Column - All Inputs */}
+                        <div className="lg:col-span-8 space-y-6">
+                            <CustomCard>
+                                <CustomCardContent className="pt-6 space-y-6">
+                                    {/* Title */}
+                                    <div>
                                         <CustomLabel
-                                            htmlFor="publishedAt"
-                                            className="text-sm font-medium"
+                                            htmlFor="title"
+                                            className="text-sm font-medium block mb-2"
                                         >
-                                            Publish Date & Time
-                                            <span className="text-red-500 ml-1">
-                                                *
-                                            </span>
+                                            Title
                                         </CustomLabel>
-                                    </div>
-                                    <div className="md:col-span-3">
                                         <CustomInput
-                                            id="publishedAt"
-                                            type="datetime-local"
-                                            value={formData.publishedAt}
+                                            id="title"
+                                            value={formData.title}
                                             onChange={(e) =>
                                                 handleChange(
-                                                    "publishedAt",
+                                                    "title",
                                                     e.target.value
                                                 )
                                             }
+                                            placeholder="Enter blog title"
                                             className={
-                                                errors.publishedAt
-                                                    ? "border-red-500 w-full block"
-                                                    : " w-full block"
+                                                errors.title
+                                                    ? "border-red-500"
+                                                    : ""
                                             }
                                         />
                                         <p className="text-xs text-muted-foreground mt-1">
-                                            Set when this post should be
-                                            automatically published.
+                                            The title is how it appears on your
+                                            site.
                                         </p>
-                                        {errors.publishedAt && (
+                                        {errors.title && (
                                             <p className="text-xs text-red-500 mt-1">
-                                                {errors.publishedAt}
+                                                {errors.title}
                                             </p>
                                         )}
                                     </div>
-                                </div>
-                            )}
 
-                            {/* Featured Image */}
-                            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-start">
-                                <div className="md:col-span-1">
-                                    <CustomLabel
-                                        htmlFor="image"
-                                        className="text-sm font-medium"
-                                    >
-                                        Featured Image
-                                    </CustomLabel>
-                                </div>
-                                <div className="md:col-span-3">
-                                    {/* Image Input Type Selector */}
-                                    <div className="flex gap-4 mb-4">
-                                        <label className="flex items-center gap-2 cursor-pointer">
-                                            <input
-                                                type="radio"
-                                                name="imageInputType"
-                                                value="upload"
-                                                checked={
-                                                    imageInputType === "upload"
-                                                }
-                                                onChange={() =>
-                                                    handleImageInputTypeChange(
-                                                        "upload"
-                                                    )
-                                                }
-                                                className="rounded-full border-gray-300 text-primary focus:ring-primary"
-                                            />
-                                            <span className="text-sm text-foreground">
-                                                Upload Image
-                                            </span>
-                                        </label>
-                                        <label className="flex items-center gap-2 cursor-pointer">
-                                            <input
-                                                type="radio"
-                                                name="imageInputType"
-                                                value="url"
-                                                checked={
-                                                    imageInputType === "url"
-                                                }
-                                                onChange={() =>
-                                                    handleImageInputTypeChange(
-                                                        "url"
-                                                    )
-                                                }
-                                                className="rounded-full border-gray-300 text-primary focus:ring-primary"
-                                            />
-                                            <span className="text-sm text-foreground">
-                                                Image URL
-                                            </span>
-                                        </label>
+                                    {/* Slug */}
+                                    <div>
+                                        <CustomLabel
+                                            htmlFor="slug"
+                                            className="text-sm font-medium block mb-2"
+                                        >
+                                            Slug
+                                        </CustomLabel>
+                                        <CustomInput
+                                            id="slug"
+                                            value={formData.slug}
+                                            onChange={(e) =>
+                                                handleSlugChange(e.target.value)
+                                            }
+                                            placeholder="blog-slug"
+                                            className={
+                                                errors.slug
+                                                    ? "border-red-500"
+                                                    : ""
+                                            }
+                                        />
+                                        <p className="text-xs text-muted-foreground mt-1">
+                                            The &quot;slug&quot; is the
+                                            URL-friendly version of the title.
+                                            It is usually all lowercase and
+                                            contains only letters, numbers, and
+                                            hyphens.
+                                        </p>
+                                        {errors.slug && (
+                                            <p className="text-xs text-red-500 mt-1">
+                                                {errors.slug}
+                                            </p>
+                                        )}
                                     </div>
 
-                                    {/* Conditional Input Based on Type */}
-                                    {imageInputType === "upload" ? (
-                                        <SingleImageUploadWithId
-                                            value={imagePreviewUrl}
-                                            onChange={(imageData) => {
-                                                // Handle removal (null)
-                                                if (imageData === null) {
-                                                    setFormData((prev) => ({
-                                                        ...prev,
-                                                        featuredImageId: null,
-                                                    }));
-                                                    setImagePreviewUrl("");
-                                                }
-                                                // Handle object with id and url
-                                                else if (
-                                                    typeof imageData ===
-                                                        "object" &&
-                                                    imageData.id
-                                                ) {
-                                                    setFormData((prev) => ({
-                                                        ...prev,
-                                                        featuredImageId:
-                                                            imageData.id,
-                                                    }));
-                                                    setImagePreviewUrl(
-                                                        imageData.url
-                                                    );
-                                                }
-                                                // Fallback for backward compatibility (string)
-                                                else if (
-                                                    typeof imageData ===
-                                                    "string"
-                                                ) {
-                                                    setFormData((prev) => ({
-                                                        ...prev,
-                                                        featuredImageId:
-                                                            imageData,
-                                                    }));
-                                                }
-                                                setIsDirty(true);
-                                            }}
-                                            helperText="Upload a featured image for your blog post"
+                                    {/* Short Description */}
+                                    <div>
+                                        <CustomLabel
+                                            htmlFor="shortDescription"
+                                            className="text-sm font-medium block mb-2"
+                                        >
+                                            Short Description
+                                        </CustomLabel>
+                                        <textarea
+                                            id="shortDescription"
+                                            value={formData.shortDescription}
+                                            onChange={(e) =>
+                                                handleChange(
+                                                    "shortDescription",
+                                                    e.target.value
+                                                )
+                                            }
+                                            placeholder="Enter a brief description for your blog post..."
+                                            rows={4}
+                                            className={cn(
+                                                "w-full px-3 py-2 text-sm bg-background border rounded-md text-foreground",
+                                                "focus:outline-none focus:ring-2 focus:ring-primary",
+                                                "border-input dark:bg-gray-800 dark:border-gray-700",
+                                                "resize-none"
+                                            )}
                                         />
-                                    ) : (
+                                        <p className="text-xs text-muted-foreground mt-1">
+                                            A brief summary of your blog post.
+                                            This will be used as the excerpt and
+                                            meta description for SEO.
+                                        </p>
+                                    </div>
+
+                                    <div>
+                                        <CustomLabel className="text-sm font-medium block mb-2">
+                                            Categories
+                                        </CustomLabel>
+                                        <div
+                                            className="relative"
+                                            ref={categoryDropdownRef}
+                                        >
+                                            {/* Selected Categories Display */}
+                                            {selectedCategories.length > 0 && (
+                                                <div className="flex flex-wrap gap-2 mb-2">
+                                                    {selectedCategories.map(
+                                                        (category) => (
+                                                            <span
+                                                                key={
+                                                                    category.id
+                                                                }
+                                                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 text-sm font-medium"
+                                                            >
+                                                                {category.name}
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => {
+                                                                        setSelectedCategoryIds(
+                                                                            (
+                                                                                prev
+                                                                            ) =>
+                                                                                prev.filter(
+                                                                                    (
+                                                                                        id
+                                                                                    ) =>
+                                                                                        id !==
+                                                                                        category.id
+                                                                                )
+                                                                        );
+                                                                        setIsDirty(
+                                                                            true
+                                                                        );
+                                                                    }}
+                                                                    className="ml-1 hover:bg-blue-200 dark:hover:bg-blue-800 rounded-full p-0.5 transition-colors"
+                                                                >
+                                                                    <X className="h-3.5 w-3.5" />
+                                                                </button>
+                                                            </span>
+                                                        )
+                                                    )}
+                                                </div>
+                                            )}
+
+                                            {/* Multi-Select Dropdown */}
+                                            <div className="relative">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setCategoryDropdownOpen(
+                                                            !categoryDropdownOpen
+                                                        );
+                                                        setCategorySearchQuery(
+                                                            ""
+                                                        );
+                                                    }}
+                                                    className={cn(
+                                                        "w-full px-3 py-2 text-sm bg-background border rounded-md text-left flex items-center justify-between",
+                                                        "border-input text-foreground",
+                                                        "focus:outline-none focus:ring-2 focus:ring-primary",
+                                                        "hover:border-gray-400 dark:hover:border-gray-500 bg-gray-800"
+                                                    )}
+                                                >
+                                                    <span className="text-muted-foreground">
+                                                        {selectedCategories.length >
+                                                        0
+                                                            ? `${selectedCategories.length} selected`
+                                                            : "Select categories..."}
+                                                    </span>
+                                                    <ChevronDown
+                                                        className={cn(
+                                                            "h-4 w-4 text-muted-foreground transition-transform",
+                                                            categoryDropdownOpen &&
+                                                                "transform rotate-180"
+                                                        )}
+                                                    />
+                                                </button>
+
+                                                {/* Dropdown Menu */}
+                                                {categoryDropdownOpen && (
+                                                    <div
+                                                        className={cn(
+                                                            "absolute z-50 w-full mt-1 bg-background border border-input rounded-md shadow-lg",
+                                                            "max-h-64 overflow-hidden flex flex-col bg-gray-800"
+                                                        )}
+                                                    >
+                                                        {/* Search Input */}
+                                                        <div className="p-2 border-b border-input">
+                                                            <CustomInput
+                                                                type="text"
+                                                                placeholder="Search categories..."
+                                                                value={
+                                                                    categorySearchQuery
+                                                                }
+                                                                onChange={(e) =>
+                                                                    setCategorySearchQuery(
+                                                                        e.target
+                                                                            .value
+                                                                    )
+                                                                }
+                                                                className="w-full"
+                                                                onClick={(e) =>
+                                                                    e.stopPropagation()
+                                                                }
+                                                            />
+                                                        </div>
+
+                                                        {/* Options List */}
+                                                        <div className="overflow-y-auto max-h-48 bg-gray-800">
+                                                            {categoriesLoading ? (
+                                                                <div className="p-3 text-sm text-muted-foreground text-center">
+                                                                    Loading
+                                                                    categories...
+                                                                </div>
+                                                            ) : filteredCategories.length ===
+                                                              0 ? (
+                                                                <div className="p-3 text-sm text-muted-foreground text-center">
+                                                                    {categorySearchQuery
+                                                                        ? "No categories found"
+                                                                        : "No categories available"}
+                                                                </div>
+                                                            ) : (
+                                                                <div className="py-1">
+                                                                    {filteredCategories.map(
+                                                                        (
+                                                                            category
+                                                                        ) => {
+                                                                            const isSelected =
+                                                                                selectedCategoryIds.includes(
+                                                                                    category.id
+                                                                                );
+                                                                            return (
+                                                                                <button
+                                                                                    key={
+                                                                                        category.id
+                                                                                    }
+                                                                                    type="button"
+                                                                                    onClick={() => {
+                                                                                        if (
+                                                                                            isSelected
+                                                                                        ) {
+                                                                                            setSelectedCategoryIds(
+                                                                                                (
+                                                                                                    prev
+                                                                                                ) =>
+                                                                                                    prev.filter(
+                                                                                                        (
+                                                                                                            id
+                                                                                                        ) =>
+                                                                                                            id !==
+                                                                                                            category.id
+                                                                                                    )
+                                                                                            );
+                                                                                        } else {
+                                                                                            setSelectedCategoryIds(
+                                                                                                (
+                                                                                                    prev
+                                                                                                ) => [
+                                                                                                    ...prev,
+                                                                                                    category.id,
+                                                                                                ]
+                                                                                            );
+                                                                                        }
+                                                                                        setIsDirty(
+                                                                                            true
+                                                                                        );
+                                                                                    }}
+                                                                                    className={cn(
+                                                                                        "w-full text-left px-4 py-2 text-sm flex items-center gap-2 transition-colors",
+                                                                                        isSelected
+                                                                                            ? "bg-blue-50 dark:bg-blue-900/20 text-blue-900 dark:text-blue-200"
+                                                                                            : "hover:bg-muted/50 text-foreground"
+                                                                                    )}
+                                                                                >
+                                                                                    {isSelected && (
+                                                                                        <Check className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                                                                                    )}
+                                                                                    <span
+                                                                                        className={
+                                                                                            isSelected
+                                                                                                ? ""
+                                                                                                : "ml-6"
+                                                                                        }
+                                                                                    >
+                                                                                        {
+                                                                                            category.name
+                                                                                        }
+                                                                                    </span>
+                                                                                </button>
+                                                                            );
+                                                                        }
+                                                                    )}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                        <p className="text-xs text-muted-foreground mt-1">
+                                            Select one or more categories for
+                                            this blog post.
+                                        </p>
+                                    </div>
+
+                                    {/* Tags */}
+                                    <div>
+                                        <CustomLabel className="text-sm font-medium block mb-2">
+                                            Tags
+                                        </CustomLabel>
+                                        <div
+                                            className="relative"
+                                            ref={tagDropdownRef}
+                                        >
+                                            {/* Selected Tags Display */}
+                                            {selectedTags.length > 0 && (
+                                                <div className="flex flex-wrap gap-2 mb-2">
+                                                    {selectedTags.map((tag) => (
+                                                        <span
+                                                            key={tag.id}
+                                                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 text-sm font-medium"
+                                                        >
+                                                            {tag.name}
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    setSelectedTagIds(
+                                                                        (
+                                                                            prev
+                                                                        ) =>
+                                                                            prev.filter(
+                                                                                (
+                                                                                    id
+                                                                                ) =>
+                                                                                    id !==
+                                                                                    tag.id
+                                                                            )
+                                                                    );
+                                                                    setIsDirty(
+                                                                        true
+                                                                    );
+                                                                }}
+                                                                className="ml-1 hover:bg-green-200 dark:hover:bg-green-800 rounded-full p-0.5 transition-colors"
+                                                            >
+                                                                <X className="h-3.5 w-3.5" />
+                                                            </button>
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            )}
+
+                                            {/* Multi-Select Dropdown */}
+                                            <div className="relative">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setTagDropdownOpen(
+                                                            !tagDropdownOpen
+                                                        );
+                                                        setTagSearchQuery("");
+                                                    }}
+                                                    className={cn(
+                                                        "w-full px-3 py-2 text-sm bg-background border rounded-md text-left flex items-center justify-between",
+                                                        "border-input text-foreground",
+                                                        "focus:outline-none focus:ring-2 focus:ring-primary",
+                                                        "hover:border-gray-400 dark:hover:border-gray-500 bg-gray-800"
+                                                    )}
+                                                >
+                                                    <span className="text-muted-foreground">
+                                                        {selectedTags.length > 0
+                                                            ? `${selectedTags.length} selected`
+                                                            : "Select tags..."}
+                                                    </span>
+                                                    <ChevronDown
+                                                        className={cn(
+                                                            "h-4 w-4 text-muted-foreground transition-transform",
+                                                            tagDropdownOpen &&
+                                                                "transform rotate-180"
+                                                        )}
+                                                    />
+                                                </button>
+
+                                                {/* Dropdown Menu */}
+                                                {tagDropdownOpen && (
+                                                    <div
+                                                        className={cn(
+                                                            "absolute z-50 w-full mt-1 bg-background border border-input rounded-md shadow-lg",
+                                                            "max-h-64 overflow-hidden flex flex-col bg-gray-800"
+                                                        )}
+                                                    >
+                                                        {/* Search Input */}
+                                                        <div className="p-2 border-b border-input">
+                                                            <CustomInput
+                                                                type="text"
+                                                                placeholder="Search tags..."
+                                                                value={
+                                                                    tagSearchQuery
+                                                                }
+                                                                onChange={(e) =>
+                                                                    setTagSearchQuery(
+                                                                        e.target
+                                                                            .value
+                                                                    )
+                                                                }
+                                                                className="w-full"
+                                                                onClick={(e) =>
+                                                                    e.stopPropagation()
+                                                                }
+                                                            />
+                                                        </div>
+
+                                                        {/* Options List */}
+                                                        <div className="overflow-y-auto max-h-48">
+                                                            {tagsLoading ? (
+                                                                <div className="p-3 text-sm text-muted-foreground text-center">
+                                                                    Loading
+                                                                    tags...
+                                                                </div>
+                                                            ) : filteredTags.length ===
+                                                              0 ? (
+                                                                <div className="p-3 text-sm text-muted-foreground text-center">
+                                                                    {tagSearchQuery
+                                                                        ? "No tags found"
+                                                                        : "No tags available"}
+                                                                </div>
+                                                            ) : (
+                                                                <div className="py-1">
+                                                                    {filteredTags.map(
+                                                                        (
+                                                                            tag
+                                                                        ) => {
+                                                                            const isSelected =
+                                                                                selectedTagIds.includes(
+                                                                                    tag.id
+                                                                                );
+                                                                            return (
+                                                                                <button
+                                                                                    key={
+                                                                                        tag.id
+                                                                                    }
+                                                                                    type="button"
+                                                                                    onClick={() => {
+                                                                                        if (
+                                                                                            isSelected
+                                                                                        ) {
+                                                                                            setSelectedTagIds(
+                                                                                                (
+                                                                                                    prev
+                                                                                                ) =>
+                                                                                                    prev.filter(
+                                                                                                        (
+                                                                                                            id
+                                                                                                        ) =>
+                                                                                                            id !==
+                                                                                                            tag.id
+                                                                                                    )
+                                                                                            );
+                                                                                        } else {
+                                                                                            setSelectedTagIds(
+                                                                                                (
+                                                                                                    prev
+                                                                                                ) => [
+                                                                                                    ...prev,
+                                                                                                    tag.id,
+                                                                                                ]
+                                                                                            );
+                                                                                        }
+                                                                                        setIsDirty(
+                                                                                            true
+                                                                                        );
+                                                                                    }}
+                                                                                    className={cn(
+                                                                                        "w-full text-left px-4 py-2 text-sm flex items-center gap-2 transition-colors",
+                                                                                        isSelected
+                                                                                            ? "bg-green-50 dark:bg-green-900/20 text-green-900 dark:text-green-200"
+                                                                                            : "hover:bg-muted/50 text-foreground"
+                                                                                    )}
+                                                                                >
+                                                                                    {isSelected && (
+                                                                                        <Check className="h-4 w-4 text-green-600 dark:text-green-400" />
+                                                                                    )}
+                                                                                    <span
+                                                                                        className={
+                                                                                            isSelected
+                                                                                                ? ""
+                                                                                                : "ml-6"
+                                                                                        }
+                                                                                    >
+                                                                                        {
+                                                                                            tag.name
+                                                                                        }
+                                                                                    </span>
+                                                                                </button>
+                                                                            );
+                                                                        }
+                                                                    )}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                        <p className="text-xs text-muted-foreground mt-1">
+                                            Select one or more tags for this
+                                            blog post.
+                                        </p>
+                                    </div>
+
+                                    {/* Status */}
+                                    <div>
+                                        <CustomLabel
+                                            htmlFor="status"
+                                            className="text-sm font-medium block mb-2"
+                                        >
+                                            Status
+                                        </CustomLabel>
+                                        <select
+                                            id="status"
+                                            value={formData.status}
+                                            onChange={(e) =>
+                                                handleChange(
+                                                    "status",
+                                                    e.target.value
+                                                )
+                                            }
+                                            className="w-full px-3 py-2 text-sm bg-background border border-input rounded-md text-foreground focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-800 dark:border-gray-700"
+                                        >
+                                            <option value="DRAFT">Draft</option>
+                                            <option value="PUBLISHED">
+                                                Published
+                                            </option>
+                                            <option value="SCHEDULED">
+                                                Scheduled
+                                            </option>
+                                        </select>
+                                        <p className="text-xs text-muted-foreground mt-1">
+                                            Set the publication status of your
+                                            blog post.
+                                        </p>
+                                    </div>
+
+                                    {/* Published Date (only for SCHEDULED status) */}
+                                    {formData.status === "SCHEDULED" && (
                                         <div>
+                                            <CustomLabel
+                                                htmlFor="publishedAt"
+                                                className="text-sm font-medium block mb-2"
+                                            >
+                                                Publish Date & Time
+                                                <span className="text-red-500 ml-1">
+                                                    *
+                                                </span>
+                                            </CustomLabel>
                                             <CustomInput
-                                                id="imageUrl"
-                                                value={imageUrl}
+                                                id="publishedAt"
+                                                type="datetime-local"
+                                                value={formData.publishedAt}
                                                 onChange={(e) =>
-                                                    handleImageUrlChange(
+                                                    handleChange(
+                                                        "publishedAt",
                                                         e.target.value
                                                     )
                                                 }
-                                                placeholder="https://example.com/image.jpg"
-                                                type="url"
+                                                className={
+                                                    errors.publishedAt
+                                                        ? "border-red-500 w-full block"
+                                                        : " w-full block"
+                                                }
                                             />
                                             <p className="text-xs text-muted-foreground mt-1">
-                                                Enter the URL of the image you
-                                                want to use
+                                                Set when this post should be
+                                                automatically published.
                                             </p>
-                                            {imageUrl && (
-                                                <div className="mt-3">
-                                                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                                                    <img
-                                                        src={imageUrl}
-                                                        alt="Preview"
-                                                        className="max-w-xs rounded-md border border-input"
-                                                        onError={(e) => {
-                                                            e.target.style.display =
-                                                                "none";
-                                                        }}
-                                                        onLoad={(e) => {
-                                                            e.target.style.display =
-                                                                "block";
-                                                        }}
-                                                    />
-                                                </div>
+                                            {errors.publishedAt && (
+                                                <p className="text-xs text-red-500 mt-1">
+                                                    {errors.publishedAt}
+                                                </p>
                                             )}
                                         </div>
                                     )}
-                                </div>
-                            </div>
+                                </CustomCardContent>
+                            </CustomCard>
 
                             {/* Content - Rich Text Editor */}
-                            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-start">
-                                <div className="md:col-span-1">
-                                    <CustomLabel
-                                        htmlFor="content"
-                                        className="text-sm font-medium"
-                                    >
-                                        Content
-                                    </CustomLabel>
-                                </div>
-                                <div className="md:col-span-3">
-                                    <div
-                                        className={cn(
-                                            "bg-background border rounded-md overflow-hidden",
-                                            errors.content
-                                                ? "border-red-500"
-                                                : "border-input"
-                                        )}
-                                    >
-                                        <ReactQuill
-                                            theme="snow"
-                                            value={formData.content}
-                                            onChange={(value) =>
-                                                handleChange("content", value)
-                                            }
-                                            modules={quillModules}
-                                            formats={quillFormats}
-                                            placeholder="Start writing your blog post..."
-                                            className="bg-background text-foreground"
-                                            style={{ minHeight: "400px" }}
-                                        />
-                                    </div>
-                                    <p className="text-xs text-muted-foreground mt-1">
-                                        Write your blog content using the rich
-                                        text editor.
-                                    </p>
-                                    {errors.content && (
-                                        <p className="text-xs text-red-500 mt-1">
-                                            {errors.content}
+                            <CustomCard>
+                                <CustomCardContent className="pt-6">
+                                    <div>
+                                        <CustomLabel
+                                            htmlFor="content"
+                                            className="text-sm font-medium block mb-2"
+                                        >
+                                            Content
+                                        </CustomLabel>
+                                        <div
+                                            className={cn(
+                                                "bg-background border rounded-md overflow-hidden",
+                                                errors.content
+                                                    ? "border-red-500"
+                                                    : "border-input"
+                                            )}
+                                        >
+                                            <ReactQuill
+                                                theme="snow"
+                                                value={formData.content}
+                                                onChange={(value) =>
+                                                    handleChange(
+                                                        "content",
+                                                        value
+                                                    )
+                                                }
+                                                modules={quillModules}
+                                                formats={quillFormats}
+                                                placeholder="Start writing your blog post..."
+                                                className="bg-background text-foreground"
+                                                style={{ minHeight: "400px" }}
+                                            />
+                                        </div>
+                                        <p className="text-xs text-muted-foreground mt-1">
+                                            Write your blog content using the
+                                            rich text editor.
                                         </p>
-                                    )}
-                                </div>
-                            </div>
+                                        {errors.content && (
+                                            <p className="text-xs text-red-500 mt-1">
+                                                {errors.content}
+                                            </p>
+                                        )}
+                                    </div>
+                                </CustomCardContent>
+                            </CustomCard>
+                        </div>
 
-                            {/* Action Button */}
-                            <div className="pt-4 flex justify-end">
-                                <CustomButton
-                                    type="submit"
-                                    disabled={loading}
-                                    className="bg-[#af7f56] hover:bg-[#9d6f46] text-white"
-                                >
-                                    {loading
-                                        ? isEditMode
-                                            ? "Updating..."
-                                            : "Creating..."
-                                        : isEditMode
-                                        ? "Update Blog"
-                                        : "Add Blog"}
-                                </CustomButton>
-                            </div>
-                        </form>
-                    </CustomCardContent>
-                </CustomCard>
+                        {/* Right Column - Featured Image */}
+                        <div className="lg:col-span-4">
+                            <CustomCard>
+                                <CustomCardContent className="pt-6">
+                                    <div>
+                                        <CustomLabel
+                                            htmlFor="image"
+                                            className="text-sm font-medium block mb-2"
+                                        >
+                                            Featured Image
+                                        </CustomLabel>
+                                        {/* Image Input Type Selector */}
+                                        <div className="flex gap-4 mb-4">
+                                            <label className="flex items-center gap-2 cursor-pointer">
+                                                <input
+                                                    type="radio"
+                                                    name="imageInputType"
+                                                    value="upload"
+                                                    checked={
+                                                        imageInputType ===
+                                                        "upload"
+                                                    }
+                                                    onChange={() =>
+                                                        handleImageInputTypeChange(
+                                                            "upload"
+                                                        )
+                                                    }
+                                                    className="rounded-full border-gray-300 text-primary focus:ring-primary"
+                                                />
+                                                <span className="text-sm text-foreground">
+                                                    Upload Image
+                                                </span>
+                                            </label>
+                                            <label className="flex items-center gap-2 cursor-pointer">
+                                                <input
+                                                    type="radio"
+                                                    name="imageInputType"
+                                                    value="url"
+                                                    checked={
+                                                        imageInputType === "url"
+                                                    }
+                                                    onChange={() =>
+                                                        handleImageInputTypeChange(
+                                                            "url"
+                                                        )
+                                                    }
+                                                    className="rounded-full border-gray-300 text-primary focus:ring-primary"
+                                                />
+                                                <span className="text-sm text-foreground">
+                                                    Image URL
+                                                </span>
+                                            </label>
+                                        </div>
+
+                                        {/* Conditional Input Based on Type */}
+                                        {imageInputType === "upload" ? (
+                                            <SingleImageUploadWithId
+                                                value={imagePreviewUrl}
+                                                onChange={(imageData) => {
+                                                    // Handle removal (null)
+                                                    if (imageData === null) {
+                                                        setFormData((prev) => ({
+                                                            ...prev,
+                                                            featuredImageId:
+                                                                null,
+                                                        }));
+                                                        setImagePreviewUrl("");
+                                                    }
+                                                    // Handle object with id and url
+                                                    else if (
+                                                        typeof imageData ===
+                                                            "object" &&
+                                                        imageData.id
+                                                    ) {
+                                                        setFormData((prev) => ({
+                                                            ...prev,
+                                                            featuredImageId:
+                                                                imageData.id,
+                                                        }));
+                                                        setImagePreviewUrl(
+                                                            imageData.url
+                                                        );
+                                                    }
+                                                    // Fallback for backward compatibility (string)
+                                                    else if (
+                                                        typeof imageData ===
+                                                        "string"
+                                                    ) {
+                                                        setFormData((prev) => ({
+                                                            ...prev,
+                                                            featuredImageId:
+                                                                imageData,
+                                                        }));
+                                                    }
+                                                    setIsDirty(true);
+                                                }}
+                                                helperText="Upload a featured image for your blog post"
+                                            />
+                                        ) : (
+                                            <div>
+                                                <CustomInput
+                                                    id="imageUrl"
+                                                    value={imageUrl}
+                                                    onChange={(e) =>
+                                                        handleImageUrlChange(
+                                                            e.target.value
+                                                        )
+                                                    }
+                                                    placeholder="https://example.com/image.jpg"
+                                                    type="url"
+                                                />
+                                                <p className="text-xs text-muted-foreground mt-1">
+                                                    Enter the URL of the image
+                                                    you want to use
+                                                </p>
+                                                {imageUrl && (
+                                                    <div className="mt-3">
+                                                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                        <img
+                                                            src={imageUrl}
+                                                            alt="Preview"
+                                                            className="max-w-xs rounded-md border border-input"
+                                                            onError={(e) => {
+                                                                e.target.style.display =
+                                                                    "none";
+                                                            }}
+                                                            onLoad={(e) => {
+                                                                e.target.style.display =
+                                                                    "block";
+                                                            }}
+                                                        />
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                </CustomCardContent>
+                            </CustomCard>
+                        </div>
+                    </div>
+                </form>
             </div>
         </PageContainer>
     );

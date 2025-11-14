@@ -12,6 +12,12 @@ import {
     Trash2,
     ArrowUp,
     ArrowDown,
+    X,
+    ChevronDown,
+    Check,
+    Edit,
+    Eye,
+    Download,
 } from "lucide-react";
 import {
     CustomButton,
@@ -27,6 +33,8 @@ import {
 import { useBlogs } from "../hooks/useBlogs";
 import { useBlogCategories } from "@/features/blog-categories";
 import { useBlogTags } from "@/features/blog-tags";
+import { LoadingState } from "@/components/ui/LoadingState";
+import { cn } from "@/utils/cn";
 
 export default function Blogs() {
     const router = useRouter();
@@ -39,8 +47,11 @@ export default function Blogs() {
         pagination,
         updateFilters,
     } = useBlogs();
-    const { categories } = useBlogCategories();
-    const { tags } = useBlogTags();
+    const { categories: availableCategories, loading: categoriesLoading } =
+        useBlogCategories({ limit: 100 });
+    const { tags: availableTags, loading: tagsLoading } = useBlogTags({
+        limit: 100,
+    });
     const [searchTerm, setSearchTerm] = useState("");
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [blogToDelete, setBlogToDelete] = useState(null);
@@ -52,8 +63,13 @@ export default function Blogs() {
     const [authorFilter, setAuthorFilter] = useState("");
     const [quickEditBlogId, setQuickEditPostId] = useState(null);
     const [quickEditData, setQuickEditData] = useState(null);
-    const [authorSearchTerm, setAuthorSearchTerm] = useState("");
-    const [showAuthorDropdown, setShowAuthorDropdown] = useState(false);
+    const [quickEditCategoryDropdownOpen, setQuickEditCategoryDropdownOpen] =
+        useState(false);
+    const [quickEditTagDropdownOpen, setQuickEditTagDropdownOpen] =
+        useState(false);
+    const [quickEditCategorySearchQuery, setQuickEditCategorySearchQuery] =
+        useState("");
+    const [quickEditTagSearchQuery, setQuickEditTagSearchQuery] = useState("");
     const [filterValues, setFilterValues] = useState({
         status: "",
         categoryId: "",
@@ -64,17 +80,24 @@ export default function Blogs() {
         direction: "asc",
     });
 
-    // Ref for author dropdown
-    const authorDropdownRef = useRef(null);
+    // Refs for quick edit dropdowns
+    const quickEditCategoryDropdownRef = useRef(null);
+    const quickEditTagDropdownRef = useRef(null);
 
-    // Close dropdown when clicking outside
+    // Close dropdowns when clicking outside
     useEffect(() => {
         const handleClickOutside = (event) => {
             if (
-                authorDropdownRef.current &&
-                !authorDropdownRef.current.contains(event.target)
+                quickEditCategoryDropdownRef.current &&
+                !quickEditCategoryDropdownRef.current.contains(event.target)
             ) {
-                setShowAuthorDropdown(false);
+                setQuickEditCategoryDropdownOpen(false);
+            }
+            if (
+                quickEditTagDropdownRef.current &&
+                !quickEditTagDropdownRef.current.contains(event.target)
+            ) {
+                setQuickEditTagDropdownOpen(false);
             }
         };
 
@@ -232,32 +255,32 @@ export default function Blogs() {
     const handleQuickEditClick = (blog) => {
         setQuickEditPostId(blog.id);
         const date = blog.publishedAt ? new Date(blog.publishedAt) : new Date();
+        const isScheduled = blog.status === "SCHEDULED";
+        // Extract category IDs as array
+        const categoryIds =
+            blog.categories
+                ?.map((cat) => cat.categoryId || cat.category?.id || cat.id)
+                .filter(Boolean) || [];
+        // Extract tag IDs as array
+        const tagIds =
+            blog.tags
+                ?.map((tag) => tag.tagId || tag.tag?.id || tag.id)
+                .filter(Boolean) || [];
+
         setQuickEditData({
             title: blog.title || "",
             slug: blog.slug || "",
             status: blog.status || "DRAFT",
-            // Extract category IDs from nested structure
-            categoryIds:
-                blog.categories
-                    ?.map((cat) => cat.categoryId || cat.category?.id)
-                    .join(",") || "",
-            // Extract tag IDs from nested structure (tags might be similar structure)
-            tagIds:
-                blog.tags?.map((tag) => tag.tagId || tag.tag?.id).join(",") ||
-                "",
-            allowComments: blog.allowComments || false,
-            allowPings: blog.allowPings || false,
-            sticky: blog.sticky || false,
-            dateMonth: String(date.getMonth() + 1).padStart(2, "0"),
-            dateDay: String(date.getDate()).padStart(2, "0"),
-            dateYear: String(date.getFullYear()),
-            dateHour: String(date.getHours()).padStart(2, "0"),
-            dateMinute: String(date.getMinutes()).padStart(2, "0"),
-            password: "",
-            isPrivate: false,
-            selectedAuthors: [
-                { id: "author-1", name: "Dr. George Mankaryous" },
-            ], // Default author
+            categoryIds: categoryIds,
+            tagIds: tagIds,
+            // Only include date fields if status is SCHEDULED
+            ...(isScheduled && {
+                dateMonth: String(date.getMonth() + 1).padStart(2, "0"),
+                dateDay: String(date.getDate()).padStart(2, "0"),
+                dateYear: String(date.getFullYear()),
+                dateHour: String(date.getHours()).padStart(2, "0"),
+                dateMinute: String(date.getMinutes()).padStart(2, "0"),
+            }),
         });
     };
 
@@ -265,8 +288,6 @@ export default function Blogs() {
     const handleQuickEditCancel = () => {
         setQuickEditPostId(null);
         setQuickEditData(null);
-        setAuthorSearchTerm("");
-        setShowAuthorDropdown(false);
     };
 
     // Handle CSV download for a single blog
@@ -343,22 +364,6 @@ export default function Blogs() {
         document.body.removeChild(link);
     };
 
-    // Sample authors list (replace with real data from API)
-    const availableAuthors = [
-        { id: "author-1", name: "Dr. George Mankaryous" },
-        { id: "author-2", name: "John Doe" },
-        { id: "author-3", name: "Jane Smith" },
-        { id: "author-4", name: "Alex Johnson" },
-        { id: "author-5", name: "Mike Wilson" },
-        { id: "author-6", name: "Sarah Davis" },
-        { id: "author-7", name: "Tom Brown" },
-    ];
-
-    // Filter authors based on search term
-    const filteredAuthors = availableAuthors.filter((author) =>
-        author.name.toLowerCase().includes(authorSearchTerm.toLowerCase())
-    );
-
     // Get unique months from posts
     const getAvailableMonths = () => {
         if (!Array.isArray(blogs) || blogs.length === 0) return [];
@@ -410,21 +415,33 @@ export default function Blogs() {
                 title: quickEditData.title.trim(),
                 slug: quickEditData.slug.trim(),
                 status: quickEditData.status,
-                // Parse categoryIds from comma-separated string
-                categoryIds: quickEditData.categoryIds
+                // categoryIds and tagIds are already arrays
+                categoryIds: Array.isArray(quickEditData.categoryIds)
                     ? quickEditData.categoryIds
-                          .split(",")
-                          .map((id) => id.trim())
-                          .filter(Boolean)
                     : [],
-                // Parse tagIds from comma-separated string
-                tagIds: quickEditData.tagIds
+                tagIds: Array.isArray(quickEditData.tagIds)
                     ? quickEditData.tagIds
-                          .split(",")
-                          .map((id) => id.trim())
-                          .filter(Boolean)
                     : [],
             };
+
+            // Add publishedAt if status is SCHEDULED and date fields exist
+            if (
+                quickEditData.status === "SCHEDULED" &&
+                quickEditData.dateMonth &&
+                quickEditData.dateDay &&
+                quickEditData.dateYear &&
+                quickEditData.dateHour !== undefined &&
+                quickEditData.dateMinute !== undefined
+            ) {
+                const publishedDate = new Date(
+                    parseInt(quickEditData.dateYear),
+                    parseInt(quickEditData.dateMonth) - 1,
+                    parseInt(quickEditData.dateDay),
+                    parseInt(quickEditData.dateHour),
+                    parseInt(quickEditData.dateMinute)
+                );
+                updateData.publishedAt = publishedDate.toISOString();
+            }
 
             await blogService.update(quickEditBlogId, updateData);
 
@@ -525,6 +542,38 @@ export default function Blogs() {
         STATUS_BADGE_CLASSES[status?.toUpperCase()] ||
         DEFAULT_STATUS_BADGE_CLASS;
 
+    // Filter categories and tags based on search query for quick edit
+    const filteredQuickEditCategories =
+        quickEditData && availableCategories
+            ? availableCategories.filter((category) =>
+                  category.name
+                      .toLowerCase()
+                      .includes(quickEditCategorySearchQuery.toLowerCase())
+              )
+            : [];
+    const filteredQuickEditTags =
+        quickEditData && availableTags
+            ? availableTags.filter((tag) =>
+                  tag.name
+                      .toLowerCase()
+                      .includes(quickEditTagSearchQuery.toLowerCase())
+              )
+            : [];
+
+    // Get selected category and tag names for display in quick edit
+    const selectedQuickEditCategories =
+        quickEditData && availableCategories
+            ? availableCategories.filter((cat) =>
+                  quickEditData.categoryIds?.includes(cat.id)
+              )
+            : [];
+    const selectedQuickEditTags =
+        quickEditData && availableTags
+            ? availableTags.filter((tag) =>
+                  quickEditData.tagIds?.includes(tag.id)
+              )
+            : [];
+
     // Format date
     const formatDate = (date) => {
         if (!date) return "—";
@@ -554,7 +603,7 @@ export default function Blogs() {
                             </h3>
                         </div>
 
-                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                             {/* Left Column */}
                             <div className="space-y-3">
                                 <div>
@@ -591,191 +640,207 @@ export default function Blogs() {
                                 </div>
                                 <div>
                                     <label className="block text-xs font-medium mb-1">
-                                        Date
-                                    </label>
-                                    <div className="flex items-center gap-1 flex-wrap">
-                                        <select
-                                            value={quickEditData.dateMonth}
-                                            onChange={(e) =>
-                                                setQuickEditData({
-                                                    ...quickEditData,
-                                                    dateMonth: e.target.value,
-                                                })
-                                            }
-                                            className=" px-3 py-2 text-sm bg-background border border-input rounded-md text-foreground focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-800 dark:border-gray-700"
-                                        >
-                                            <option value="01">Jan</option>
-                                            <option value="02">Feb</option>
-                                            <option value="03">Mar</option>
-                                            <option value="04">Apr</option>
-                                            <option value="05">May</option>
-                                            <option value="06">Jun</option>
-                                            <option value="07">Jul</option>
-                                            <option value="08">Aug</option>
-                                            <option value="09">Sep</option>
-                                            <option value="10">Oct</option>
-                                            <option value="11">Nov</option>
-                                            <option value="12">Dec</option>
-                                        </select>
-                                        <CustomInput
-                                            type="text"
-                                            value={quickEditData.dateDay}
-                                            onChange={(e) =>
-                                                setQuickEditData({
-                                                    ...quickEditData,
-                                                    dateDay: e.target.value,
-                                                })
-                                            }
-                                            className="w-12 text-xs"
-                                            placeholder="DD"
-                                            maxLength={2}
-                                        />
-                                        <CustomInput
-                                            type="text"
-                                            value={quickEditData.dateYear}
-                                            onChange={(e) =>
-                                                setQuickEditData({
-                                                    ...quickEditData,
-                                                    dateYear: e.target.value,
-                                                })
-                                            }
-                                            className="w-16 text-xs"
-                                            placeholder="YYYY"
-                                            maxLength={4}
-                                        />
-                                        <span className="text-xs text-muted-foreground">
-                                            at
-                                        </span>
-                                        <CustomInput
-                                            type="text"
-                                            value={quickEditData.dateHour}
-                                            onChange={(e) =>
-                                                setQuickEditData({
-                                                    ...quickEditData,
-                                                    dateHour: e.target.value,
-                                                })
-                                            }
-                                            className="w-12 text-xs"
-                                            placeholder="HH"
-                                            maxLength={2}
-                                        />
-                                        <span className="text-xs text-muted-foreground">
-                                            :
-                                        </span>
-                                        <CustomInput
-                                            type="text"
-                                            value={quickEditData.dateMinute}
-                                            onChange={(e) =>
-                                                setQuickEditData({
-                                                    ...quickEditData,
-                                                    dateMinute: e.target.value,
-                                                })
-                                            }
-                                            className="w-12 text-xs"
-                                            placeholder="MM"
-                                            maxLength={2}
-                                        />
-                                    </div>
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-medium mb-1">
-                                        Password
-                                    </label>
-                                    <div className="flex items-center gap-2">
-                                        <CustomInput
-                                            type="text"
-                                            value={quickEditData.password}
-                                            onChange={(e) =>
-                                                setQuickEditData({
-                                                    ...quickEditData,
-                                                    password: e.target.value,
-                                                })
-                                            }
-                                            placeholder="Password"
-                                            className="text-sm flex-1"
-                                        />
-                                        <span className="text-xs text-muted-foreground">
-                                            -OR-
-                                        </span>
-                                        <label className="flex items-center gap-1 text-xs whitespace-nowrap">
-                                            <input
-                                                type="checkbox"
-                                                checked={
-                                                    quickEditData.isPrivate
-                                                }
-                                                onChange={(e) =>
-                                                    setQuickEditData({
-                                                        ...quickEditData,
-                                                        isPrivate:
-                                                            e.target.checked,
-                                                    })
-                                                }
-                                                className="rounded"
-                                            />
-                                            Private
-                                        </label>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Middle Column */}
-                            <div className="space-y-3">
-                                <div>
-                                    <label className="block text-xs font-medium mb-1">
                                         Categories
                                     </label>
-                                    <div className="border border-input rounded p-2 max-h-32 overflow-y-auto">
-                                        {Array.isArray(categories) &&
-                                            categories.map((category) => (
-                                                <label
-                                                    key={category.id}
-                                                    className="flex items-center gap-2 text-sm py-1"
+                                    <div
+                                        className="relative"
+                                        ref={quickEditCategoryDropdownRef}
+                                    >
+                                        {/* Selected Categories Display */}
+                                        {selectedQuickEditCategories.length >
+                                            0 && (
+                                            <div className="flex flex-wrap gap-2 mb-2">
+                                                {selectedQuickEditCategories.map(
+                                                    (category) => (
+                                                        <span
+                                                            key={category.id}
+                                                            className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 text-xs font-medium"
+                                                        >
+                                                            {category.name}
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    setQuickEditData(
+                                                                        {
+                                                                            ...quickEditData,
+                                                                            categoryIds:
+                                                                                quickEditData.categoryIds.filter(
+                                                                                    (
+                                                                                        id
+                                                                                    ) =>
+                                                                                        id !==
+                                                                                        category.id
+                                                                                ),
+                                                                        }
+                                                                    );
+                                                                }}
+                                                                className="ml-1 hover:bg-blue-200 dark:hover:bg-blue-800 rounded-full p-0.5 transition-colors"
+                                                            >
+                                                                <X className="h-3 w-3" />
+                                                            </button>
+                                                        </span>
+                                                    )
+                                                )}
+                                            </div>
+                                        )}
+
+                                        {/* Multi-Select Dropdown */}
+                                        <div className="relative">
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setQuickEditCategoryDropdownOpen(
+                                                        !quickEditCategoryDropdownOpen
+                                                    );
+                                                    setQuickEditCategorySearchQuery(
+                                                        ""
+                                                    );
+                                                }}
+                                                className={cn(
+                                                    "w-full px-3 py-2 text-sm bg-background border rounded-md text-left flex items-center justify-between",
+                                                    "border-input text-foreground",
+                                                    "focus:outline-none focus:ring-2 focus:ring-primary",
+                                                    "hover:border-gray-400 dark:hover:border-gray-500 bg-gray-800"
+                                                )}
+                                            >
+                                                <span className="text-muted-foreground">
+                                                    {selectedQuickEditCategories.length >
+                                                    0
+                                                        ? `${selectedQuickEditCategories.length} selected`
+                                                        : "Select categories..."}
+                                                </span>
+                                                <ChevronDown
+                                                    className={cn(
+                                                        "h-4 w-4 text-muted-foreground transition-transform",
+                                                        quickEditCategoryDropdownOpen &&
+                                                            "transform rotate-180"
+                                                    )}
+                                                />
+                                            </button>
+
+                                            {/* Dropdown Menu */}
+                                            {quickEditCategoryDropdownOpen && (
+                                                <div
+                                                    className={cn(
+                                                        "absolute z-50 w-full mt-1 bg-background border border-input rounded-md shadow-lg",
+                                                        "max-h-64 overflow-hidden flex flex-col bg-gray-800"
+                                                    )}
                                                 >
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={quickEditData.categoryIds
-                                                            .split(",")
-                                                            .includes(
-                                                                category.id
-                                                            )}
-                                                        onChange={(e) => {
-                                                            const catIds =
-                                                                quickEditData.categoryIds
-                                                                    .split(",")
-                                                                    .filter(
-                                                                        (id) =>
-                                                                            id
-                                                                    );
-                                                            if (
-                                                                e.target.checked
-                                                            ) {
-                                                                catIds.push(
-                                                                    category.id
-                                                                );
-                                                            } else {
-                                                                const index =
-                                                                    catIds.indexOf(
-                                                                        category.id
-                                                                    );
-                                                                if (index > -1)
-                                                                    catIds.splice(
-                                                                        index,
-                                                                        1
-                                                                    );
+                                                    {/* Search Input */}
+                                                    <div className="p-2 border-b border-input">
+                                                        <CustomInput
+                                                            type="text"
+                                                            placeholder="Search categories..."
+                                                            value={
+                                                                quickEditCategorySearchQuery
                                                             }
-                                                            setQuickEditData({
-                                                                ...quickEditData,
-                                                                categoryIds:
-                                                                    catIds.join(
-                                                                        ","
-                                                                    ),
-                                                            });
-                                                        }}
-                                                        className="rounded"
-                                                    />
-                                                    {category.name}
-                                                </label>
-                                            ))}
+                                                            onChange={(e) =>
+                                                                setQuickEditCategorySearchQuery(
+                                                                    e.target
+                                                                        .value
+                                                                )
+                                                            }
+                                                            className="w-full"
+                                                            onClick={(e) =>
+                                                                e.stopPropagation()
+                                                            }
+                                                        />
+                                                    </div>
+
+                                                    {/* Options List */}
+                                                    <div className="overflow-y-auto max-h-48 bg-gray-800">
+                                                        {categoriesLoading ? (
+                                                            <div className="p-3 text-sm text-muted-foreground text-center">
+                                                                Loading
+                                                                categories...
+                                                            </div>
+                                                        ) : filteredQuickEditCategories.length ===
+                                                          0 ? (
+                                                            <div className="p-3 text-sm text-muted-foreground text-center">
+                                                                {quickEditCategorySearchQuery
+                                                                    ? "No categories found"
+                                                                    : "No categories available"}
+                                                            </div>
+                                                        ) : (
+                                                            <div className="py-1">
+                                                                {filteredQuickEditCategories.map(
+                                                                    (
+                                                                        category
+                                                                    ) => {
+                                                                        const isSelected =
+                                                                            quickEditData.categoryIds?.includes(
+                                                                                category.id
+                                                                            );
+                                                                        return (
+                                                                            <button
+                                                                                key={
+                                                                                    category.id
+                                                                                }
+                                                                                type="button"
+                                                                                onClick={() => {
+                                                                                    const currentIds =
+                                                                                        quickEditData.categoryIds ||
+                                                                                        [];
+                                                                                    if (
+                                                                                        isSelected
+                                                                                    ) {
+                                                                                        setQuickEditData(
+                                                                                            {
+                                                                                                ...quickEditData,
+                                                                                                categoryIds:
+                                                                                                    currentIds.filter(
+                                                                                                        (
+                                                                                                            id
+                                                                                                        ) =>
+                                                                                                            id !==
+                                                                                                            category.id
+                                                                                                    ),
+                                                                                            }
+                                                                                        );
+                                                                                    } else {
+                                                                                        setQuickEditData(
+                                                                                            {
+                                                                                                ...quickEditData,
+                                                                                                categoryIds:
+                                                                                                    [
+                                                                                                        ...currentIds,
+                                                                                                        category.id,
+                                                                                                    ],
+                                                                                            }
+                                                                                        );
+                                                                                    }
+                                                                                }}
+                                                                                className={cn(
+                                                                                    "w-full text-left px-4 py-2 text-sm flex items-center gap-2 transition-colors",
+                                                                                    isSelected
+                                                                                        ? "bg-blue-50 dark:bg-blue-900/20 text-blue-900 dark:text-blue-200"
+                                                                                        : "hover:bg-muted/50 text-foreground"
+                                                                                )}
+                                                                            >
+                                                                                {isSelected && (
+                                                                                    <Check className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                                                                                )}
+                                                                                <span
+                                                                                    className={
+                                                                                        isSelected
+                                                                                            ? ""
+                                                                                            : "ml-6"
+                                                                                    }
+                                                                                >
+                                                                                    {
+                                                                                        category.name
+                                                                                    }
+                                                                                </span>
+                                                                            </button>
+                                                                        );
+                                                                    }
+                                                                )}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -786,91 +851,199 @@ export default function Blogs() {
                                     <label className="block text-xs font-medium mb-1">
                                         Tags
                                     </label>
-                                    <div className="border border-input rounded p-2 max-h-32 overflow-y-auto">
-                                        {Array.isArray(tags) &&
-                                            tags.map((tag) => (
-                                                <label
-                                                    key={tag.id}
-                                                    className="flex items-center gap-2 text-sm py-1"
-                                                >
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={quickEditData.tagIds
-                                                            .split(",")
-                                                            .includes(tag.id)}
-                                                        onChange={(e) => {
-                                                            const tagIds =
-                                                                quickEditData.tagIds
-                                                                    .split(",")
-                                                                    .filter(
-                                                                        (id) =>
-                                                                            id
+                                    <div
+                                        className="relative"
+                                        ref={quickEditTagDropdownRef}
+                                    >
+                                        {/* Selected Tags Display */}
+                                        {selectedQuickEditTags.length > 0 && (
+                                            <div className="flex flex-wrap gap-2 mb-2">
+                                                {selectedQuickEditTags.map(
+                                                    (tag) => (
+                                                        <span
+                                                            key={tag.id}
+                                                            className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 text-xs font-medium"
+                                                        >
+                                                            {tag.name}
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    setQuickEditData(
+                                                                        {
+                                                                            ...quickEditData,
+                                                                            tagIds: quickEditData.tagIds.filter(
+                                                                                (
+                                                                                    id
+                                                                                ) =>
+                                                                                    id !==
+                                                                                    tag.id
+                                                                            ),
+                                                                        }
                                                                     );
-                                                            if (
-                                                                e.target.checked
-                                                            ) {
-                                                                tagIds.push(
-                                                                    tag.id
-                                                                );
-                                                            } else {
-                                                                const index =
-                                                                    tagIds.indexOf(
-                                                                        tag.id
-                                                                    );
-                                                                if (index > -1)
-                                                                    tagIds.splice(
-                                                                        index,
-                                                                        1
-                                                                    );
-                                                            }
-                                                            setQuickEditData({
-                                                                ...quickEditData,
-                                                                tagIds: tagIds.join(
-                                                                    ","
-                                                                ),
-                                                            });
-                                                        }}
-                                                        className="rounded"
-                                                    />
-                                                    {tag.name}
-                                                </label>
-                                            ))}
-                                    </div>
-                                </div>
+                                                                }}
+                                                                className="ml-1 hover:bg-green-200 dark:hover:bg-green-800 rounded-full p-0.5 transition-colors"
+                                                            >
+                                                                <X className="h-3 w-3" />
+                                                            </button>
+                                                        </span>
+                                                    )
+                                                )}
+                                            </div>
+                                        )}
 
-                                <div className="space-y-2">
-                                    <label className="flex items-center gap-2 text-xs">
-                                        <input
-                                            type="checkbox"
-                                            checked={
-                                                quickEditData.allowComments
-                                            }
-                                            onChange={(e) =>
-                                                setQuickEditData({
-                                                    ...quickEditData,
-                                                    allowComments:
-                                                        e.target.checked,
-                                                })
-                                            }
-                                            className="rounded"
-                                        />
-                                        Allow Comments
-                                    </label>
-                                    <label className="flex items-center gap-2 text-xs">
-                                        <input
-                                            type="checkbox"
-                                            checked={quickEditData.allowPings}
-                                            onChange={(e) =>
-                                                setQuickEditData({
-                                                    ...quickEditData,
-                                                    allowPings:
-                                                        e.target.checked,
-                                                })
-                                            }
-                                            className="rounded"
-                                        />
-                                        Allow Pings
-                                    </label>
+                                        {/* Multi-Select Dropdown */}
+                                        <div className="relative">
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setQuickEditTagDropdownOpen(
+                                                        !quickEditTagDropdownOpen
+                                                    );
+                                                    setQuickEditTagSearchQuery(
+                                                        ""
+                                                    );
+                                                }}
+                                                className={cn(
+                                                    "w-full px-3 py-2 text-sm bg-background border rounded-md text-left flex items-center justify-between",
+                                                    "border-input text-foreground",
+                                                    "focus:outline-none focus:ring-2 focus:ring-primary",
+                                                    "hover:border-gray-400 dark:hover:border-gray-500 bg-gray-800"
+                                                )}
+                                            >
+                                                <span className="text-muted-foreground">
+                                                    {selectedQuickEditTags.length >
+                                                    0
+                                                        ? `${selectedQuickEditTags.length} selected`
+                                                        : "Select tags..."}
+                                                </span>
+                                                <ChevronDown
+                                                    className={cn(
+                                                        "h-4 w-4 text-muted-foreground transition-transform",
+                                                        quickEditTagDropdownOpen &&
+                                                            "transform rotate-180"
+                                                    )}
+                                                />
+                                            </button>
+
+                                            {/* Dropdown Menu */}
+                                            {quickEditTagDropdownOpen && (
+                                                <div
+                                                    className={cn(
+                                                        "absolute z-50 w-full mt-1 bg-background border border-input rounded-md shadow-lg",
+                                                        "max-h-64 overflow-hidden flex flex-col bg-gray-800"
+                                                    )}
+                                                >
+                                                    {/* Search Input */}
+                                                    <div className="p-2 border-b border-input">
+                                                        <CustomInput
+                                                            type="text"
+                                                            placeholder="Search tags..."
+                                                            value={
+                                                                quickEditTagSearchQuery
+                                                            }
+                                                            onChange={(e) =>
+                                                                setQuickEditTagSearchQuery(
+                                                                    e.target
+                                                                        .value
+                                                                )
+                                                            }
+                                                            className="w-full"
+                                                            onClick={(e) =>
+                                                                e.stopPropagation()
+                                                            }
+                                                        />
+                                                    </div>
+
+                                                    {/* Options List */}
+                                                    <div className="overflow-y-auto max-h-48 bg-gray-800">
+                                                        {tagsLoading ? (
+                                                            <div className="p-3 text-sm text-muted-foreground text-center">
+                                                                Loading tags...
+                                                            </div>
+                                                        ) : filteredQuickEditTags.length ===
+                                                          0 ? (
+                                                            <div className="p-3 text-sm text-muted-foreground text-center">
+                                                                {quickEditTagSearchQuery
+                                                                    ? "No tags found"
+                                                                    : "No tags available"}
+                                                            </div>
+                                                        ) : (
+                                                            <div className="py-1">
+                                                                {filteredQuickEditTags.map(
+                                                                    (tag) => {
+                                                                        const isSelected =
+                                                                            quickEditData.tagIds?.includes(
+                                                                                tag.id
+                                                                            );
+                                                                        return (
+                                                                            <button
+                                                                                key={
+                                                                                    tag.id
+                                                                                }
+                                                                                type="button"
+                                                                                onClick={() => {
+                                                                                    const currentIds =
+                                                                                        quickEditData.tagIds ||
+                                                                                        [];
+                                                                                    if (
+                                                                                        isSelected
+                                                                                    ) {
+                                                                                        setQuickEditData(
+                                                                                            {
+                                                                                                ...quickEditData,
+                                                                                                tagIds: currentIds.filter(
+                                                                                                    (
+                                                                                                        id
+                                                                                                    ) =>
+                                                                                                        id !==
+                                                                                                        tag.id
+                                                                                                ),
+                                                                                            }
+                                                                                        );
+                                                                                    } else {
+                                                                                        setQuickEditData(
+                                                                                            {
+                                                                                                ...quickEditData,
+                                                                                                tagIds: [
+                                                                                                    ...currentIds,
+                                                                                                    tag.id,
+                                                                                                ],
+                                                                                            }
+                                                                                        );
+                                                                                    }
+                                                                                }}
+                                                                                className={cn(
+                                                                                    "w-full text-left px-4 py-2 text-sm flex items-center gap-2 transition-colors",
+                                                                                    isSelected
+                                                                                        ? "bg-green-50 dark:bg-green-900/20 text-green-900 dark:text-green-200"
+                                                                                        : "hover:bg-muted/50 text-foreground"
+                                                                                )}
+                                                                            >
+                                                                                {isSelected && (
+                                                                                    <Check className="h-4 w-4 text-green-600 dark:text-green-400" />
+                                                                                )}
+                                                                                <span
+                                                                                    className={
+                                                                                        isSelected
+                                                                                            ? ""
+                                                                                            : "ml-6"
+                                                                                    }
+                                                                                >
+                                                                                    {
+                                                                                        tag.name
+                                                                                    }
+                                                                                </span>
+                                                                            </button>
+                                                                        );
+                                                                    }
+                                                                )}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
                                 </div>
 
                                 <div>
@@ -879,12 +1052,33 @@ export default function Blogs() {
                                     </label>
                                     <select
                                         value={quickEditData.status}
-                                        onChange={(e) =>
+                                        onChange={(e) => {
+                                            const newStatus = e.target.value;
                                             setQuickEditData({
                                                 ...quickEditData,
-                                                status: e.target.value,
-                                            })
-                                        }
+                                                status: newStatus,
+                                                // Initialize date fields when switching to SCHEDULED
+                                                ...(newStatus === "SCHEDULED" &&
+                                                    !quickEditData.dateMonth && {
+                                                        dateMonth: String(
+                                                            new Date().getMonth() +
+                                                                1
+                                                        ).padStart(2, "0"),
+                                                        dateDay: String(
+                                                            new Date().getDate()
+                                                        ).padStart(2, "0"),
+                                                        dateYear: String(
+                                                            new Date().getFullYear()
+                                                        ),
+                                                        dateHour: String(
+                                                            new Date().getHours()
+                                                        ).padStart(2, "0"),
+                                                        dateMinute: String(
+                                                            new Date().getMinutes()
+                                                        ).padStart(2, "0"),
+                                                    }),
+                                            });
+                                        }}
                                         className="w-full px-3 py-2 text-sm bg-background border border-input rounded-md text-foreground focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-800 dark:border-gray-700"
                                     >
                                         <option value="DRAFT">Draft</option>
@@ -897,151 +1091,130 @@ export default function Blogs() {
                                     </select>
                                 </div>
 
-                                <div>
-                                    <label className="flex items-center gap-2 text-xs">
-                                        <input
-                                            type="checkbox"
-                                            checked={quickEditData.sticky}
-                                            onChange={(e) =>
-                                                setQuickEditData({
-                                                    ...quickEditData,
-                                                    sticky: e.target.checked,
-                                                })
-                                            }
-                                            className="rounded"
-                                        />
-                                        Make this blog sticky
-                                    </label>
-                                </div>
-
-                                <div>
-                                    <label className="block text-xs font-medium mb-1">
-                                        Authors
-                                    </label>
-                                    <div
-                                        className="relative bg-background "
-                                        ref={authorDropdownRef}
-                                    >
-                                        <CustomInput
-                                            type="text"
-                                            value={authorSearchTerm}
-                                            onChange={(e) =>
-                                                setAuthorSearchTerm(
-                                                    e.target.value
-                                                )
-                                            }
-                                            onFocus={() =>
-                                                setShowAuthorDropdown(true)
-                                            }
-                                            placeholder="Search for an author"
-                                            className="text-sm"
-                                        />
-                                        {showAuthorDropdown &&
-                                            filteredAuthors.length > 0 && (
-                                                <div className="absolute z-50 w-full mt-1 bg-background border border-input rounded-md shadow-lg max-h-48 overflow-y-auto bg-gray-800">
-                                                    {filteredAuthors.map(
-                                                        (author) => {
-                                                            const isSelected =
-                                                                quickEditData.selectedAuthors?.some(
-                                                                    (a) =>
-                                                                        a.id ===
-                                                                        author.id
-                                                                );
-                                                            return (
-                                                                <button
-                                                                    key={
-                                                                        author.id
-                                                                    }
-                                                                    type="button"
-                                                                    onClick={() => {
-                                                                        if (
-                                                                            !isSelected
-                                                                        ) {
-                                                                            setQuickEditData(
-                                                                                {
-                                                                                    ...quickEditData,
-                                                                                    selectedAuthors:
-                                                                                        [
-                                                                                            ...(quickEditData.selectedAuthors ||
-                                                                                                []),
-                                                                                            author,
-                                                                                        ],
-                                                                                }
-                                                                            );
-                                                                        }
-                                                                        setAuthorSearchTerm(
-                                                                            ""
-                                                                        );
-                                                                        setShowAuthorDropdown(
-                                                                            false
-                                                                        );
-                                                                    }}
-                                                                    disabled={
-                                                                        isSelected
-                                                                    }
-                                                                    className={`w-full text-left px-3 py-2 text-sm hover:bg-accent transition-colors ${
-                                                                        isSelected
-                                                                            ? "opacity-50 cursor-not-allowed"
-                                                                            : ""
-                                                                    }`}
-                                                                >
-                                                                    {
-                                                                        author.name
-                                                                    }
-                                                                    {isSelected && (
-                                                                        <span className="ml-2 text-xs text-muted-foreground">
-                                                                            (Selected)
-                                                                        </span>
-                                                                    )}
-                                                                </button>
-                                                            );
-                                                        }
-                                                    )}
-                                                </div>
-                                            )}
-                                    </div>
-
-                                    {/* Selected Authors */}
-                                    {quickEditData.selectedAuthors &&
-                                        quickEditData.selectedAuthors.length >
-                                            0 && (
-                                            <div className="mt-2 space-y-1">
-                                                {quickEditData.selectedAuthors.map(
-                                                    (author) => (
-                                                        <div
-                                                            key={author.id}
-                                                            className="flex items-center gap-2 px-2 py-1 bg-accent/50 rounded border border-border w-fit"
-                                                        >
-                                                            <span className="text-xs">
-                                                                {author.name}
-                                                            </span>
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => {
-                                                                    setQuickEditData(
-                                                                        {
-                                                                            ...quickEditData,
-                                                                            selectedAuthors:
-                                                                                quickEditData.selectedAuthors.filter(
-                                                                                    (
-                                                                                        a
-                                                                                    ) =>
-                                                                                        a.id !==
-                                                                                        author.id
-                                                                                ),
-                                                                        }
-                                                                    );
-                                                                }}
-                                                                className="text-muted-foreground hover:text-foreground"
-                                                            >
-                                                                ×
-                                                            </button>
-                                                        </div>
+                                {/* Date field - only show when status is SCHEDULED */}
+                                {quickEditData.status === "SCHEDULED" && (
+                                    <div>
+                                        <label className="block text-xs font-medium mb-1">
+                                            Publish Date & Time
+                                            <span className="text-red-500 ml-1">
+                                                *
+                                            </span>
+                                        </label>
+                                        <div className="flex items-center gap-1 flex-wrap">
+                                            <select
+                                                value={
+                                                    quickEditData.dateMonth ||
+                                                    String(
+                                                        new Date().getMonth() +
+                                                            1
+                                                    ).padStart(2, "0")
+                                                }
+                                                onChange={(e) =>
+                                                    setQuickEditData({
+                                                        ...quickEditData,
+                                                        dateMonth:
+                                                            e.target.value,
+                                                    })
+                                                }
+                                                className=" px-3 py-2 text-sm bg-background border border-input rounded-md text-foreground focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-800 dark:border-gray-700"
+                                            >
+                                                <option value="01">Jan</option>
+                                                <option value="02">Feb</option>
+                                                <option value="03">Mar</option>
+                                                <option value="04">Apr</option>
+                                                <option value="05">May</option>
+                                                <option value="06">Jun</option>
+                                                <option value="07">Jul</option>
+                                                <option value="08">Aug</option>
+                                                <option value="09">Sep</option>
+                                                <option value="10">Oct</option>
+                                                <option value="11">Nov</option>
+                                                <option value="12">Dec</option>
+                                            </select>
+                                            <CustomInput
+                                                type="text"
+                                                value={
+                                                    quickEditData.dateDay ||
+                                                    String(
+                                                        new Date().getDate()
+                                                    ).padStart(2, "0")
+                                                }
+                                                onChange={(e) =>
+                                                    setQuickEditData({
+                                                        ...quickEditData,
+                                                        dateDay: e.target.value,
+                                                    })
+                                                }
+                                                className="w-12 text-xs"
+                                                placeholder="DD"
+                                                maxLength={2}
+                                            />
+                                            <CustomInput
+                                                type="text"
+                                                value={
+                                                    quickEditData.dateYear ||
+                                                    String(
+                                                        new Date().getFullYear()
                                                     )
-                                                )}
-                                            </div>
-                                        )}
-                                </div>
+                                                }
+                                                onChange={(e) =>
+                                                    setQuickEditData({
+                                                        ...quickEditData,
+                                                        dateYear:
+                                                            e.target.value,
+                                                    })
+                                                }
+                                                className="w-16 text-xs"
+                                                placeholder="YYYY"
+                                                maxLength={4}
+                                            />
+                                            <span className="text-xs text-muted-foreground">
+                                                at
+                                            </span>
+                                            <CustomInput
+                                                type="text"
+                                                value={
+                                                    quickEditData.dateHour ||
+                                                    String(
+                                                        new Date().getHours()
+                                                    ).padStart(2, "0")
+                                                }
+                                                onChange={(e) =>
+                                                    setQuickEditData({
+                                                        ...quickEditData,
+                                                        dateHour:
+                                                            e.target.value,
+                                                    })
+                                                }
+                                                className="w-12 text-xs"
+                                                placeholder="HH"
+                                                maxLength={2}
+                                            />
+                                            <span className="text-xs text-muted-foreground">
+                                                :
+                                            </span>
+                                            <CustomInput
+                                                type="text"
+                                                value={
+                                                    quickEditData.dateMinute ||
+                                                    String(
+                                                        new Date().getMinutes()
+                                                    ).padStart(2, "0")
+                                                }
+                                                onChange={(e) =>
+                                                    setQuickEditData({
+                                                        ...quickEditData,
+                                                        dateMinute:
+                                                            e.target.value,
+                                                    })
+                                                }
+                                                className="w-12 text-xs"
+                                                placeholder="MM"
+                                                maxLength={2}
+                                            />
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </div>
 
@@ -1104,84 +1277,16 @@ export default function Blogs() {
                 </button>
             ),
             render: (blog) => (
-                <div className="flex flex-col py-1 group">
-                    <div className="">
-                        <span
-                            className="font-medium text-foreground hover:text-primary cursor-pointer break-words whitespace-break-spaces line-clamp-2"
-                            data-tooltip-id="blog-tooltip"
-                            data-tooltip-content={blog.title}
-                        >
-                            {blog.title}{" "}
-                            <span className="text-xs text-muted-foreground mt-0.5">
-                                — Classic editor
-                            </span>
-                        </span>
-                    </div>
-                    {/* Row Actions - Visible on hover */}
-                    <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-2 mt-1 flex-wrap">
-                        <button
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                router.push(`/dashboard/blogs/${blog.id}/edit`);
-                            }}
-                            className="text-xs text-primary hover:underline"
-                        >
-                            Edit (block editor)
-                        </button>
-                        <span className="text-muted-foreground text-xs">|</span>
-                        <button
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                router.push(
-                                    `/dashboard/blogs/${blog.id}/edit?editor=classic`
-                                );
-                            }}
-                            className="text-xs text-primary hover:underline"
-                        >
-                            Edit (classic editor)
-                        </button>
-                        <span className="text-muted-foreground text-xs">|</span>
-                        <button
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                handleQuickEditClick(blog);
-                            }}
-                            className="text-xs text-primary hover:underline"
-                        >
-                            Quick Edit
-                        </button>
-                        <span className="text-muted-foreground text-xs">|</span>
-                        <button
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                handleDeleteClick(blog);
-                            }}
-                            className="text-xs text-red-600 hover:underline dark:text-red-400"
-                        >
-                            Trash
-                        </button>
-                        <span className="text-muted-foreground text-xs">|</span>
-                        <button
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                window.open(`/blogs/${blog.id}`, "_blank");
-                            }}
-                            className="text-xs text-primary hover:underline"
-                        >
-                            View
-                        </button>
-                        <span className="text-muted-foreground text-xs">|</span>
-                        <button
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                handleDownloadCSV(blog);
-                            }}
-                            className="text-xs text-primary hover:underline"
-                        >
-                            Download CSV
-                        </button>
-                    </div>
-                </div>
+                <span
+                    className="font-medium text-foreground hover:text-primary cursor-pointer break-words whitespace-break-spaces line-clamp-2"
+                    data-tooltip-id="blog-tooltip"
+                    data-tooltip-content={blog.title}
+                >
+                    {blog.title}{" "}
+                    <span className="text-xs text-muted-foreground mt-0.5">
+                        — Classic editor
+                    </span>
+                </span>
             ),
         },
         {
@@ -1345,6 +1450,75 @@ export default function Blogs() {
                 );
             },
         },
+        {
+            key: "actions",
+            label: "Actions",
+            width: "20%",
+            render: (blog) => (
+                <div className="flex items-center gap-1">
+                    <button
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            router.push(`/dashboard/blogs/${blog.id}/edit`);
+                        }}
+                        className="p-1.5 hover:bg-accent rounded transition-colors"
+                        data-tooltip-id="blog-tooltip"
+                        data-tooltip-content="Edit"
+                        type="button"
+                    >
+                        <Edit className="h-4 w-4 text-foreground hover:text-primary" />
+                    </button>
+                    <button
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            handleQuickEditClick(blog);
+                        }}
+                        className="px-2 py-1 text-xs text-primary hover:bg-accent rounded transition-colors"
+                        data-tooltip-id="blog-tooltip"
+                        data-tooltip-content="Quick Edit"
+                        type="button"
+                    >
+                        Quick Edit
+                    </button>
+                    <button
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteClick(blog);
+                        }}
+                        className="p-1.5 hover:bg-accent rounded transition-colors"
+                        data-tooltip-id="blog-tooltip"
+                        data-tooltip-content="Delete"
+                        type="button"
+                    >
+                        <Trash2 className="h-4 w-4 text-foreground hover:text-red-600 dark:hover:text-red-400" />
+                    </button>
+                    <button
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            window.open(`/blogs/${blog.id}`, "_blank");
+                        }}
+                        className="p-1.5 hover:bg-accent rounded transition-colors"
+                        data-tooltip-id="blog-tooltip"
+                        data-tooltip-content="View"
+                        type="button"
+                    >
+                        <Eye className="h-4 w-4 text-foreground hover:text-primary" />
+                    </button>
+                    <button
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            handleDownloadCSV(blog);
+                        }}
+                        className="p-1.5 hover:bg-accent rounded transition-colors"
+                        data-tooltip-id="blog-tooltip"
+                        data-tooltip-content="Download CSV"
+                        type="button"
+                    >
+                        <Download className="h-4 w-4 text-foreground hover:text-primary" />
+                    </button>
+                </div>
+            ),
+        },
     ];
 
     // Check if filters are active
@@ -1416,6 +1590,11 @@ export default function Blogs() {
 
     return (
         <PageContainer>
+            {/* <LoadingState
+                message="Loading blogs..."
+                loading={loading}
+                fullScreen={true}
+            /> */}
             <PageHeader
                 title="Blogs"
                 description=""
@@ -1564,8 +1743,8 @@ export default function Blogs() {
                         className="px-3 py-1.5 text-sm bg-background border border-input rounded text-foreground focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-800 dark:border-gray-700"
                     >
                         <option value="">All Categories</option>
-                        {Array.isArray(categories) &&
-                            categories.map((category) => (
+                        {Array.isArray(availableCategories) &&
+                            availableCategories.map((category) => (
                                 <option key={category.id} value={category.id}>
                                     {category.name}
                                 </option>

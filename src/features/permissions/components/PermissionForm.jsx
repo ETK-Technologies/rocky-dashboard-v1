@@ -152,7 +152,7 @@ export function PermissionForm({ permissionId = null }) {
   if (isEdit && permissionsLoading) {
     return (
       <PageContainer>
-        <LoadingState />
+        <LoadingState loading={permissionsLoading} fullScreen={true} />
       </PageContainer>
     );
   }
