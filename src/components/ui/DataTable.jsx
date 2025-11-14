@@ -126,7 +126,7 @@ export function DataTable({
                                 </th>
                             ))}
                             {renderActions && (
-                                <th className="px-3 sm:px-4 md:px-6 py-3 whitespace-nowrap text-left text-xs font-medium text-muted-foreground uppercase tracking-wider w-24">
+                                <th className="px-3 sm:px-4 md:px-6 py-3 whitespace-nowrap text-right text-xs font-medium text-muted-foreground uppercase tracking-wider" style={{ width: "140px", minWidth: "120px" }}>
                                     Actions
                                 </th>
                             )}
@@ -190,7 +190,7 @@ export function DataTable({
                                                 </td>
                                             ))}
                                             {renderActions && (
-                                                <td className="px-3 sm:px-4 md:px-6 py-4 whitespace-nowrap">
+                                                <td className="px-3 sm:px-4 md:px-6 py-4 whitespace-nowrap" style={{ width: "140px", minWidth: "120px" }}>
                                                     {renderActions(row)}
                                                 </td>
                                             )}

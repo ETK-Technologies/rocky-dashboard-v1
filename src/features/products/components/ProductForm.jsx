@@ -268,8 +268,14 @@ const AttributeValuesEditor = ({
 
 export default function ProductForm({ productId = null }) {
   const router = useRouter();
-  const { loading, fetchLoading, productData, isEditMode, submitForm } =
-    useProductForm(productId);
+  const {
+    loading,
+    fetchLoading,
+    productData,
+    isEditMode,
+    submitForm,
+    refetch,
+  } = useProductForm(productId);
   const { categories } = useCategories();
   const { attributes: globalAttributes, loading: globalAttributesLoading } =
     useGlobalAttributes({ autoFetch: true });
@@ -1486,8 +1492,22 @@ export default function ProductForm({ productId = null }) {
         }
       }
 
-      // Redirect to products list after everything is saved
-      router.push("/dashboard/products");
+      // After saving, handle navigation
+      if (isEditMode) {
+        // For updates: Stay on the same page and refetch the product data
+        // This ensures the form shows the latest saved data
+        await refetch();
+        // Note: Success toast is already shown by the submitForm hook
+      } else {
+        // For new products: Redirect to the edit page with the new product ID
+        const newProductId = savedProduct?.id;
+        if (newProductId) {
+          router.push(`/dashboard/products/${newProductId}/edit`);
+        } else {
+          // Fallback to products list if we don't have an ID
+          router.push("/dashboard/products");
+        }
+      }
     } catch (error) {
       console.error("Form submission error:", error);
     }
