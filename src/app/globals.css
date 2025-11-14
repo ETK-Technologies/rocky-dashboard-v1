@@ -477,3 +477,19 @@ input:-webkit-autofill:focus {
 .dark .quill:focus-within .ql-container {
     box-shadow: 0 0 0 2px hsla(27, 35%, 60%, 0.2);
 }
+
+/* GrapesJS Editor Styles */
+/* Set default background color for email templates */
+.gjs-cv-canvas {
+    background-color: #F4F1EE !important;
+}
+
+/* Ensure default font family for email content */
+.gjs-cv-canvas * {
+    font-family: Inter, system-ui, sans-serif;
+}
+
+/* Default text color for email content */
+.gjs-cv-canvas {
+    color: #1d2327;
+}
