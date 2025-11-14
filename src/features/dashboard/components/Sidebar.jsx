@@ -221,9 +221,25 @@ const adminNavigation = [
     icon: ClipboardList,
   },
   {
-    name: "Email Templates",
-    href: "/dashboard/email-templates",
+    name: "Emails",
     icon: Mail,
+    children: [
+      {
+        name: "Templates",
+        href: "/dashboard/email-templates",
+        icon: Mail,
+      },
+      {
+        name: "Test Users",
+        href: "/dashboard/email-templates/test-users",
+        icon: Users,
+      },
+      {
+        name: "Email Triggers Logs",
+        href: "/dashboard/email-templates/triggers-logs",
+        icon: Activity,
+      },
+    ],
   },
   {
     name: "System Settings",
