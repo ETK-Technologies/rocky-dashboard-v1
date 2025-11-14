@@ -74,135 +74,149 @@ export function DataTable({
         safeData.some((row) => selectedRows.includes(getRowId(row))) &&
         !allSelected;
 
-    if (loading) {
-        return <LoadingState message="Loading data..." />;
-    }
+    // if (loading) {
+    //     return <LoadingState message="Loading data..." />;
+    // }
 
-    if (safeData.length === 0 && emptyState) {
+    if (!loading && safeData.length === 0 && emptyState) {
         return <CustomEmptyState {...emptyState} />;
     }
 
     return (
-        <div
-            className={cn(
-                "bg-card rounded-lg sm:rounded-xl border border-border w-full overflow-hidden",
-                className
+        <>
+            {loading && (
+                <LoadingState
+                    message="Loading data..."
+                    loading={loading}
+                    fullScreen={true}
+                />
             )}
-        >
-            <div className="overflow-x-auto w-full">
-                <table className="w-full min-w-full table-fixed">
-                    <thead className="bg-secondary border-b border-border">
-                        <tr>
-                            {selectable && (
-                                <th className="px-3 sm:px-4 md:px-6 py-3 whitespace-nowrap w-12">
-                                    <input
-                                        type="checkbox"
-                                        checked={allSelected}
-                                        ref={(input) => {
-                                            if (input)
-                                                input.indeterminate =
-                                                    someSelected;
-                                        }}
-                                        onChange={(e) =>
-                                            handleSelectAll(e.target.checked)
-                                        }
-                                        className="w-4 h-4 text-primary bg-background border-input rounded focus:ring-primary focus:ring-2 cursor-pointer"
-                                        onClick={(e) => e.stopPropagation()}
-                                    />
-                                </th>
-                            )}
-                            {columns.map((column) => (
-                                <th
-                                    key={column.key}
-                                    style={{ width: column.width }}
-                                    className={cn(
-                                        "text-left text-xs font-medium text-muted-foreground uppercase tracking-wider px-3 sm:px-4 md:px-6 py-3 whitespace-nowrap",
-                                        !column.width && "w-auto"
-                                    )}
-                                >
-                                    {column.renderLabel
-                                        ? column.renderLabel()
-                                        : column.label}
-                                </th>
-                            ))}
-                            {renderActions && (
-                                <th className="px-3 sm:px-4 md:px-6 py-3 whitespace-nowrap text-left text-xs font-medium text-muted-foreground uppercase tracking-wider w-24">
-                                    Actions
-                                </th>
-                            )}
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border">
-                        {safeData.map((row, rowIndex) => {
-                            const rowId = getRowId(row);
-                            const isSelected = selectedRows.includes(rowId);
-                            const hideRow = shouldHideRow?.(row, rowId);
-                            const customRow = renderCustomRow?.(row, rowId);
+            <div
+                className={cn(
+                    "bg-card rounded-lg sm:rounded-xl border border-border w-full overflow-hidden",
+                    className
+                )}
+            >
+                <div className="overflow-x-auto w-full">
+                    <table className="w-full min-w-full table-fixed">
+                        <thead className="bg-secondary border-b border-border">
+                            <tr>
+                                {selectable && (
+                                    <th className="px-3 sm:px-4 md:px-6 py-3 whitespace-nowrap w-12">
+                                        <input
+                                            type="checkbox"
+                                            checked={allSelected}
+                                            ref={(input) => {
+                                                if (input)
+                                                    input.indeterminate =
+                                                        someSelected;
+                                            }}
+                                            onChange={(e) =>
+                                                handleSelectAll(
+                                                    e.target.checked
+                                                )
+                                            }
+                                            className="w-4 h-4 text-primary bg-background border-input rounded focus:ring-primary focus:ring-2 cursor-pointer"
+                                            onClick={(e) => e.stopPropagation()}
+                                        />
+                                    </th>
+                                )}
+                                {columns.map((column) => (
+                                    <th
+                                        key={column.key}
+                                        style={{ width: column.width }}
+                                        className={cn(
+                                            "text-left text-xs font-medium text-muted-foreground uppercase tracking-wider px-3 sm:px-4 md:px-6 py-3 whitespace-nowrap",
+                                            !column.width && "w-auto"
+                                        )}
+                                    >
+                                        {column.renderLabel
+                                            ? column.renderLabel()
+                                            : column.label}
+                                    </th>
+                                ))}
+                                {renderActions && (
+                                    <th className="px-3 sm:px-4 md:px-6 py-3 whitespace-nowrap text-left text-xs font-medium text-muted-foreground uppercase tracking-wider w-24">
+                                        Actions
+                                    </th>
+                                )}
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border">
+                            {safeData.map((row, rowIndex) => {
+                                const rowId = getRowId(row);
+                                const isSelected = selectedRows.includes(rowId);
+                                const hideRow = shouldHideRow?.(row, rowId);
+                                const customRow = renderCustomRow?.(row, rowId);
 
-                            return (
-                                <React.Fragment key={rowIndex}>
-                                    {!hideRow && (
-                                        <tr
-                                            className={cn(
-                                                "transition-colors",
-                                                onRowClick &&
-                                                    "hover:bg-accent cursor-pointer",
-                                                isSelected && "bg-accent/50"
-                                            )}
-                                            onClick={() => onRowClick?.(row)}
-                                        >
-                                            {selectable && (
-                                                <td
-                                                    className="px-3 sm:px-4 md:px-6 py-4 whitespace-nowrap"
-                                                    onClick={(e) =>
-                                                        e.stopPropagation()
-                                                    }
-                                                >
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={isSelected}
-                                                        onChange={(e) =>
-                                                            handleRowSelect(
-                                                                rowId,
-                                                                e.target.checked
-                                                            )
-                                                        }
-                                                        className="w-4 h-4 text-primary bg-background border-input rounded focus:ring-primary focus:ring-2 cursor-pointer"
+                                return (
+                                    <React.Fragment key={rowIndex}>
+                                        {!hideRow && (
+                                            <tr
+                                                className={cn(
+                                                    "transition-colors",
+                                                    onRowClick &&
+                                                        "hover:bg-accent cursor-pointer",
+                                                    isSelected && "bg-accent/50"
+                                                )}
+                                                onClick={() =>
+                                                    onRowClick?.(row)
+                                                }
+                                            >
+                                                {selectable && (
+                                                    <td
+                                                        className="px-3 sm:px-4 md:px-6 py-4 whitespace-nowrap"
                                                         onClick={(e) =>
                                                             e.stopPropagation()
                                                         }
-                                                    />
-                                                </td>
-                                            )}
-                                            {columns.map((column) => (
-                                                <td
-                                                    key={column.key}
-                                                    className={cn(
-                                                        "px-3 sm:px-4 md:px-6 py-4",
-                                                        column.truncate
-                                                            ? "truncate"
-                                                            : "whitespace-nowrap"
-                                                    )}
-                                                >
-                                                    {column.render
-                                                        ? column.render(row)
-                                                        : row[column.key]}
-                                                </td>
-                                            ))}
-                                            {renderActions && (
-                                                <td className="px-3 sm:px-4 md:px-6 py-4 whitespace-nowrap">
-                                                    {renderActions(row)}
-                                                </td>
-                                            )}
-                                        </tr>
-                                    )}
-                                    {customRow}
-                                </React.Fragment>
-                            );
-                        })}
-                    </tbody>
-                </table>
+                                                    >
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={isSelected}
+                                                            onChange={(e) =>
+                                                                handleRowSelect(
+                                                                    rowId,
+                                                                    e.target
+                                                                        .checked
+                                                                )
+                                                            }
+                                                            className="w-4 h-4 text-primary bg-background border-input rounded focus:ring-primary focus:ring-2 cursor-pointer"
+                                                            onClick={(e) =>
+                                                                e.stopPropagation()
+                                                            }
+                                                        />
+                                                    </td>
+                                                )}
+                                                {columns.map((column) => (
+                                                    <td
+                                                        key={column.key}
+                                                        className={cn(
+                                                            "px-3 sm:px-4 md:px-6 py-4",
+                                                            column.truncate
+                                                                ? "truncate"
+                                                                : "whitespace-nowrap"
+                                                        )}
+                                                    >
+                                                        {column.render
+                                                            ? column.render(row)
+                                                            : row[column.key]}
+                                                    </td>
+                                                ))}
+                                                {renderActions && (
+                                                    <td className="px-3 sm:px-4 md:px-6 py-4 whitespace-nowrap">
+                                                        {renderActions(row)}
+                                                    </td>
+                                                )}
+                                            </tr>
+                                        )}
+                                        {customRow}
+                                    </React.Fragment>
+                                );
+                            })}
+                        </tbody>
+                    </table>
+                </div>
             </div>
-        </div>
+        </>
     );
 }

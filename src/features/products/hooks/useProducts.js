@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { productService } from "../services/productService";
-import { searchService } from "@/features/search";
 import { toast } from "react-toastify";
 
 /**
@@ -40,36 +39,23 @@ export function useProducts(initialFilters = {}) {
       const hasSearchQuery = filters.search && filters.search.trim() !== "";
 
       if (hasSearchQuery) {
-        // Use search API when search query is present
-        const searchParams = {
-          q: filters.search,
-          limit: filters.limit || 20,
-          offset: ((filters.page || 1) - 1) * (filters.limit || 20),
-        };
-
-        // Add filters that are compatible with search API
-        if (filters.type) searchParams.type = filters.type;
-        if (filters.categoryIds) searchParams.categoryIds = filters.categoryIds;
-        if (filters.minPrice) searchParams.minPrice = filters.minPrice;
-        if (filters.maxPrice) searchParams.maxPrice = filters.maxPrice;
-        if (filters.inStock !== undefined && filters.inStock !== null) {
-          searchParams.inStock = filters.inStock;
-        }
-        if (filters.sort) searchParams.sort = filters.sort;
-
-        response = await searchService.searchProducts(searchParams);
-
-        // Transform search API response to match expected format
-        const totalHits = response.totalHits || 0;
+        // Use product search API when search query is present
         const limit = filters.limit || 20;
+        const searchQuery = filters.search.trim();
+
+        // Call productService.search with query and limit
+        response = await productService.search(searchQuery, limit);
+
+        // The search API returns an array of products directly
+        const productsList = Array.isArray(response) ? response : [];
         const page = filters.page || 1;
 
-        setProducts(Array.isArray(response.hits) ? response.hits : []);
+        setProducts(productsList);
         setPagination({
           page,
           limit,
-          total: totalHits,
-          totalPages: Math.ceil(totalHits / limit),
+          total: productsList.length,
+          totalPages: Math.ceil(productsList.length / limit),
         });
       } else {
         // Use regular products API when no search query

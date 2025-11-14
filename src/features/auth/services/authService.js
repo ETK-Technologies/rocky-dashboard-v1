@@ -11,12 +11,12 @@ import { authStorage } from "../utils/authStorage";
  * Custom error class for authentication errors
  */
 class AuthError extends Error {
-  constructor(message, statusCode = 500, error = null) {
-    super(message);
-    this.name = "AuthError";
-    this.statusCode = statusCode;
-    this.error = error;
-  }
+    constructor(message, statusCode = 500, error = null) {
+        super(message);
+        this.name = "AuthError";
+        this.statusCode = statusCode;
+        this.error = error;
+    }
 }
 
 /**
@@ -25,147 +25,183 @@ class AuthError extends Error {
  * @returns {AuthError} - Parsed auth error
  */
 const parseAuthError = (error) => {
-  // Network errors
-  if (!error.statusCode && error.message === "Network error") {
-    return new AuthError(AUTH_ERRORS.NETWORK_ERROR, 0, "NetworkError");
-  }
+    // Network errors
+    if (!error.statusCode && error.message === "Network error") {
+        return new AuthError(AUTH_ERRORS.NETWORK_ERROR, 0, "NetworkError");
+    }
 
-  // HTTP errors
-  const statusCode = error.statusCode || error.status || 500;
-  let message = error.message || AUTH_ERRORS.GENERIC_ERROR;
+    // HTTP errors
+    const statusCode = error.statusCode || error.status || 500;
+    let message = error.message || AUTH_ERRORS.GENERIC_ERROR;
 
-  // Handle specific status codes
-  switch (statusCode) {
-    case 401:
-      message = AUTH_ERRORS.INVALID_CREDENTIALS;
-      break;
-    case 403:
-      message = AUTH_ERRORS.UNAUTHORIZED;
-      break;
-    case 500:
-      message = AUTH_ERRORS.GENERIC_ERROR;
-      break;
-    default:
-      if (error.message && error.message !== "Network error") {
-        message = error.message;
-      }
-  }
+    // Handle specific status codes
+    switch (statusCode) {
+        case 401:
+            message = AUTH_ERRORS.INVALID_CREDENTIALS;
+            break;
+        case 403:
+            message = AUTH_ERRORS.UNAUTHORIZED;
+            break;
+        case 500:
+            message = AUTH_ERRORS.GENERIC_ERROR;
+            break;
+        default:
+            if (error.message && error.message !== "Network error") {
+                message = error.message;
+            }
+    }
 
-  return new AuthError(message, statusCode, error.error);
+    return new AuthError(message, statusCode, error.error);
 };
 
 export const authService = {
-  /**
-   * Login user with email and password
-   * @param {string} email - User email
-   * @param {string} password - User password
-   * @returns {Promise<Object>} - Response with tokens and user data
-   * @throws {AuthError} - Authentication error
-   */
-  async login(email, password) {
-    try {
-      const response = await makeRequest(AUTH_ENDPOINTS.LOGIN, {
-        method: "POST",
-        body: JSON.stringify({ email, password }),
-      });
+    /**
+     * Login user with email and password
+     * @param {string} email - User email
+     * @param {string} password - User password
+     * @returns {Promise<Object>} - Response with tokens and user data
+     * @throws {AuthError} - Authentication error
+     */
+    async login(email, password) {
+        try {
+            const response = await makeRequest(AUTH_ENDPOINTS.LOGIN, {
+                method: "POST",
+                body: JSON.stringify({ email, password }),
+            });
 
-      // Validate response structure
-      if (!response || !response.access_token) {
-        throw new AuthError("Invalid response from server", 500);
-      }
+            // Validate response structure
+            if (!response || !response.access_token) {
+                throw new AuthError("Invalid response from server", 500);
+            }
 
-      return response;
-    } catch (error) {
-      throw parseAuthError(error);
-    }
-  },
+            return response;
+        } catch (error) {
+            throw parseAuthError(error);
+        }
+    },
 
-  /**
-   * Logout user
-   * @returns {Promise<boolean>} - Success status
-   */
-  async logout() {
-    try {
-      // Get access token for Authorization header
-      const accessToken = authStorage.getAccessToken();
+    /**
+     * Logout user
+     * @returns {Promise<boolean>} - Success status
+     */
+    async logout() {
+        try {
+            // Get access token for Authorization header
+            const accessToken = authStorage.getAccessToken();
 
-      if (!accessToken) {
-        console.warn("No access token found for logout API call");
-        return true; // Still proceed with client-side logout
-      }
+            if (!accessToken) {
+                console.warn("No access token found for logout API call");
+                return true; // Still proceed with client-side logout
+            }
 
-      const response = await makeRequest(AUTH_ENDPOINTS.LOGOUT, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      });
+            const response = await makeRequest(AUTH_ENDPOINTS.LOGOUT, {
+                method: "POST",
+                headers: {
+                    Authorization: `Bearer ${accessToken}`,
+                },
+            });
 
-      // Logout API returns 200 on success with message
-      console.log("Logout successful:", response?.message || "User logged out");
-      return true;
-    } catch (error) {
-      // Log error but don't throw - logout should always succeed client-side
-      console.warn("Logout API call failed:", error);
-      return true;
-    }
-  },
+            // Logout API returns 200 on success with message
+            console.log(
+                "Logout successful:",
+                response?.message || "User logged out"
+            );
+            return true;
+        } catch (error) {
+            // Log error but don't throw - logout should always succeed client-side
+            console.warn("Logout API call failed:", error);
+            return true;
+        }
+    },
 
-  /**
-   * Refresh access token
-   * @param {string} refreshToken - Refresh token
-   * @returns {Promise<Object>} - New tokens
-   * @throws {AuthError} - Authentication error
-   */
-  async refreshToken(refreshToken) {
-    try {
-      const response = await makeRequest(AUTH_ENDPOINTS.REFRESH, {
-        method: "POST",
-        body: JSON.stringify({ refresh_token: refreshToken }),
-      });
+    /**
+     * Refresh access token
+     * @param {string} refreshToken - Refresh token
+     * @returns {Promise<Object>} - New tokens
+     * @throws {AuthError} - Authentication error
+     */
+    async refreshToken(refreshToken) {
+        try {
+            // Use direct fetch to avoid circular dependency with makeRequest
+            const baseURL = process.env.NEXT_PUBLIC_API_BASE_URL;
+            if (!baseURL) {
+                throw new AuthError("API base URL not configured", 500);
+            }
 
-      if (!response || !response.access_token) {
-        throw new AuthError("Invalid refresh response", 401);
-      }
+            const url = `${baseURL}${AUTH_ENDPOINTS.REFRESH}`;
+            const response = await fetch(url, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ refreshToken }),
+            });
 
-      return response;
-    } catch (error) {
-      throw parseAuthError(error);
-    }
-  },
+            const responseText = await response.text();
+            let data;
 
-  /**
-   * Get user profile
-   * @param {string} accessToken - Access token
-   * @returns {Promise<Object>} - User profile data
-   * @throws {AuthError} - Authentication error
-   */
-  async getProfile(accessToken) {
-    try {
-      const response = await makeRequest(AUTH_ENDPOINTS.PROFILE, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      });
+            try {
+                data = JSON.parse(responseText);
+            } catch {
+                data = {
+                    message: responseText || "An error occurred",
+                };
+            }
 
-      return response;
-    } catch (error) {
-      throw parseAuthError(error);
-    }
-  },
+            if (!response.ok) {
+                throw {
+                    status: response.status,
+                    statusCode: response.status,
+                    message:
+                        data.message ||
+                        `Request failed with status ${response.status}`,
+                    error: data.error || "HTTPError",
+                    data,
+                };
+            }
 
-  /**
-   * Validate token
-   * @param {string} token - Access token
-   * @returns {Promise<boolean>} - Token validity
-   */
-  async validateToken(token) {
-    try {
-      await this.getProfile(token);
-      return true;
-    } catch (error) {
-      return false;
-    }
-  },
+            if (!data || !data.access_token) {
+                throw new AuthError("Invalid refresh response", 401);
+            }
+
+            return data;
+        } catch (error) {
+            throw parseAuthError(error);
+        }
+    },
+
+    /**
+     * Get user profile
+     * @param {string} accessToken - Access token
+     * @returns {Promise<Object>} - User profile data
+     * @throws {AuthError} - Authentication error
+     */
+    async getProfile(accessToken) {
+        try {
+            const response = await makeRequest(AUTH_ENDPOINTS.PROFILE, {
+                method: "GET",
+                headers: {
+                    Authorization: `Bearer ${accessToken}`,
+                },
+            });
+
+            return response;
+        } catch (error) {
+            throw parseAuthError(error);
+        }
+    },
+
+    /**
+     * Validate token
+     * @param {string} token - Access token
+     * @returns {Promise<boolean>} - Token validity
+     */
+    async validateToken(token) {
+        try {
+            await this.getProfile(token);
+            return true;
+        } catch (error) {
+            return false;
+        }
+    },
 };

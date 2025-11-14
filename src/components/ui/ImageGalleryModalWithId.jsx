@@ -229,7 +229,7 @@ export function ImageGalleryModalWithId({
                         <div className="flex-1 overflow-y-auto">
                             {loading && images.length === 0 ? (
                                 <div className="flex items-center justify-center py-12">
-                                    <LoadingState message="Loading images..." />
+                                    <LoadingState message="Loading images..." loading={loading}  />
                                 </div>
                             ) : error && images.length === 0 ? (
                                 <ErrorState

@@ -70,7 +70,7 @@ export function RenewalsJobSettings() {
   const maxConcurrency = settings?.maxConcurrency || 50;
 
   if (loading) {
-    return <LoadingState message="Loading renewals job settings..." />;
+    return <LoadingState message="Loading renewals job settings..." loading={loading} fullScreen={true} />;
   }
 
   if (error && !settings) {
