@@ -212,7 +212,7 @@ export default function CouponForm({ couponId = null }) {
   if (fetchLoading && isEditMode) {
     return (
       <PageContainer>
-        <LoadingState message="Loading coupon..." />
+        <LoadingState message="Loading coupon..." loading={fetchLoading || loading} fullScreen={true} />
       </PageContainer>
     );
   }

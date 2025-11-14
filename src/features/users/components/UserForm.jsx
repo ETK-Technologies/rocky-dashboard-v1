@@ -377,7 +377,7 @@ export function UserForm({ userId = null }) {
       <PageContainer>
         <PageHeader title={isEdit ? "Edit User" : "Create User"} />
         <div className="flex items-center justify-center min-h-[40vh]">
-          <LoadingState message="Loading user..." />
+          <LoadingState message="Loading user..." loading={loading} fullScreen={true} />
         </div>
       </PageContainer>
     );

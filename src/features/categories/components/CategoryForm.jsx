@@ -150,16 +150,17 @@ export default function CategoryForm({ categoryId = null }) {
   }, [categories, categoryId]);
 
   // Show loading state
-  if (fetchLoading) {
-    return (
-      <PageContainer>
-        <LoadingState message="Loading category..." />
-      </PageContainer>
-    );
-  }
+  // if (fetchLoading) {
+  //   return (
+  //     <PageContainer>
+  //       <LoadingState message="Loading category..." />
+  //     </PageContainer>
+  //   );
+  // }
 
   return (
     <PageContainer>
+      <LoadingState message="Loading category..." loading={fetchLoading || loading} fullScreen={true} />
       <PageHeader
         title={isEditMode ? "Edit Category" : "Add Category"}
         description={
