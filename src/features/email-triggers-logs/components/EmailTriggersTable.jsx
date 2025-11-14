@@ -171,8 +171,8 @@ export function EmailTriggersTable({ items, loading, onViewDetails }) {
               : messageContent;
           return (
             <Tooltip content={messageContent || "—"} usePortal>
-              <div className="flex flex-col gap-1 max-w-[150px]">
-                <span className="block truncate text-sm text-muted-foreground max-w-[150px]">
+              <div className="flex flex-col gap-1 w-full overflow-hidden">
+                <span className="block truncate text-sm text-muted-foreground w-full overflow-hidden text-ellipsis">
                   {truncatedMessage || "—"}
                 </span>
                 {(row.targetType || row.targetId) && (
