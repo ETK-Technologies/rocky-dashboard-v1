@@ -51,7 +51,7 @@ export default function BillingSettings() {
   if (loading) {
     return (
       <PageContainer>
-        <LoadingState message="Loading billing settings..." />
+        <LoadingState message="Loading billing settings..." loading={loading} fullScreen={true} />
       </PageContainer>
     );
   }

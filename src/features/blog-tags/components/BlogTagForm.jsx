@@ -115,16 +115,21 @@ export default function BlogTagForm({ tagId = null }) {
         }
     };
 
-    if (fetchLoading) {
-        return (
-            <PageContainer>
-                <LoadingState message="Loading tag..." />
-            </PageContainer>
-        );
-    }
+    // if (fetchLoading) {
+    //     return (
+    //         <PageContainer>
+    //             <LoadingState message="Loading tag..." />
+    //         </PageContainer>
+    //     );
+    // }
 
     return (
         <PageContainer>
+            <LoadingState
+                message="Loading tag..."
+                loading={fetchLoading || loading}
+                fullScreen={true}
+            />
             <PageHeader
                 title={isEditMode ? "Edit Tag" : "Add Tag"}
                 description={

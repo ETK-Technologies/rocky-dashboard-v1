@@ -1497,7 +1497,7 @@ export default function ProductForm({ productId = null }) {
   if (fetchLoading) {
     return (
       <PageContainer>
-        <LoadingState message="Loading product..." />
+        <LoadingState message="Loading product..." loading={fetchLoading} fullScreen={true} />
       </PageContainer>
     );
   }

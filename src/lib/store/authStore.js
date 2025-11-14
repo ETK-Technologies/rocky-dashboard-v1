@@ -230,6 +230,21 @@ export const useAuthStore = create(
       },
 
       /**
+       * Clear auth state without API call (useful for token refresh failures)
+       */
+      clearAuth: () => {
+        authStorage.clearAuth();
+        set({
+          user: null,
+          isAuthenticated: false,
+          isLoading: false,
+          error: null,
+          permissions: [],
+          permissionsLoaded: false,
+        });
+      },
+
+      /**
        * Logout and clear all auth data
        */
       logout: async () => {

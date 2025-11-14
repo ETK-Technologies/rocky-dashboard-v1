@@ -5,7 +5,16 @@ import { useRouter } from "next/navigation";
 import { Tooltip } from "react-tooltip";
 import "react-tooltip/dist/react-tooltip.css";
 import { toast } from "react-toastify";
-import { Search, Plus, Tag, ArrowUp, ArrowDown } from "lucide-react";
+import {
+    Search,
+    Plus,
+    Tag,
+    ArrowUp,
+    ArrowDown,
+    Edit,
+    Trash2,
+    Eye,
+} from "lucide-react";
 import {
     CustomButton,
     PageContainer,
@@ -18,6 +27,7 @@ import {
 } from "@/components/ui";
 import { useBlogTags } from "../hooks/useBlogTags";
 import { blogTagService } from "../services/blogTagService";
+import { LoadingState } from "@/components/ui/LoadingState";
 
 export default function BlogTags() {
     const router = useRouter();
@@ -281,67 +291,9 @@ export default function BlogTags() {
                     {renderSortIcon("name")}
                 </button>
             ),
-            render: (tag) => {
-                return (
-                    <div className="flex flex-col py-1 group">
-                        <div className="">
-                            <span className="font-medium text-foreground">
-                                {tag.name}
-                            </span>
-                        </div>
-                        {/* Row Actions - Visible on hover */}
-                        <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-2 mt-1 flex-wrap">
-                            <button
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    router.push(
-                                        `/dashboard/blogs/tags/${tag.id}/edit`
-                                    );
-                                }}
-                                className="text-xs text-primary hover:underline"
-                            >
-                                Edit
-                            </button>
-                            <span className="text-muted-foreground text-xs">
-                                |
-                            </span>
-                            <button
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleQuickEditClick(tag);
-                                }}
-                                className="text-xs text-primary hover:underline"
-                            >
-                                Quick Edit
-                            </button>
-                            <span className="text-muted-foreground text-xs">
-                                |
-                            </span>
-                            <button
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleDeleteClick(tag);
-                                }}
-                                className="text-xs text-red-600 hover:underline dark:text-red-400"
-                            >
-                                Delete
-                            </button>
-                            <span className="text-muted-foreground text-xs">
-                                |
-                            </span>
-                            <button
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    window.open(`/tags/${tag.slug}`, "_blank");
-                                }}
-                                className="text-xs text-primary hover:underline"
-                            >
-                                View
-                            </button>
-                        </div>
-                    </div>
-                );
-            },
+            render: (tag) => (
+                <span className="font-medium text-foreground">{tag.name}</span>
+            ),
         },
         {
             key: "description",
@@ -386,6 +338,63 @@ export default function BlogTags() {
                 <span className="text-sm text-foreground">
                     {tag._count?.posts ?? tag.count ?? tag.postCount ?? 0}
                 </span>
+            ),
+        },
+        {
+            key: "actions",
+            label: "Actions",
+            width: "20%",
+            render: (tag) => (
+                <div className="flex items-center gap-1">
+                    <button
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            router.push(`/dashboard/blogs/tags/${tag.id}/edit`);
+                        }}
+                        className="p-1.5 hover:bg-accent rounded transition-colors"
+                        data-tooltip-id="tag-tooltip"
+                        data-tooltip-content="Edit"
+                        type="button"
+                    >
+                        <Edit className="h-4 w-4 text-foreground hover:text-primary" />
+                    </button>
+                    <button
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            handleQuickEditClick(tag);
+                        }}
+                        className="px-2 py-1 text-xs text-primary hover:bg-accent rounded transition-colors"
+                        data-tooltip-id="tag-tooltip"
+                        data-tooltip-content="Quick Edit"
+                        type="button"
+                    >
+                        Quick Edit
+                    </button>
+                    <button
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteClick(tag);
+                        }}
+                        className="p-1.5 hover:bg-accent rounded transition-colors"
+                        data-tooltip-id="tag-tooltip"
+                        data-tooltip-content="Delete"
+                        type="button"
+                    >
+                        <Trash2 className="h-4 w-4 text-foreground hover:text-red-600 dark:hover:text-red-400" />
+                    </button>
+                    <button
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            window.open(`/tags/${tag.slug}`, "_blank");
+                        }}
+                        className="p-1.5 hover:bg-accent rounded transition-colors"
+                        data-tooltip-id="tag-tooltip"
+                        data-tooltip-content="View"
+                        type="button"
+                    >
+                        <Eye className="h-4 w-4 text-foreground hover:text-primary" />
+                    </button>
+                </div>
             ),
         },
     ];
@@ -487,6 +496,11 @@ export default function BlogTags() {
 
     return (
         <PageContainer>
+            {/* <LoadingState
+                message="Loading tags..."
+                loading={loading}
+                fullScreen={true}
+            /> */}
             <PageHeader
                 title="Tags"
                 description=""
