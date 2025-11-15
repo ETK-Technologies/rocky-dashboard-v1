@@ -92,28 +92,6 @@ export function JobsOverview() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold">Jobs Overview</h2>
-          <p className="text-muted-foreground">
-            Monitor all background job queues and their status
-          </p>
-        </div>
-        <CustomButton
-          variant="outline"
-          size="sm"
-          onClick={handleRefresh}
-          disabled={refreshing}
-          className="flex items-center gap-2"
-        >
-          <RefreshCw
-            className={cn("h-4 w-4", refreshing && "animate-spin")}
-          />
-          Refresh
-        </CustomButton>
-      </div>
-
       {/* Statistics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <CustomCard className="p-6">
@@ -178,7 +156,9 @@ export function JobsOverview() {
                     variant="ghost"
                     size="sm"
                     onClick={() =>
-                      router.push(`/dashboard/admin-jobs/queues?queue=${queue.name}`)
+                      router.push(
+                        `/dashboard/admin-jobs/queues?queue=${queue.name}`
+                      )
                     }
                   >
                     View Details
@@ -188,7 +168,9 @@ export function JobsOverview() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <p className="text-sm text-muted-foreground">Waiting</p>
-                    <p className="text-lg font-semibold">{queue.waiting || 0}</p>
+                    <p className="text-lg font-semibold">
+                      {queue.waiting || 0}
+                    </p>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Active</p>
@@ -251,7 +233,11 @@ export function JobsOverview() {
                   className="flex items-center justify-between p-4 border border-border rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
                   onClick={() =>
                     router.push(
-                      `/dashboard/admin-jobs/queues?queue=${job.name?.includes("renewal") ? "renewals" : "product-import"}&job=${job.id}`
+                      `/dashboard/admin-jobs/queues?queue=${
+                        job.name?.includes("renewal")
+                          ? "renewals"
+                          : "product-import"
+                      }&job=${job.id}`
                     )
                   }
                 >
@@ -360,4 +346,3 @@ export function JobsOverview() {
     </div>
   );
 }
-

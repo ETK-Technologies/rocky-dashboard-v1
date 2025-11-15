@@ -105,7 +105,7 @@ export function SettingsNavigation({ mobile = false }) {
 
   return (
     <div className="w-64 h-full flex-shrink-0 border-r border-border bg-card">
-      <div className="p-4">
+      <div className="p-4 sticky top-0">
         <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">
           Settings
         </h2>
@@ -134,4 +134,3 @@ export function SettingsNavigation({ mobile = false }) {
     </div>
   );
 }
-

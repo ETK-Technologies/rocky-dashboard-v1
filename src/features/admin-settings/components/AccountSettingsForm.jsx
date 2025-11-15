@@ -1,15 +1,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Save, RefreshCw, Loader2 } from "lucide-react";
+import { Save, Loader2 } from "lucide-react";
 import {
   CustomButton,
   CustomCard,
   CustomCardContent,
-  CustomCardDescription,
   CustomCardFooter,
-  CustomCardHeader,
-  CustomCardTitle,
   CustomInput,
   CustomLabel,
   ErrorState,
@@ -139,31 +136,7 @@ export function AccountSettingsForm() {
   return (
     <form onSubmit={handleSubmit}>
       <CustomCard>
-        <CustomCardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CustomCardTitle>Account & Privacy Settings</CustomCardTitle>
-              <CustomCardDescription>
-                Configure account creation policies, privacy settings, and data
-                retention
-              </CustomCardDescription>
-            </div>
-            <CustomButton
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={fetchSettings}
-              disabled={loading || saving}
-              className="flex items-center gap-2"
-            >
-              <RefreshCw
-                className={cn("h-4 w-4", loading && "animate-spin")}
-              />
-              Refresh
-            </CustomButton>
-          </div>
-        </CustomCardHeader>
-        <CustomCardContent className="space-y-6">
+        <CustomCardContent className="space-y-6 pt-5">
           {/* Account Creation */}
           <div className="space-y-4 border-b border-border pb-6">
             <h3 className="text-lg font-semibold">Account Creation</h3>
@@ -175,7 +148,10 @@ export function AccountSettingsForm() {
                   id="allowRegistrationAtCheckout"
                   checked={formData.allowRegistrationAtCheckout}
                   onChange={(e) =>
-                    handleChange("allowRegistrationAtCheckout", e.target.checked)
+                    handleChange(
+                      "allowRegistrationAtCheckout",
+                      e.target.checked
+                    )
                   }
                   disabled={saving}
                   className={cn(
@@ -469,4 +445,3 @@ export function AccountSettingsForm() {
     </form>
   );
 }
-

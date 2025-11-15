@@ -9,7 +9,7 @@ export default function StorageSettingsPage() {
       <div className="py-6">
         <PageHeader
           title="Storage Settings"
-          subtitle="Configure storage provider credentials and upload constraints"
+          description="Configure storage provider credentials and upload constraints"
         />
         <div className="mt-6">
           <StorageSettings />
@@ -18,4 +18,3 @@ export default function StorageSettingsPage() {
     </PageContainer>
   );
 }
-
