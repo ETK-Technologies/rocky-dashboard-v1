@@ -34,7 +34,9 @@ export function Tabs({
   };
 
   return (
-    <TabsContext.Provider value={{ activeTab, setActiveTab, variant, disableScroll }}>
+    <TabsContext.Provider
+      value={{ activeTab, setActiveTab, variant, disableScroll }}
+    >
       <div className={cn("w-full", className)}>{children}</div>
     </TabsContext.Provider>
   );
@@ -66,7 +68,8 @@ export function TabsList({ children, className, orientation = "horizontal" }) {
 }
 
 export function TabsTrigger({ value, children, className, icon: Icon }) {
-  const { activeTab, setActiveTab, variant, disableScroll } = useContext(TabsContext);
+  const { activeTab, setActiveTab, variant, disableScroll } =
+    useContext(TabsContext);
   const isActive = activeTab === value;
 
   const handleClick = () => {
@@ -121,10 +124,18 @@ export function TabsTrigger({ value, children, className, icon: Icon }) {
   );
 }
 
-export function TabsContent({ value, children, className }) {
+export function TabsContent({
+  value,
+  children,
+  className,
+  alwaysRender = false,
+}) {
   const { activeTab } = useContext(TabsContext);
+  const isActive = activeTab === value;
 
-  if (activeTab !== value) {
+  // For components that need refs (like editors), always render but hide with CSS
+  // For other content, we can return null for better performance
+  if (!alwaysRender && !isActive) {
     return null;
   }
 
@@ -132,6 +143,7 @@ export function TabsContent({ value, children, className }) {
     <div
       className={cn(
         "mt-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+        !isActive && alwaysRender && "hidden", // Hide but keep in DOM if alwaysRender is true
         className
       )}
     >

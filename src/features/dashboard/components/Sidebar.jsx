@@ -242,20 +242,14 @@ const adminNavigation = [
     ],
   },
   {
-    name: "System Settings",
+    name: "Jobs",
+    href: "/dashboard/admin-jobs",
+    icon: Activity,
+  },
+  {
+    name: "Settings",
+    href: "/dashboard/admin-settings",
     icon: Settings,
-    children: [
-      {
-        name: "Renewals",
-        href: "/dashboard/system-settings/renewals",
-        icon: Repeat,
-      },
-      {
-        name: "Storage",
-        href: "/dashboard/system-settings/storage",
-        icon: Upload,
-      },
-    ],
   },
 ];
 

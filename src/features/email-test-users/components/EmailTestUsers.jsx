@@ -13,6 +13,7 @@ import {
   CustomCardTitle,
   CustomCardContent,
   CustomButton,
+  CustomLabel,
   FormField,
   DataTable,
   LoadingState,
