@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { Sidebar, Topbar } from "@/features/dashboard";
 import { authStorage } from "@/features/auth";
 import { cn } from "@/utils/cn";
 
 export default function DashboardLayout({ children }) {
   const router = useRouter();
+  const pathname = usePathname();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -19,6 +20,31 @@ export default function DashboardLayout({ children }) {
       setIsSidebarCollapsed(savedState === "true");
     }
   }, []);
+
+  // Auto-collapse sidebar when entering settings or jobs pages
+  useEffect(() => {
+    // Check if we're on a settings or jobs page
+    const isSettingsPage = pathname?.startsWith("/dashboard/admin-settings");
+    const isJobsPage = pathname?.startsWith("/dashboard/admin-jobs");
+
+    if (isSettingsPage || isJobsPage) {
+      // Save current state before collapsing
+      const currentState = localStorage.getItem("sidebarCollapsed");
+      if (currentState !== "true") {
+        localStorage.setItem("sidebarCollapsedPrevious", currentState || "false");
+        setIsSidebarCollapsed(true);
+        localStorage.setItem("sidebarCollapsed", "true");
+      }
+    } else {
+      // Restore previous state when leaving settings/jobs (only if it was saved)
+      const previousState = localStorage.getItem("sidebarCollapsedPrevious");
+      if (previousState !== null) {
+        setIsSidebarCollapsed(previousState === "true");
+        localStorage.setItem("sidebarCollapsed", previousState);
+        localStorage.removeItem("sidebarCollapsedPrevious");
+      }
+    }
+  }, [pathname]);
 
   useEffect(() => {
     // Check authentication

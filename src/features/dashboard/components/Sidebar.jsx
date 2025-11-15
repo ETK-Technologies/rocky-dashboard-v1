@@ -221,25 +221,35 @@ const adminNavigation = [
     icon: ClipboardList,
   },
   {
-    name: "Email Templates",
-    href: "/dashboard/email-templates",
+    name: "Emails",
     icon: Mail,
-  },
-  {
-    name: "System Settings",
-    icon: Settings,
     children: [
       {
-        name: "Renewals",
-        href: "/dashboard/system-settings/renewals",
-        icon: Repeat,
+        name: "Templates",
+        href: "/dashboard/email-templates",
+        icon: Mail,
       },
       {
-        name: "Storage",
-        href: "/dashboard/system-settings/storage",
-        icon: Upload,
+        name: "Test Users",
+        href: "/dashboard/email-templates/test-users",
+        icon: Users,
+      },
+      {
+        name: "Email Triggers Logs",
+        href: "/dashboard/email-templates/triggers-logs",
+        icon: Activity,
       },
     ],
+  },
+  {
+    name: "Jobs",
+    href: "/dashboard/admin-jobs",
+    icon: Activity,
+  },
+  {
+    name: "Settings",
+    href: "/dashboard/admin-settings",
+    icon: Settings,
   },
 ];
 

@@ -49,13 +49,14 @@ export const emailTemplateService = {
       name: template.name,
       subject: template.subject,
       html: template.bodyHtml,
+      bodyText: template.bodyText,
       design: template.metadata?.design || null,
       description: template.description,
       scope: template.scope,
       trigger: template.trigger,
-      variables: template.variables,
+      variables: template.variables || [],
       isEnabled: template.isEnabled,
-      metadata: template.metadata,
+      metadata: template.metadata || {},
     };
   },
 
@@ -65,18 +66,30 @@ export const emailTemplateService = {
    * @returns {Promise<Object>} Created template
    */
   async create(data) {
+    const html = data.html || data.bodyHtml || "";
+    const subject = data.subject || "";
+    
+    // Extract variables from both HTML and subject
+    const extractedVariables = this.extractVariables(html, subject);
+    
+    // Use provided variables or extracted ones (merge if both exist)
+    const variables = data.variables && data.variables.length > 0
+      ? [...new Set([...data.variables, ...extractedVariables])]
+      : extractedVariables;
+    
     // Convert our format to API format
     const apiData = {
       name: data.name,
       description: data.description || "",
       scope: data.scope || "CUSTOM",
-      trigger: data.trigger || "manual", // Default to "manual" if not provided
-      subject: data.subject || "Email Subject",
-      bodyHtml: data.html || data.bodyHtml || "",
-      bodyText: data.bodyText || this.extractTextFromHtml(data.html || ""),
-      variables: data.variables || this.extractVariables(data.html || ""),
+      trigger: data.trigger || (data.scope === "CUSTOM" ? "manual" : ""),
+      subject: subject,
+      bodyHtml: html,
+      bodyText: data.bodyText || this.extractTextFromHtml(html),
+      variables: variables,
       metadata: {
-        design: data.design, // Store the Unlayer design JSON in metadata
+        category: data.metadata?.category || "",
+        design: data.design, // Store the GrapesJS design JSON in metadata
         ...(data.metadata || {}),
       },
       isEnabled: data.isEnabled !== false,
@@ -95,18 +108,30 @@ export const emailTemplateService = {
    * @returns {Promise<Object>} Updated template
    */
   async update(id, data) {
+    const html = data.html || data.bodyHtml || "";
+    const subject = data.subject || "";
+    
+    // Extract variables from both HTML and subject
+    const extractedVariables = this.extractVariables(html, subject);
+    
+    // Use provided variables or extracted ones (merge if both exist)
+    const variables = data.variables && data.variables.length > 0
+      ? [...new Set([...data.variables, ...extractedVariables])]
+      : extractedVariables;
+    
     // Convert our format to API format
     const apiData = {
       name: data.name,
       description: data.description || "",
       scope: data.scope || "CUSTOM",
-      trigger: data.trigger || "manual", // Default to "manual" if not provided
-      subject: data.subject || "Email Subject",
-      bodyHtml: data.html || data.bodyHtml || "",
-      bodyText: data.bodyText || this.extractTextFromHtml(data.html || ""),
-      variables: data.variables || this.extractVariables(data.html || ""),
+      trigger: data.trigger || (data.scope === "CUSTOM" ? "manual" : ""),
+      subject: subject,
+      bodyHtml: html,
+      bodyText: data.bodyText || this.extractTextFromHtml(html),
+      variables: variables,
       metadata: {
-        design: data.design, // Store the Unlayer design JSON in metadata
+        category: data.metadata?.category || "",
+        design: data.design, // Store the GrapesJS design JSON in metadata
         ...(data.metadata || {}),
       },
       isEnabled: data.isEnabled !== false,
@@ -181,18 +206,20 @@ export const emailTemplateService = {
   },
 
   /**
-   * Extract variables from HTML/design
+   * Extract variables from HTML/design and subject
    * @param {string} html - HTML string
+   * @param {string} subject - Subject string (optional)
    * @returns {Array<string>} Array of variable names in format "user.name"
    */
-  extractVariables(html) {
-    if (!html) return [];
+  extractVariables(html, subject = "") {
+    const allText = [html, subject].filter(Boolean).join(" ");
+    if (!allText) return [];
     // Extract variables in format {{variable}} or {variable}
     // API expects format like "user.name", "order.id", etc.
-    const matches = html.match(/\{\{?(\w+(?:\.\w+)*)\}?\}/g);
+    const matches = allText.match(/\{\{(\w+(?:\.\w+)*)\}\}/g);
     if (!matches) return [];
     // Return unique variable names without braces
-    // Convert {name} or {{user.name}} to "name" or "user.name"
+    // Convert {{user.name}} to "user.name"
     const variableNames = matches.map((m) => {
       // Remove all braces and return the variable path
       return m.replace(/[{}]/g, "");
