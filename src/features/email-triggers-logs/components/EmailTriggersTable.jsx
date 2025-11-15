@@ -6,6 +6,7 @@ import { DataTable } from "@/components/ui/DataTable";
 import { CustomBadge } from "@/components/ui/CustomBadge";
 import { IconButton } from "@/components/ui/IconButton";
 import { Tooltip } from "@/components/ui/Tooltip";
+import { ALL_EMAIL_TRIGGERS } from "../hooks/useEmailTriggersLogs";
 
 const STATUS_BADGE_CLASSES = {
   success:
@@ -22,30 +23,14 @@ const STATUS_BADGE_CLASSES = {
     "bg-secondary text-secondary-foreground dark:bg-slate-400/20 dark:text-slate-200",
 };
 
-const formatDateTime = (value) => {
-  if (!value) return "—";
-  try {
-    return new Intl.DateTimeFormat("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-    }).format(new Date(value));
-  } catch {
-    return value;
-  }
-};
-
 /**
- * Activity table component
+ * Email triggers table component
  * @param {Object} props
  * @param {Array} props.items
  * @param {boolean} props.loading
  * @param {Function} props.onViewDetails
  */
-export function ActivityTable({ items, loading, onViewDetails }) {
+export function EmailTriggersTable({ items, loading, onViewDetails }) {
   const columns = useMemo(
     () => [
       {
@@ -91,16 +76,30 @@ export function ActivityTable({ items, loading, onViewDetails }) {
         },
       },
       {
-        key: "scope",
-        label: "Scope",
+        key: "trigger",
+        label: "Trigger",
         width: "180px",
         render: (row) => {
-          const scope = row.scope || "—";
+          // Check trigger field first (email trigger like order.created)
+          const trigger =
+            row.trigger ||
+            row.metadata?.trigger ||
+            row.emailTrigger ||
+            "—";
+
+          if (trigger === "—") {
+            return <span className="text-muted-foreground">—</span>;
+          }
+
+          const triggerLabel =
+            ALL_EMAIL_TRIGGERS.find((t) => t.value === trigger)?.label ||
+            trigger;
+
           return (
-            <Tooltip content={scope} usePortal>
-              <div className="max-w-[100px]">
-                <span className="uppercase tracking-wide text-xs font-semibold text-muted-foreground block truncate overflow-hidden">
-                  {scope}
+            <Tooltip content={trigger} usePortal>
+              <div className="max-w-[160px]">
+                <span className="font-semibold text-foreground block truncate overflow-hidden">
+                  {triggerLabel}
                 </span>
               </div>
             </Tooltip>
@@ -113,11 +112,46 @@ export function ActivityTable({ items, loading, onViewDetails }) {
         width: "210px",
         render: (row) => {
           const action = row.action || "—";
+
+          if (action === "—") {
+            return <span className="text-muted-foreground">—</span>;
+          }
+
+          // If it's EMAIL_SEND_FAILED, show it prominently
+          if (action === "EMAIL_SEND_FAILED") {
+            return (
+              <Tooltip content={action} usePortal>
+                <div className="w-[200px]">
+                  <span className="truncate font-semibold text-rose-600 dark:text-rose-400 block">
+                    Email Failed
+                  </span>
+                </div>
+              </Tooltip>
+            );
+          }
+
           return (
             <Tooltip content={action} usePortal>
               <div className="w-[200px]">
                 <span className="truncate font-semibold text-foreground block">
                   {action}
+                </span>
+              </div>
+            </Tooltip>
+          );
+        },
+      },
+      {
+        key: "scope",
+        label: "Scope",
+        width: "120px",
+        render: (row) => {
+          const scope = row.scope || "—";
+          return (
+            <Tooltip content={scope} usePortal>
+              <div className="max-w-[100px]">
+                <span className="uppercase tracking-wide text-xs font-semibold text-muted-foreground block truncate overflow-hidden">
+                  {scope}
                 </span>
               </div>
             </Tooltip>
@@ -184,6 +218,18 @@ export function ActivityTable({ items, loading, onViewDetails }) {
         label: "Status",
         width: "140px",
         render: (row) => {
+          // Check if action is EMAIL_SEND_FAILED first
+          if (row.action === "EMAIL_SEND_FAILED") {
+            return (
+              <CustomBadge
+                variant="outline"
+                className={`uppercase tracking-wide px-2 py-1 ${STATUS_BADGE_CLASSES.failed}`}
+              >
+                FAILED
+              </CustomBadge>
+            );
+          }
+
           const status = String(row.status || "")
             .trim()
             .toLowerCase();
@@ -213,7 +259,7 @@ export function ActivityTable({ items, loading, onViewDetails }) {
       renderActions={(row) => (
         <IconButton
           icon={ArrowUpRight}
-          label="View activity details"
+          label="View email trigger log details"
           variant="ghost"
           size="sm"
           onClick={(event) => {
@@ -225,10 +271,11 @@ export function ActivityTable({ items, loading, onViewDetails }) {
       onRowClick={(row) => onViewDetails?.(row)}
       className="overflow-x-auto"
       emptyState={{
-        title: "No activity yet",
+        title: "No email trigger logs found",
         description:
-          "System activity logs will appear here as actions are performed.",
+          "Email trigger logs will appear here when emails are sent.",
       }}
     />
   );
 }
+

@@ -190,16 +190,19 @@ export function DataTable({
                                                 {columns.map((column) => (
                                                     <td
                                                         key={column.key}
+                                                        style={column.width ? { width: column.width, maxWidth: column.width } : undefined}
                                                         className={cn(
                                                             "px-3 sm:px-4 md:px-6 py-4",
-                                                            column.truncate
-                                                                ? "truncate"
+                                                            column.truncate || column.width
+                                                                ? "overflow-hidden"
                                                                 : "whitespace-nowrap"
                                                         )}
                                                     >
-                                                        {column.render
-                                                            ? column.render(row)
-                                                            : row[column.key]}
+                                                        <div className={column.width ? "overflow-hidden w-full" : ""}>
+                                                            {column.render
+                                                                ? column.render(row)
+                                                                : row[column.key]}
+                                                        </div>
                                                     </td>
                                                 ))}
                                                 {renderActions && (
