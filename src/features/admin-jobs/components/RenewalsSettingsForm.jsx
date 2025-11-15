@@ -1,15 +1,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Save, RefreshCw, Loader2, Calendar } from "lucide-react";
+import { Save, Loader2, Calendar } from "lucide-react";
 import {
   CustomButton,
   CustomCard,
   CustomCardContent,
-  CustomCardDescription,
   CustomCardFooter,
-  CustomCardHeader,
-  CustomCardTitle,
   CustomInput,
   CustomLabel,
   ErrorState,
@@ -71,8 +68,7 @@ export function RenewalsSettingsForm() {
       formData.concurrency < 1 ||
       formData.concurrency > 50
     ) {
-      newErrors.concurrency =
-        "Concurrency must be between 1 and 50";
+      newErrors.concurrency = "Concurrency must be between 1 and 50";
     }
 
     setErrors(newErrors);
@@ -156,31 +152,7 @@ export function RenewalsSettingsForm() {
   return (
     <form onSubmit={handleSubmit}>
       <CustomCard>
-        <CustomCardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CustomCardTitle>Renewals Job Settings</CustomCardTitle>
-              <CustomCardDescription>
-                Configure the schedule and concurrency for subscription renewals
-                processing
-              </CustomCardDescription>
-            </div>
-            <CustomButton
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={fetchSettings}
-              disabled={loading || saving || reloading}
-              className="flex items-center gap-2"
-            >
-              <RefreshCw
-                className={cn("h-4 w-4", loading && "animate-spin")}
-              />
-              Refresh
-            </CustomButton>
-          </div>
-        </CustomCardHeader>
-        <CustomCardContent className="space-y-6">
+        <CustomCardContent className="space-y-6 pt-5">
           {/* Cron Schedule */}
           <div className="space-y-2">
             <CustomLabel htmlFor="cron">
@@ -274,7 +246,7 @@ export function RenewalsSettingsForm() {
                 </h4>
                 <p className="text-xs text-muted-foreground">
                   Manually reload the cron schedule from settings without
-                  updating. Useful if you've changed settings elsewhere.
+                  updating. Useful if you&apos;ve changed settings elsewhere.
                 </p>
               </div>
               <CustomButton
@@ -303,9 +275,7 @@ export function RenewalsSettingsForm() {
           {/* Error message */}
           {error && (
             <div className="p-4 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-lg">
-              <p className="text-sm text-red-600 dark:text-red-400">
-                {error}
-              </p>
+              <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
             </div>
           )}
         </CustomCardContent>
@@ -336,4 +306,3 @@ export function RenewalsSettingsForm() {
     </form>
   );
 }
-

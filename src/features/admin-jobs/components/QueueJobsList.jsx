@@ -181,18 +181,6 @@ export function QueueJobsList({ queueName, stateFilter, limit = 50 }) {
             </p>
           )}
         </div>
-        <CustomButton
-          variant="outline"
-          size="sm"
-          onClick={handleRefresh}
-          disabled={refreshing}
-          className="flex items-center gap-2"
-        >
-          <RefreshCw
-            className={cn("h-4 w-4", refreshing && "animate-spin")}
-          />
-          Refresh
-        </CustomButton>
       </div>
 
       {/* State Filter */}

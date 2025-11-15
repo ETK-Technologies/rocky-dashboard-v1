@@ -2,13 +2,23 @@
 
 import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
-import { PageContainer, PageHeader } from "@/components/ui";
+import { RefreshCw } from "lucide-react";
+import { PageContainer, PageHeader, CustomButton } from "@/components/ui";
 import { QueueJobsList } from "@/features/admin-jobs/components/QueueJobsList";
+import { useQueueJobs } from "@/features/admin-jobs/hooks/useQueueJobs";
+import { cn } from "@/utils/cn";
 
 export default function QueueManagementPage() {
   const searchParams = useSearchParams();
   const [queueName, setQueueName] = useState(null);
   const [stateFilter, setStateFilter] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const { refresh, loading } = useQueueJobs(queueName || "", {
+    autoFetch: false,
+    state: stateFilter,
+    limit: 50,
+  });
 
   useEffect(() => {
     const queue = searchParams.get("queue");
@@ -21,12 +31,41 @@ export default function QueueManagementPage() {
     }
   }, [searchParams]);
 
+  const handleRefresh = async () => {
+    if (!queueName) return;
+    setRefreshing(true);
+    try {
+      await refresh();
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   return (
     <PageContainer>
       <div className="py-6">
         <PageHeader
           title="Queue Management"
-          subtitle="View and manage jobs in specific queues (renewals, product-import)"
+          description="View and manage jobs in specific queues (renewals, product-import)"
+          action={
+            queueName && (
+              <CustomButton
+                variant="outline"
+                size="sm"
+                onClick={handleRefresh}
+                disabled={loading || refreshing}
+                className="flex items-center gap-2"
+              >
+                <RefreshCw
+                  className={cn(
+                    "h-4 w-4",
+                    (loading || refreshing) && "animate-spin"
+                  )}
+                />
+                Refresh
+              </CustomButton>
+            )
+          }
         />
         <div className="mt-6">
           {queueName ? (
@@ -62,4 +101,3 @@ export default function QueueManagementPage() {
     </PageContainer>
   );
 }
-

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Save, RefreshCw, Loader2, X } from "lucide-react";
+import { Save, Loader2, X } from "lucide-react";
 import {
   CustomButton,
   CustomCard,
@@ -122,7 +122,8 @@ export function StoreSettingsForm() {
     }
 
     if (formData.supportedCurrencies.length === 0) {
-      newErrors.supportedCurrencies = "At least one supported currency is required";
+      newErrors.supportedCurrencies =
+        "At least one supported currency is required";
     }
 
     if (!formData.country) {
@@ -226,28 +227,7 @@ export function StoreSettingsForm() {
     <form onSubmit={handleSubmit}>
       <CustomCard>
         <CustomCardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CustomCardTitle>Store Information</CustomCardTitle>
-              <CustomCardDescription>
-                Configure your store name, description, address, and contact
-                details
-              </CustomCardDescription>
-            </div>
-            <CustomButton
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={fetchSettings}
-              disabled={loading || saving}
-              className="flex items-center gap-2"
-            >
-              <RefreshCw
-                className={cn("h-4 w-4", loading && "animate-spin")}
-              />
-              Refresh
-            </CustomButton>
-          </div>
+          <CustomCardTitle>Store Information</CustomCardTitle>
         </CustomCardHeader>
         <CustomCardContent className="space-y-6">
           {/* Store Name */}
@@ -302,7 +282,9 @@ export function StoreSettingsForm() {
               <select
                 id="defaultCurrency"
                 value={formData.defaultCurrency}
-                onChange={(e) => handleChange("defaultCurrency", e.target.value)}
+                onChange={(e) =>
+                  handleChange("defaultCurrency", e.target.value)
+                }
                 disabled={saving}
                 className={cn(
                   "flex h-10 w-full rounded-md border px-3 py-2 text-sm transition-colors",
@@ -589,4 +571,3 @@ export function StoreSettingsForm() {
     </form>
   );
 }
-
