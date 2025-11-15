@@ -2,13 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  LayoutDashboard,
-  List,
-  Repeat,
-  Trash2,
-  Upload,
-} from "lucide-react";
+import { LayoutDashboard, List, Repeat, Trash2, Upload } from "lucide-react";
 import { cn } from "@/utils/cn";
 
 const jobsTabs = [
@@ -74,7 +68,7 @@ export function JobsNavigation({ mobile = false }) {
   }
 
   return (
-    <aside className="w-64 min-h-screen bg-card border-r border-border p-6">
+    <aside className="w-64 min-h-screen bg-card border-r border-border p-6 sticky top-0">
       <nav className="space-y-1">
         {jobsTabs.map((tab) => {
           const Icon = tab.icon;
@@ -99,4 +93,3 @@ export function JobsNavigation({ mobile = false }) {
     </aside>
   );
 }
-

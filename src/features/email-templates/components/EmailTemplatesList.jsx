@@ -219,7 +219,7 @@ export function EmailTemplatesList() {
     <PageContainer>
       <PageHeader
         title="Email Templates"
-        subtitle="Manage your email templates"
+        description="Manage your email templates"
         action={
           <CustomButton
             variant="primary"

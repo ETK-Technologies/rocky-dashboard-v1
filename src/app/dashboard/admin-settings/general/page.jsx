@@ -1,15 +1,36 @@
 "use client";
 
-import { PageContainer, PageHeader } from "@/components/ui";
+import { RefreshCw } from "lucide-react";
+import { PageContainer, PageHeader, CustomButton } from "@/components/ui";
 import { GeneralSettingsForm } from "@/features/admin-settings/components/GeneralSettingsForm";
+import { useGeneralSettings } from "@/features/admin-settings/hooks/useGeneralSettings";
+import { cn } from "@/utils/cn";
 
 export default function GeneralSettingsPage() {
+  const { fetchSettings, loading } = useGeneralSettings(false);
+
+  const handleRefresh = async () => {
+    await fetchSettings();
+  };
+
   return (
     <PageContainer>
-      <div className="py-6">
+      <div>
         <PageHeader
           title="General Settings"
-          subtitle="Configure timezone, date/time formats, pagination, and maintenance mode"
+          description="Configure timezone, date/time formats, pagination, and maintenance mode"
+          action={
+            <CustomButton
+              variant="outline"
+              size="sm"
+              onClick={handleRefresh}
+              disabled={loading}
+              className="flex items-center gap-2"
+            >
+              <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
+              Refresh
+            </CustomButton>
+          }
         />
         <div className="mt-6">
           <GeneralSettingsForm />
@@ -18,4 +39,3 @@ export default function GeneralSettingsPage() {
     </PageContainer>
   );
 }
-

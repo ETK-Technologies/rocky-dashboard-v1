@@ -1,15 +1,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Save, RefreshCw, Loader2, Plus, X } from "lucide-react";
+import { Save, Loader2, Plus, X } from "lucide-react";
 import {
   CustomButton,
   CustomCard,
   CustomCardContent,
-  CustomCardDescription,
   CustomCardFooter,
-  CustomCardHeader,
-  CustomCardTitle,
   CustomInput,
   CustomLabel,
   ErrorState,
@@ -52,8 +49,7 @@ export function SubscriptionSettingsForm() {
       formData.gracePeriodDays > 90 ||
       isNaN(formData.gracePeriodDays)
     ) {
-      newErrors.gracePeriodDays =
-        "Grace period days must be between 0 and 90";
+      newErrors.gracePeriodDays = "Grace period days must be between 0 and 90";
     }
 
     setErrors(newErrors);
@@ -84,10 +80,10 @@ export function SubscriptionSettingsForm() {
       day <= 30 &&
       !formData.notificationDaysBeforeRenewal.includes(day)
     ) {
-      handleChange("notificationDaysBeforeRenewal", [
-        ...formData.notificationDaysBeforeRenewal,
-        day,
-      ].sort((a, b) => a - b));
+      handleChange(
+        "notificationDaysBeforeRenewal",
+        [...formData.notificationDaysBeforeRenewal, day].sort((a, b) => a - b)
+      );
       setNewNotificationDay("");
     }
   };
@@ -140,30 +136,7 @@ export function SubscriptionSettingsForm() {
   return (
     <form onSubmit={handleSubmit}>
       <CustomCard>
-        <CustomCardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CustomCardTitle>Subscription Settings</CustomCardTitle>
-              <CustomCardDescription>
-                Configure subscription settings, grace period, and renewals
-              </CustomCardDescription>
-            </div>
-            <CustomButton
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={fetchSettings}
-              disabled={loading || saving}
-              className="flex items-center gap-2"
-            >
-              <RefreshCw
-                className={cn("h-4 w-4", loading && "animate-spin")}
-              />
-              Refresh
-            </CustomButton>
-          </div>
-        </CustomCardHeader>
-        <CustomCardContent className="space-y-6">
+        <CustomCardContent className="space-y-6 pt-5">
           {/* Subscription Enabled */}
           <div className="space-y-2">
             <div className="flex items-start gap-3">
@@ -180,7 +153,10 @@ export function SubscriptionSettingsForm() {
                 )}
               />
               <div className="flex-1">
-                <CustomLabel htmlFor="enabled" className="cursor-pointer font-medium">
+                <CustomLabel
+                  htmlFor="enabled"
+                  className="cursor-pointer font-medium"
+                >
                   Enable Subscriptions
                 </CustomLabel>
                 <p className="text-xs text-muted-foreground mt-1">
@@ -267,9 +243,7 @@ export function SubscriptionSettingsForm() {
                 <h3 className="text-lg font-semibold">Renewal Notifications</h3>
 
                 <div className="space-y-3">
-                  <CustomLabel>
-                    Notification Days Before Renewal
-                  </CustomLabel>
+                  <CustomLabel>Notification Days Before Renewal</CustomLabel>
 
                   {formData.notificationDaysBeforeRenewal.length > 0 && (
                     <div className="flex flex-wrap gap-2">
@@ -356,4 +330,3 @@ export function SubscriptionSettingsForm() {
     </form>
   );
 }
-

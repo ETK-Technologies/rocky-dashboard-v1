@@ -1,15 +1,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Save, RefreshCw, Loader2, Plus, X } from "lucide-react";
+import { Save, Loader2, Plus, X } from "lucide-react";
 import {
   CustomButton,
   CustomCard,
   CustomCardContent,
-  CustomCardDescription,
   CustomCardFooter,
-  CustomCardHeader,
-  CustomCardTitle,
   CustomInput,
   CustomLabel,
   ErrorState,
@@ -191,30 +188,7 @@ export function TaxSettingsForm() {
   return (
     <form onSubmit={handleSubmit}>
       <CustomCard>
-        <CustomCardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CustomCardTitle>Tax Settings</CustomCardTitle>
-              <CustomCardDescription>
-                Configure tax calculation, rates, and rounding
-              </CustomCardDescription>
-            </div>
-            <CustomButton
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={fetchSettings}
-              disabled={loading || saving}
-              className="flex items-center gap-2"
-            >
-              <RefreshCw
-                className={cn("h-4 w-4", loading && "animate-spin")}
-              />
-              Refresh
-            </CustomButton>
-          </div>
-        </CustomCardHeader>
-        <CustomCardContent className="space-y-6">
+        <CustomCardContent className="space-y-6 pt-5">
           {/* Tax Enabled */}
           <div className="space-y-2">
             <div className="flex items-start gap-3">
@@ -231,7 +205,10 @@ export function TaxSettingsForm() {
                 )}
               />
               <div className="flex-1">
-                <CustomLabel htmlFor="enabled" className="cursor-pointer font-medium">
+                <CustomLabel
+                  htmlFor="enabled"
+                  className="cursor-pointer font-medium"
+                >
                   Enable Tax Calculation
                 </CustomLabel>
                 <p className="text-xs text-muted-foreground mt-1">
@@ -312,7 +289,10 @@ export function TaxSettingsForm() {
                       id="displayPricesIncludingTax"
                       checked={formData.displayPricesIncludingTax}
                       onChange={(e) =>
-                        handleChange("displayPricesIncludingTax", e.target.checked)
+                        handleChange(
+                          "displayPricesIncludingTax",
+                          e.target.checked
+                        )
                       }
                       disabled={saving}
                       className={cn(
@@ -486,10 +466,7 @@ export function TaxSettingsForm() {
                     </div>
                   )}
 
-                  <form
-                    onSubmit={handleAddLocationRate}
-                    className="flex gap-2"
-                  >
+                  <form onSubmit={handleAddLocationRate} className="flex gap-2">
                     <CustomInput
                       type="text"
                       placeholder="Location code (e.g., CA, ON)"
@@ -559,4 +536,3 @@ export function TaxSettingsForm() {
     </form>
   );
 }
-

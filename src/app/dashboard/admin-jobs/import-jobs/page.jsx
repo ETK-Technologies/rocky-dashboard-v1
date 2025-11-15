@@ -9,8 +9,8 @@ export default function ImportJobsPage() {
     <PageContainer>
       <div className="py-6">
         <PageHeader
-          title="Product Import Jobs"
-          subtitle="Track and monitor product import jobs from WooCommerce CSV files"
+          title="Import Jobs"
+          description="Track and monitor product import jobs from WooCommerce CSV files"
           icon={Upload}
         />
         <div className="mt-6">
@@ -20,4 +20,3 @@ export default function ImportJobsPage() {
     </PageContainer>
   );
 }
-

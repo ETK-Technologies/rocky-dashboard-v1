@@ -17,6 +17,7 @@ import {
   Repeat,
   FileText,
   ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import {
   CustomButton,
@@ -335,6 +336,7 @@ export default function ProductForm({ productId = null }) {
   const [attributes, setAttributes] = useState([]); // Product attributes (for all products, used for variant generation in variable products)
   const [productGlobalAttributes, setProductGlobalAttributes] = useState([]); // Selected global attributes with values
   const [variants, setVariants] = useState([]);
+  const [expandedVariants, setExpandedVariants] = useState(new Set());
   const [categoryIds, setCategoryIds] = useState([]);
   const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
   const [metadata, setMetadata] = useState([]);
@@ -884,6 +886,7 @@ export default function ProductForm({ productId = null }) {
   };
 
   const addVariant = () => {
+    const newIndex = variants.length;
     setVariants((prev) => [
       ...prev,
       {
@@ -907,6 +910,8 @@ export default function ProductForm({ productId = null }) {
         attribute2Value: "",
       },
     ]);
+    // Automatically expand the newly added variant
+    setExpandedVariants((prev) => new Set([...prev, newIndex]));
   };
 
   // Get variation attributes (those marked for variations)
@@ -990,6 +995,19 @@ export default function ProductForm({ productId = null }) {
 
   const removeVariant = (index) => {
     setVariants((prev) => prev.filter((_, i) => i !== index));
+    // Clean up expanded state for removed variant and adjust indices
+    setExpandedVariants((prev) => {
+      const newSet = new Set();
+      prev.forEach((expandedIndex) => {
+        if (expandedIndex < index) {
+          newSet.add(expandedIndex);
+        } else if (expandedIndex > index) {
+          newSet.add(expandedIndex - 1);
+        }
+        // Skip the removed index
+      });
+      return newSet;
+    });
   };
 
   const addMetadata = () => {
@@ -1517,7 +1535,11 @@ export default function ProductForm({ productId = null }) {
   if (fetchLoading) {
     return (
       <PageContainer>
-        <LoadingState message="Loading product..." loading={fetchLoading} fullScreen={true} />
+        <LoadingState
+          message="Loading product..."
+          loading={fetchLoading}
+          fullScreen={true}
+        />
       </PageContainer>
     );
   }
@@ -1564,7 +1586,7 @@ export default function ProductForm({ productId = null }) {
             >
               <div className="flex flex-col lg:flex-row gap-6">
                 {/* Left Sidebar - Tabs List */}
-                <div className="lg:w-[200px] flex-shrink-0 lg:sticky lg:top-6 lg:self-start">
+                <div className="lg:w-[200px] flex-shrink-0 lg:sticky lg:top-6 lg:self-start lg:z-10 bg-background">
                   <TabsList
                     orientation="vertical"
                     className="w-full hidden lg:block"
@@ -1597,40 +1619,41 @@ export default function ProductForm({ productId = null }) {
                       </TabsTrigger>
                     </div>
                   </TabsList>
-                  {/* Mobile: Horizontal tabs */}
-                  <TabsList
-                    orientation="horizontal"
-                    className="w-full lg:hidden mb-4"
-                  >
-                    <div className="flex flex-row gap-2 w-full overflow-x-auto">
-                      <TabsTrigger value="basic" icon={Info}>
-                        Basic
-                      </TabsTrigger>
-                      <TabsTrigger value="inventory" icon={PackageCheck}>
-                        Inventory
-                      </TabsTrigger>
-                      <TabsTrigger value="shipping" icon={Truck}>
-                        Shipping
-                      </TabsTrigger>
-                      <TabsTrigger value="attributes" icon={Tag}>
-                        Attributes
-                      </TabsTrigger>
-                      {isVariableProduct && (
-                        <TabsTrigger value="variants" icon={GitBranch}>
-                          Variants
-                        </TabsTrigger>
-                      )}
-                      {hasSubscription && (
-                        <TabsTrigger value="subscription" icon={Repeat}>
-                          Subscription
-                        </TabsTrigger>
-                      )}
-                      <TabsTrigger value="additional" icon={FileText}>
-                        Additional
-                      </TabsTrigger>
-                    </div>
-                  </TabsList>
                 </div>
+
+                {/* Mobile: Horizontal tabs - Sticky at top */}
+                <TabsList
+                  orientation="horizontal"
+                  className="w-full lg:hidden mb-4 sticky top-0 z-20 bg-card border-b border-border py-2 overflow-x-auto overflow-y-hidden"
+                >
+                  <div className="flex flex-row gap-2 w-full overflow-x-auto">
+                    <TabsTrigger value="basic" icon={Info}>
+                      Basic
+                    </TabsTrigger>
+                    <TabsTrigger value="inventory" icon={PackageCheck}>
+                      Inventory
+                    </TabsTrigger>
+                    <TabsTrigger value="shipping" icon={Truck}>
+                      Shipping
+                    </TabsTrigger>
+                    <TabsTrigger value="attributes" icon={Tag}>
+                      Attributes
+                    </TabsTrigger>
+                    {isVariableProduct && (
+                      <TabsTrigger value="variants" icon={GitBranch}>
+                        Variants
+                      </TabsTrigger>
+                    )}
+                    {hasSubscription && (
+                      <TabsTrigger value="subscription" icon={Repeat}>
+                        Subscription
+                      </TabsTrigger>
+                    )}
+                    <TabsTrigger value="additional" icon={FileText}>
+                      Additional
+                    </TabsTrigger>
+                  </div>
+                </TabsList>
 
                 {/* Tab Content */}
                 <div className="flex-1 min-w-0">
@@ -2644,40 +2667,102 @@ export default function ProductForm({ productId = null }) {
                           </div>
 
                           <div className="space-y-4">
-                            {variants.map((variant, index) => (
-                              <div
-                                key={index}
-                                className="p-4 border border-border rounded-lg space-y-3 bg-[#0b111e]"
-                              >
-                                <div className="flex items-center justify-between">
-                                  <h4 className="font-medium">
-                                    Variant {index + 1}
-                                  </h4>
-                                  <button
-                                    type="button"
-                                    onClick={() => removeVariant(index)}
-                                    disabled={loading}
-                                    className="p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-red-600"
+                            {variants.map((variant, index) => {
+                              const isExpanded = expandedVariants.has(index);
+                              const toggleVariant = () => {
+                                setExpandedVariants((prev) => {
+                                  const newSet = new Set(prev);
+                                  if (newSet.has(index)) {
+                                    newSet.delete(index);
+                                  } else {
+                                    newSet.add(index);
+                                  }
+                                  return newSet;
+                                });
+                              };
+
+                              // Generate variant summary
+                              const variantSummary = [
+                                variant.name && `Name: ${variant.name}`,
+                                variant.sku && `SKU: ${variant.sku}`,
+                                variant.price && `Price: $${variant.price}`,
+                                variant.salePrice &&
+                                  `Sale: $${variant.salePrice}`,
+                                variant.stockQuantity !== undefined &&
+                                  `Stock: ${variant.stockQuantity}`,
+                              ]
+                                .filter(Boolean)
+                                .join(" • ");
+
+                              return (
+                                <div
+                                  key={index}
+                                  className="border border-border rounded-lg bg-[#0b111e] overflow-hidden"
+                                >
+                                  <div
+                                    className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50/5 transition-colors"
+                                    onClick={toggleVariant}
                                   >
-                                    <Trash2 className="h-4 w-4" />
-                                  </button>
-                                </div>
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-center gap-2">
+                                        <h4 className="font-medium">
+                                          Variant {index + 1}
+                                        </h4>
+                                        {!isExpanded && variantSummary && (
+                                          <span className="text-sm text-muted-foreground truncate">
+                                            {variantSummary}
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          toggleVariant();
+                                        }}
+                                        className="p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                                      >
+                                        {isExpanded ? (
+                                          <ChevronUp className="h-4 w-4" />
+                                        ) : (
+                                          <ChevronDown className="h-4 w-4" />
+                                        )}
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          removeVariant(index);
+                                        }}
+                                        disabled={loading}
+                                        className="p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-red-600"
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </button>
+                                    </div>
+                                  </div>
 
-                                {/* Variant Name - 2 Select Boxes */}
-                                {(() => {
-                                  const variationAttrs =
-                                    getVariationAttributes();
-                                  const attr1 = variationAttrs.find(
-                                    (a) => a.name === variant.attribute1Name
-                                  );
-                                  const attr2 = variationAttrs.find(
-                                    (a) => a.name === variant.attribute2Name
-                                  );
+                                  {isExpanded && (
+                                    <div className="p-4 space-y-3 border-t border-border">
+                                      {/* Variant Name - 2 Select Boxes */}
+                                      {(() => {
+                                        const variationAttrs =
+                                          getVariationAttributes();
+                                        const attr1 = variationAttrs.find(
+                                          (a) =>
+                                            a.name === variant.attribute1Name
+                                        );
+                                        const attr2 = variationAttrs.find(
+                                          (a) =>
+                                            a.name === variant.attribute2Name
+                                        );
 
-                                  return (
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
-                                      {/* First Attribute */}
-                                      {/* <div className="space-y-2">
+                                        return (
+                                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                                            {/* First Attribute */}
+                                            {/* <div className="space-y-2">
                                         <CustomLabel
                                           htmlFor={`variant-${index}-attr1-name`}
                                         >
@@ -2720,45 +2805,50 @@ export default function ProductForm({ productId = null }) {
                                           ))}
                                         </select>
                                       </div> */}
-                                      <div className="space-y-2">
-                                        {/* <CustomLabel
+                                            <div className="space-y-2">
+                                              {/* <CustomLabel
                                           htmlFor={`variant-${index}-attr1-value`}
                                         >
                                           Value 1
                                         </CustomLabel> */}
-                                        <select
-                                          id={`variant-${index}-attr1-value`}
-                                          value={variant.attribute1Value || ""}
-                                          onChange={(e) =>
-                                            updateVariant(
-                                              index,
-                                              "attribute1Value",
-                                              e.target.value
-                                            )
-                                          }
-                                          disabled={
-                                            loading || !variant.attribute1Name
-                                          }
-                                          className={cn(
-                                            "flex h-10 w-full rounded-md border px-3 py-2 text-sm transition-colors",
-                                            "bg-white text-gray-900 border-gray-300",
-                                            "dark:bg-gray-800 dark:text-gray-100 dark:border-gray-600",
-                                            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
-                                            "focus-visible:ring-blue-500 dark:focus-visible:ring-blue-400",
-                                            "disabled:opacity-50 disabled:cursor-not-allowed"
-                                          )}
-                                        >
-                                          <option value="">Select Value</option>
-                                          {attr1?.values.map((val) => (
-                                            <option key={val} value={val}>
-                                              {val}
-                                            </option>
-                                          ))}
-                                        </select>
-                                      </div>
+                                              <select
+                                                id={`variant-${index}-attr1-value`}
+                                                value={
+                                                  variant.attribute1Value || ""
+                                                }
+                                                onChange={(e) =>
+                                                  updateVariant(
+                                                    index,
+                                                    "attribute1Value",
+                                                    e.target.value
+                                                  )
+                                                }
+                                                disabled={
+                                                  loading ||
+                                                  !variant.attribute1Name
+                                                }
+                                                className={cn(
+                                                  "flex h-10 w-full rounded-md border px-3 py-2 text-sm transition-colors",
+                                                  "bg-white text-gray-900 border-gray-300",
+                                                  "dark:bg-gray-800 dark:text-gray-100 dark:border-gray-600",
+                                                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
+                                                  "focus-visible:ring-blue-500 dark:focus-visible:ring-blue-400",
+                                                  "disabled:opacity-50 disabled:cursor-not-allowed"
+                                                )}
+                                              >
+                                                <option value="">
+                                                  Select Value
+                                                </option>
+                                                {attr1?.values.map((val) => (
+                                                  <option key={val} value={val}>
+                                                    {val}
+                                                  </option>
+                                                ))}
+                                              </select>
+                                            </div>
 
-                                      {/* Second Attribute */}
-                                      {/* <div className="space-y-2">
+                                            {/* Second Attribute */}
+                                            {/* <div className="space-y-2">
                                         <CustomLabel
                                           htmlFor={`variant-${index}-attr2-name`}
                                         >
@@ -2807,413 +2897,447 @@ export default function ProductForm({ productId = null }) {
                                             ))}
                                         </select>
                                       </div> */}
-                                      <div className="space-y-2">
-                                        {/* <CustomLabel
+                                            <div className="space-y-2">
+                                              {/* <CustomLabel
                                           htmlFor={`variant-${index}-attr2-value`}
                                         >
                                           Value 2
                                         </CustomLabel> */}
-                                        <select
-                                          id={`variant-${index}-attr2-value`}
-                                          value={variant.attribute2Value || ""}
+                                              <select
+                                                id={`variant-${index}-attr2-value`}
+                                                value={
+                                                  variant.attribute2Value || ""
+                                                }
+                                                onChange={(e) =>
+                                                  updateVariant(
+                                                    index,
+                                                    "attribute2Value",
+                                                    e.target.value
+                                                  )
+                                                }
+                                                disabled={
+                                                  loading ||
+                                                  !variant.attribute2Name
+                                                }
+                                                className={cn(
+                                                  "flex h-10 w-full rounded-md border px-3 py-2 text-sm transition-colors",
+                                                  "bg-white text-gray-900 border-gray-300",
+                                                  "dark:bg-gray-800 dark:text-gray-100 dark:border-gray-600",
+                                                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
+                                                  "focus-visible:ring-blue-500 dark:focus-visible:ring-blue-400",
+                                                  "disabled:opacity-50 disabled:cursor-not-allowed"
+                                                )}
+                                              >
+                                                <option value="">
+                                                  Select Value
+                                                </option>
+                                                {attr2?.values.map((val) => (
+                                                  <option key={val} value={val}>
+                                                    {val}
+                                                  </option>
+                                                ))}
+                                              </select>
+                                            </div>
+                                          </div>
+                                        );
+                                      })()}
+
+                                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                        <FormField
+                                          id={`variant-${index}-sku`}
+                                          label="SKU"
+                                          value={variant.sku}
                                           onChange={(e) =>
                                             updateVariant(
                                               index,
-                                              "attribute2Value",
+                                              "sku",
                                               e.target.value
                                             )
                                           }
-                                          disabled={
-                                            loading || !variant.attribute2Name
+                                          disabled={loading}
+                                        />
+                                        <FormField
+                                          id={`variant-${index}-price`}
+                                          label="Price"
+                                          type="number"
+                                          step="0.01"
+                                          value={variant.price}
+                                          onChange={(e) =>
+                                            updateVariant(
+                                              index,
+                                              "price",
+                                              e.target.value
+                                            )
                                           }
-                                          className={cn(
-                                            "flex h-10 w-full rounded-md border px-3 py-2 text-sm transition-colors",
-                                            "bg-white text-gray-900 border-gray-300",
-                                            "dark:bg-gray-800 dark:text-gray-100 dark:border-gray-600",
-                                            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
-                                            "focus-visible:ring-blue-500 dark:focus-visible:ring-blue-400",
-                                            "disabled:opacity-50 disabled:cursor-not-allowed"
-                                          )}
-                                        >
-                                          <option value="">Select Value</option>
-                                          {attr2?.values.map((val) => (
-                                            <option key={val} value={val}>
-                                              {val}
-                                            </option>
-                                          ))}
-                                        </select>
+                                          disabled={loading}
+                                        />
+                                        <FormField
+                                          id={`variant-${index}-sale-price`}
+                                          label="Sale Price"
+                                          type="number"
+                                          step="0.01"
+                                          value={variant.salePrice}
+                                          onChange={(e) =>
+                                            updateVariant(
+                                              index,
+                                              "salePrice",
+                                              e.target.value
+                                            )
+                                          }
+                                          disabled={loading}
+                                        />
+                                        <div className="md:col-span-2">
+                                          <SingleImageUpload
+                                            label="Variant Image"
+                                            value={variant.imageUrl || ""}
+                                            onChange={(url) =>
+                                              updateVariant(
+                                                index,
+                                                "imageUrl",
+                                                url
+                                              )
+                                            }
+                                            onRemove={() =>
+                                              updateVariant(
+                                                index,
+                                                "imageUrl",
+                                                ""
+                                              )
+                                            }
+                                            disabled={loading}
+                                          />
+                                        </div>
+                                        <FormField
+                                          id={`variant-${index}-stock`}
+                                          label="Stock Quantity"
+                                          type="number"
+                                          value={variant.stockQuantity ?? 0}
+                                          onChange={(e) =>
+                                            updateVariant(
+                                              index,
+                                              "stockQuantity",
+                                              Number(e.target.value)
+                                            )
+                                          }
+                                          disabled={loading}
+                                        />
                                       </div>
-                                    </div>
-                                  );
-                                })()}
 
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                  <FormField
-                                    id={`variant-${index}-sku`}
-                                    label="SKU"
-                                    value={variant.sku}
-                                    onChange={(e) =>
-                                      updateVariant(
-                                        index,
-                                        "sku",
-                                        e.target.value
-                                      )
-                                    }
-                                    disabled={loading}
-                                  />
-                                  <FormField
-                                    id={`variant-${index}-price`}
-                                    label="Price"
-                                    type="number"
-                                    step="0.01"
-                                    value={variant.price}
-                                    onChange={(e) =>
-                                      updateVariant(
-                                        index,
-                                        "price",
-                                        e.target.value
-                                      )
-                                    }
-                                    disabled={loading}
-                                  />
-                                  <FormField
-                                    id={`variant-${index}-sale-price`}
-                                    label="Sale Price"
-                                    type="number"
-                                    step="0.01"
-                                    value={variant.salePrice}
-                                    onChange={(e) =>
-                                      updateVariant(
-                                        index,
-                                        "salePrice",
-                                        e.target.value
-                                      )
-                                    }
-                                    disabled={loading}
-                                  />
-                                  <div className="md:col-span-2">
-                                    <SingleImageUpload
-                                      label="Variant Image"
-                                      value={variant.imageUrl || ""}
-                                      onChange={(url) =>
-                                        updateVariant(index, "imageUrl", url)
-                                      }
-                                      onRemove={() =>
-                                        updateVariant(index, "imageUrl", "")
-                                      }
-                                      disabled={loading}
-                                    />
-                                  </div>
-                                  <FormField
-                                    id={`variant-${index}-stock`}
-                                    label="Stock Quantity"
-                                    type="number"
-                                    value={variant.stockQuantity ?? 0}
-                                    onChange={(e) =>
-                                      updateVariant(
-                                        index,
-                                        "stockQuantity",
-                                        Number(e.target.value)
-                                      )
-                                    }
-                                    disabled={loading}
-                                  />
+                                      {/* Per-Variant Settings */}
+                                      <div className="border-t border-border pt-4 mt-4">
+                                        <h5 className="text-sm font-semibold text-foreground mb-3">
+                                          Variant Settings
+                                        </h5>
+                                        <div className="grid grid-cols-1  gap-4">
+                                          {/* Enabled/Disabled Toggle */}
+                                          <div className="flex items-center justify-between">
+                                            <CustomLabel
+                                              htmlFor={`variant-${index}-enabled`}
+                                            >
+                                              Enabled
+                                            </CustomLabel>
+                                            <label className="relative inline-flex items-center cursor-pointer">
+                                              <input
+                                                type="checkbox"
+                                                id={`variant-${index}-enabled`}
+                                                checked={
+                                                  variant.status ===
+                                                    "PUBLISHED" ||
+                                                  (!variant.status &&
+                                                    formValues.status ===
+                                                      "PUBLISHED")
+                                                }
+                                                onChange={(e) =>
+                                                  updateVariant(
+                                                    index,
+                                                    "status",
+                                                    e.target.checked
+                                                      ? "PUBLISHED"
+                                                      : "DRAFT"
+                                                  )
+                                                }
+                                                disabled={loading}
+                                                className="sr-only peer"
+                                              />
+                                              <div className="w-11 h-6 bg-gray-300 dark:bg-gray-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                                            </label>
+                                          </div>
+
+                                          {/* Featured */}
+                                          <div className="flex items-center justify-between">
+                                            <CustomLabel
+                                              htmlFor={`variant-${index}-featured`}
+                                            >
+                                              Featured
+                                            </CustomLabel>
+                                            <label className="relative inline-flex items-center cursor-pointer">
+                                              <input
+                                                type="checkbox"
+                                                id={`variant-${index}-featured`}
+                                                checked={
+                                                  variant.featured || false
+                                                }
+                                                onChange={(e) =>
+                                                  updateVariant(
+                                                    index,
+                                                    "featured",
+                                                    e.target.checked
+                                                  )
+                                                }
+                                                disabled={loading}
+                                                className="sr-only peer"
+                                              />
+                                              <div className="w-11 h-6 bg-gray-300 dark:bg-gray-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                                            </label>
+                                          </div>
+
+                                          {/* Virtual */}
+                                          <div className="flex items-center justify-between">
+                                            <CustomLabel
+                                              htmlFor={`variant-${index}-virtual`}
+                                            >
+                                              Virtual
+                                            </CustomLabel>
+                                            <label className="relative inline-flex items-center cursor-pointer">
+                                              <input
+                                                type="checkbox"
+                                                id={`variant-${index}-virtual`}
+                                                checked={
+                                                  variant.virtual || false
+                                                }
+                                                onChange={(e) =>
+                                                  updateVariant(
+                                                    index,
+                                                    "virtual",
+                                                    e.target.checked
+                                                  )
+                                                }
+                                                disabled={loading}
+                                                className="sr-only peer"
+                                              />
+                                              <div className="w-11 h-6 bg-gray-300 dark:bg-gray-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                                            </label>
+                                          </div>
+
+                                          {/* Downloadable */}
+                                          <div className="flex items-center justify-between">
+                                            <CustomLabel
+                                              htmlFor={`variant-${index}-downloadable`}
+                                            >
+                                              Downloadable
+                                            </CustomLabel>
+                                            <label className="relative inline-flex items-center cursor-pointer">
+                                              <input
+                                                type="checkbox"
+                                                id={`variant-${index}-downloadable`}
+                                                checked={
+                                                  variant.downloadable || false
+                                                }
+                                                onChange={(e) =>
+                                                  updateVariant(
+                                                    index,
+                                                    "downloadable",
+                                                    e.target.checked
+                                                  )
+                                                }
+                                                disabled={loading}
+                                                className="sr-only peer"
+                                              />
+                                              <div className="w-11 h-6 bg-gray-300 dark:bg-gray-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                                            </label>
+                                          </div>
+
+                                          {/* Enable Reviews */}
+                                          <div className="flex items-center justify-between">
+                                            <CustomLabel
+                                              htmlFor={`variant-${index}-reviews`}
+                                            >
+                                              Enable Reviews
+                                            </CustomLabel>
+                                            <label className="relative inline-flex items-center cursor-pointer">
+                                              <input
+                                                type="checkbox"
+                                                id={`variant-${index}-reviews`}
+                                                checked={
+                                                  variant.reviewsAllowed !==
+                                                  undefined
+                                                    ? variant.reviewsAllowed
+                                                    : true
+                                                }
+                                                onChange={(e) =>
+                                                  updateVariant(
+                                                    index,
+                                                    "reviewsAllowed",
+                                                    e.target.checked
+                                                  )
+                                                }
+                                                disabled={loading}
+                                                className="sr-only peer"
+                                              />
+                                              <div className="w-11 h-6 bg-gray-300 dark:bg-gray-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                                            </label>
+                                          </div>
+                                        </div>
+                                      </div>
+
+                                      {isVariableSubscription && (
+                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
+                                          <div className="space-y-2">
+                                            <CustomLabel
+                                              htmlFor={`v-${index}-period`}
+                                            >
+                                              Subscription Period
+                                            </CustomLabel>
+                                            <select
+                                              id={`v-${index}-period`}
+                                              value={
+                                                variant.subscriptionPeriod ||
+                                                formValues.subscriptionPeriod
+                                              }
+                                              onChange={(e) =>
+                                                updateVariant(
+                                                  index,
+                                                  "subscriptionPeriod",
+                                                  e.target.value
+                                                )
+                                              }
+                                              disabled={loading}
+                                              className={cn(
+                                                "flex h-10 w-full rounded-md border px-3 py-2 text-sm transition-colors",
+                                                "bg-white text-gray-900 border-gray-300",
+                                                "dark:bg-gray-800 dark:text-gray-100 dark:border-gray-600",
+                                                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
+                                                "focus-visible:ring-blue-500 dark:focus-visible:ring-blue-400"
+                                              )}
+                                            >
+                                              {SUBSCRIPTION_PERIODS.map((p) => (
+                                                <option
+                                                  key={p.value}
+                                                  value={p.value}
+                                                >
+                                                  {p.label}
+                                                </option>
+                                              ))}
+                                            </select>
+                                          </div>
+                                          <FormField
+                                            id={`v-${index}-interval`}
+                                            label="Interval"
+                                            type="number"
+                                            min="1"
+                                            value={
+                                              variant.subscriptionInterval ?? 1
+                                            }
+                                            onChange={(e) =>
+                                              updateVariant(
+                                                index,
+                                                "subscriptionInterval",
+                                                Number(e.target.value)
+                                              )
+                                            }
+                                            disabled={loading}
+                                          />
+                                          <FormField
+                                            id={`v-${index}-length`}
+                                            label="Length"
+                                            type="number"
+                                            min="0"
+                                            value={
+                                              variant.subscriptionLength ?? 0
+                                            }
+                                            onChange={(e) =>
+                                              updateVariant(
+                                                index,
+                                                "subscriptionLength",
+                                                Number(e.target.value)
+                                              )
+                                            }
+                                            helperText="0 = never expires"
+                                            disabled={loading}
+                                          />
+                                          <FormField
+                                            id={`v-${index}-signup`}
+                                            label="Sign-up Fee"
+                                            type="number"
+                                            step="0.01"
+                                            value={
+                                              variant.subscriptionSignUpFee ??
+                                              "0"
+                                            }
+                                            onChange={(e) =>
+                                              updateVariant(
+                                                index,
+                                                "subscriptionSignUpFee",
+                                                e.target.value
+                                              )
+                                            }
+                                            disabled={loading}
+                                          />
+                                          <FormField
+                                            id={`v-${index}-trial-len`}
+                                            label="Trial Length"
+                                            type="number"
+                                            min="0"
+                                            value={
+                                              variant.subscriptionTrialLength ??
+                                              0
+                                            }
+                                            onChange={(e) =>
+                                              updateVariant(
+                                                index,
+                                                "subscriptionTrialLength",
+                                                Number(e.target.value)
+                                              )
+                                            }
+                                            disabled={loading}
+                                          />
+                                          <div className="space-y-2">
+                                            <CustomLabel
+                                              htmlFor={`v-${index}-trial-period`}
+                                            >
+                                              Trial Period
+                                            </CustomLabel>
+                                            <select
+                                              id={`v-${index}-trial-period`}
+                                              value={
+                                                variant.subscriptionTrialPeriod ||
+                                                formValues.subscriptionTrialPeriod
+                                              }
+                                              onChange={(e) =>
+                                                updateVariant(
+                                                  index,
+                                                  "subscriptionTrialPeriod",
+                                                  e.target.value
+                                                )
+                                              }
+                                              disabled={loading}
+                                              className={cn(
+                                                "flex h-10 w-full rounded-md border px-3 py-2 text-sm transition-colors",
+                                                "bg-white text-gray-900 border-gray-300",
+                                                "dark:bg-gray-800 dark:text-gray-100 dark:border-gray-600",
+                                                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
+                                                "focus-visible:ring-blue-500 dark:focus-visible:ring-blue-400"
+                                              )}
+                                            >
+                                              {SUBSCRIPTION_PERIODS.map(
+                                                (period) => (
+                                                  <option
+                                                    key={period.value}
+                                                    value={period.value}
+                                                  >
+                                                    {period.label}
+                                                  </option>
+                                                )
+                                              )}
+                                            </select>
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
                                 </div>
-
-                                {/* Per-Variant Settings */}
-                                <div className="border-t border-border pt-4 mt-4">
-                                  <h5 className="text-sm font-semibold text-foreground mb-3">
-                                    Variant Settings
-                                  </h5>
-                                  <div className="grid grid-cols-1  gap-4">
-                                    {/* Enabled/Disabled Toggle */}
-                                    <div className="flex items-center justify-between">
-                                      <CustomLabel
-                                        htmlFor={`variant-${index}-enabled`}
-                                      >
-                                        Enabled
-                                      </CustomLabel>
-                                      <label className="relative inline-flex items-center cursor-pointer">
-                                        <input
-                                          type="checkbox"
-                                          id={`variant-${index}-enabled`}
-                                          checked={
-                                            variant.status === "PUBLISHED" ||
-                                            (!variant.status &&
-                                              formValues.status === "PUBLISHED")
-                                          }
-                                          onChange={(e) =>
-                                            updateVariant(
-                                              index,
-                                              "status",
-                                              e.target.checked
-                                                ? "PUBLISHED"
-                                                : "DRAFT"
-                                            )
-                                          }
-                                          disabled={loading}
-                                          className="sr-only peer"
-                                        />
-                                        <div className="w-11 h-6 bg-gray-300 dark:bg-gray-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                                      </label>
-                                    </div>
-
-                                    {/* Featured */}
-                                    <div className="flex items-center justify-between">
-                                      <CustomLabel
-                                        htmlFor={`variant-${index}-featured`}
-                                      >
-                                        Featured
-                                      </CustomLabel>
-                                      <label className="relative inline-flex items-center cursor-pointer">
-                                        <input
-                                          type="checkbox"
-                                          id={`variant-${index}-featured`}
-                                          checked={variant.featured || false}
-                                          onChange={(e) =>
-                                            updateVariant(
-                                              index,
-                                              "featured",
-                                              e.target.checked
-                                            )
-                                          }
-                                          disabled={loading}
-                                          className="sr-only peer"
-                                        />
-                                        <div className="w-11 h-6 bg-gray-300 dark:bg-gray-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                                      </label>
-                                    </div>
-
-                                    {/* Virtual */}
-                                    <div className="flex items-center justify-between">
-                                      <CustomLabel
-                                        htmlFor={`variant-${index}-virtual`}
-                                      >
-                                        Virtual
-                                      </CustomLabel>
-                                      <label className="relative inline-flex items-center cursor-pointer">
-                                        <input
-                                          type="checkbox"
-                                          id={`variant-${index}-virtual`}
-                                          checked={variant.virtual || false}
-                                          onChange={(e) =>
-                                            updateVariant(
-                                              index,
-                                              "virtual",
-                                              e.target.checked
-                                            )
-                                          }
-                                          disabled={loading}
-                                          className="sr-only peer"
-                                        />
-                                        <div className="w-11 h-6 bg-gray-300 dark:bg-gray-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                                      </label>
-                                    </div>
-
-                                    {/* Downloadable */}
-                                    <div className="flex items-center justify-between">
-                                      <CustomLabel
-                                        htmlFor={`variant-${index}-downloadable`}
-                                      >
-                                        Downloadable
-                                      </CustomLabel>
-                                      <label className="relative inline-flex items-center cursor-pointer">
-                                        <input
-                                          type="checkbox"
-                                          id={`variant-${index}-downloadable`}
-                                          checked={
-                                            variant.downloadable || false
-                                          }
-                                          onChange={(e) =>
-                                            updateVariant(
-                                              index,
-                                              "downloadable",
-                                              e.target.checked
-                                            )
-                                          }
-                                          disabled={loading}
-                                          className="sr-only peer"
-                                        />
-                                        <div className="w-11 h-6 bg-gray-300 dark:bg-gray-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                                      </label>
-                                    </div>
-
-                                    {/* Enable Reviews */}
-                                    <div className="flex items-center justify-between">
-                                      <CustomLabel
-                                        htmlFor={`variant-${index}-reviews`}
-                                      >
-                                        Enable Reviews
-                                      </CustomLabel>
-                                      <label className="relative inline-flex items-center cursor-pointer">
-                                        <input
-                                          type="checkbox"
-                                          id={`variant-${index}-reviews`}
-                                          checked={
-                                            variant.reviewsAllowed !== undefined
-                                              ? variant.reviewsAllowed
-                                              : true
-                                          }
-                                          onChange={(e) =>
-                                            updateVariant(
-                                              index,
-                                              "reviewsAllowed",
-                                              e.target.checked
-                                            )
-                                          }
-                                          disabled={loading}
-                                          className="sr-only peer"
-                                        />
-                                        <div className="w-11 h-6 bg-gray-300 dark:bg-gray-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                                      </label>
-                                    </div>
-                                  </div>
-                                </div>
-
-                                {isVariableSubscription && (
-                                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
-                                    <div className="space-y-2">
-                                      <CustomLabel
-                                        htmlFor={`v-${index}-period`}
-                                      >
-                                        Subscription Period
-                                      </CustomLabel>
-                                      <select
-                                        id={`v-${index}-period`}
-                                        value={
-                                          variant.subscriptionPeriod ||
-                                          formValues.subscriptionPeriod
-                                        }
-                                        onChange={(e) =>
-                                          updateVariant(
-                                            index,
-                                            "subscriptionPeriod",
-                                            e.target.value
-                                          )
-                                        }
-                                        disabled={loading}
-                                        className={cn(
-                                          "flex h-10 w-full rounded-md border px-3 py-2 text-sm transition-colors",
-                                          "bg-white text-gray-900 border-gray-300",
-                                          "dark:bg-gray-800 dark:text-gray-100 dark:border-gray-600",
-                                          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
-                                          "focus-visible:ring-blue-500 dark:focus-visible:ring-blue-400"
-                                        )}
-                                      >
-                                        {SUBSCRIPTION_PERIODS.map((p) => (
-                                          <option key={p.value} value={p.value}>
-                                            {p.label}
-                                          </option>
-                                        ))}
-                                      </select>
-                                    </div>
-                                    <FormField
-                                      id={`v-${index}-interval`}
-                                      label="Interval"
-                                      type="number"
-                                      min="1"
-                                      value={variant.subscriptionInterval ?? 1}
-                                      onChange={(e) =>
-                                        updateVariant(
-                                          index,
-                                          "subscriptionInterval",
-                                          Number(e.target.value)
-                                        )
-                                      }
-                                      disabled={loading}
-                                    />
-                                    <FormField
-                                      id={`v-${index}-length`}
-                                      label="Length"
-                                      type="number"
-                                      min="0"
-                                      value={variant.subscriptionLength ?? 0}
-                                      onChange={(e) =>
-                                        updateVariant(
-                                          index,
-                                          "subscriptionLength",
-                                          Number(e.target.value)
-                                        )
-                                      }
-                                      helperText="0 = never expires"
-                                      disabled={loading}
-                                    />
-                                    <FormField
-                                      id={`v-${index}-signup`}
-                                      label="Sign-up Fee"
-                                      type="number"
-                                      step="0.01"
-                                      value={
-                                        variant.subscriptionSignUpFee ?? "0"
-                                      }
-                                      onChange={(e) =>
-                                        updateVariant(
-                                          index,
-                                          "subscriptionSignUpFee",
-                                          e.target.value
-                                        )
-                                      }
-                                      disabled={loading}
-                                    />
-                                    <FormField
-                                      id={`v-${index}-trial-len`}
-                                      label="Trial Length"
-                                      type="number"
-                                      min="0"
-                                      value={
-                                        variant.subscriptionTrialLength ?? 0
-                                      }
-                                      onChange={(e) =>
-                                        updateVariant(
-                                          index,
-                                          "subscriptionTrialLength",
-                                          Number(e.target.value)
-                                        )
-                                      }
-                                      disabled={loading}
-                                    />
-                                    <div className="space-y-2">
-                                      <CustomLabel
-                                        htmlFor={`v-${index}-trial-period`}
-                                      >
-                                        Trial Period
-                                      </CustomLabel>
-                                      <select
-                                        id={`v-${index}-trial-period`}
-                                        value={
-                                          variant.subscriptionTrialPeriod ||
-                                          formValues.subscriptionTrialPeriod
-                                        }
-                                        onChange={(e) =>
-                                          updateVariant(
-                                            index,
-                                            "subscriptionTrialPeriod",
-                                            e.target.value
-                                          )
-                                        }
-                                        disabled={loading}
-                                        className={cn(
-                                          "flex h-10 w-full rounded-md border px-3 py-2 text-sm transition-colors",
-                                          "bg-white text-gray-900 border-gray-300",
-                                          "dark:bg-gray-800 dark:text-gray-100 dark:border-gray-600",
-                                          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
-                                          "focus-visible:ring-blue-500 dark:focus-visible:ring-blue-400"
-                                        )}
-                                      >
-                                        {SUBSCRIPTION_PERIODS.map((period) => (
-                                          <option
-                                            key={period.value}
-                                            value={period.value}
-                                          >
-                                            {period.label}
-                                          </option>
-                                        ))}
-                                      </select>
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                            ))}
+                              );
+                            })}
                           </div>
                         </CustomCardContent>
                       </CustomCard>
@@ -3494,7 +3618,7 @@ export default function ProductForm({ productId = null }) {
           </div>
 
           {/* Sidebar */}
-          <div className="lg:col-span-1 space-y-6">
+          <div className="lg:col-span-1 space-y-6 lg:sticky lg:top-6 lg:self-start lg:z-10 bg-background pb-6">
             {/* Actions */}
             <CustomCard>
               <CustomCardContent className="pt-6">

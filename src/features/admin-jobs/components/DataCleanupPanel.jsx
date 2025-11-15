@@ -15,11 +15,7 @@ import {
   ChevronUp,
   Info,
 } from "lucide-react";
-import {
-  CustomCard,
-  CustomButton,
-  CustomBadge,
-} from "@/components/ui";
+import { CustomCard, CustomButton, CustomBadge } from "@/components/ui";
 import { useDataCleanup } from "../hooks/useDataCleanup";
 import { cn } from "@/utils/cn";
 
@@ -38,35 +34,75 @@ function formatCronToHuman(cron) {
 
   // Common patterns
   // Every hour at minute 0
-  if (minute === "0" && hour === "*" && day === "*" && month === "*" && weekday === "*") {
+  if (
+    minute === "0" &&
+    hour === "*" &&
+    day === "*" &&
+    month === "*" &&
+    weekday === "*"
+  ) {
     return "Every hour";
   }
 
   // Daily at specific time
-  if (minute !== "*" && hour !== "*" && day === "*" && month === "*" && weekday === "*") {
+  if (
+    minute !== "*" &&
+    hour !== "*" &&
+    day === "*" &&
+    month === "*" &&
+    weekday === "*"
+  ) {
     const hourNum = parseInt(hour);
     const minNum = parseInt(minute);
     const period = hourNum >= 12 ? "PM" : "AM";
-    const displayHour = hourNum === 0 ? 12 : hourNum > 12 ? hourNum - 12 : hourNum;
-    const displayMinute = minNum === 0 ? "" : `:${minNum.toString().padStart(2, "0")}`;
+    const displayHour =
+      hourNum === 0 ? 12 : hourNum > 12 ? hourNum - 12 : hourNum;
+    const displayMinute =
+      minNum === 0 ? "" : `:${minNum.toString().padStart(2, "0")}`;
     return `Daily at ${displayHour}${displayMinute} ${period}`;
   }
 
   // Every N hours
-  if (minute === "0" && hour.startsWith("*/") && day === "*" && month === "*" && weekday === "*") {
+  if (
+    minute === "0" &&
+    hour.startsWith("*/") &&
+    day === "*" &&
+    month === "*" &&
+    weekday === "*"
+  ) {
     const interval = hour.substring(2);
     return `Every ${interval} hours`;
   }
 
   // Every N minutes
-  if (minute.startsWith("*/") && hour === "*" && day === "*" && month === "*" && weekday === "*") {
+  if (
+    minute.startsWith("*/") &&
+    hour === "*" &&
+    day === "*" &&
+    month === "*" &&
+    weekday === "*"
+  ) {
     const interval = minute.substring(2);
     return `Every ${interval} minutes`;
   }
 
   // Weekly (specific day)
-  if (minute === "0" && hour === "0" && day === "*" && month === "*" && weekday !== "*") {
-    const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+  if (
+    minute === "0" &&
+    hour === "0" &&
+    day === "*" &&
+    month === "*" &&
+    weekday !== "*"
+  ) {
+    const days = [
+      "Sunday",
+      "Monday",
+      "Tuesday",
+      "Wednesday",
+      "Thursday",
+      "Friday",
+      "Saturday",
+    ];
     const dayIndex = parseInt(weekday);
     if (!isNaN(dayIndex) && dayIndex >= 0 && dayIndex <= 6) {
       return `Every ${days[dayIndex]} at midnight`;
@@ -74,23 +110,43 @@ function formatCronToHuman(cron) {
   }
 
   // Monthly (specific day)
-  if (minute === "0" && hour === "0" && day !== "*" && day !== "1" && month === "*" && weekday === "*") {
+  if (
+    minute === "0" &&
+    hour === "0" &&
+    day !== "*" &&
+    day !== "1" &&
+    month === "*" &&
+    weekday === "*"
+  ) {
     return `Monthly on day ${day} at midnight`;
   }
 
   // First day of month
-  if (minute === "0" && hour === "0" && day === "1" && month === "*" && weekday === "*") {
+  if (
+    minute === "0" &&
+    hour === "0" &&
+    day === "1" &&
+    month === "*" &&
+    weekday === "*"
+  ) {
     return "First day of each month at midnight";
   }
 
   // Specific time daily (already handled above, but more explicit)
-  if (minute !== "*" && !minute.includes("/") && hour !== "*" && !hour.includes("/")) {
+  if (
+    minute !== "*" &&
+    !minute.includes("/") &&
+    hour !== "*" &&
+    !hour.includes("/")
+  ) {
     const hourNum = parseInt(hour);
     const minNum = parseInt(minute);
     if (!isNaN(hourNum) && !isNaN(minNum)) {
       const period = hourNum >= 12 ? "PM" : "AM";
-      const displayHour = hourNum === 0 ? 12 : hourNum > 12 ? hourNum - 12 : hourNum;
-      const displayMinute = minNum === 0 ? "" : `:${minNum.toString().padStart(2, "0")}`;
+      const displayHour =
+        hourNum === 0 ? 12 : hourNum > 12 ? hourNum - 12 : hourNum;
+      const displayMinute =
+        minNum === 0 ? "" : `:${minNum.toString().padStart(2, "0")}`;
       return `Daily at ${displayHour}${displayMinute} ${period}`;
     }
   }
@@ -173,35 +229,15 @@ export function DataCleanupPanel() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold">Data Cleanup</h2>
-          <p className="text-muted-foreground">
-            Monitor and manage data retention cleanup operations
-          </p>
-        </div>
-        <CustomButton
-          variant="outline"
-          size="sm"
-          onClick={handleRefresh}
-          disabled={refreshing || running}
-          className="flex items-center gap-2"
-        >
-          <RefreshCw
-            className={cn("h-4 w-4", refreshing && "animate-spin")}
-          />
-          Refresh
-        </CustomButton>
-      </div>
-
       {/* Information Card */}
       <CustomCard className="p-6 border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/20">
         <div className="flex items-start gap-3">
           <Info className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
           <div className="flex-1">
             <div className="flex items-center justify-between mb-2">
-              <h3 className="text-lg font-semibold">What Does Data Cleanup Do?</h3>
+              <h3 className="text-lg font-semibold">
+                What Does Data Cleanup Do?
+              </h3>
               <button
                 type="button"
                 onClick={() => setIsInfoExpanded(!isInfoExpanded)}
@@ -222,50 +258,81 @@ export function DataCleanupPanel() {
             </div>
             {isInfoExpanded && (
               <div className="space-y-3 text-sm text-muted-foreground">
-              <p>
-                The data cleanup job automatically removes old data based on the configured retention period (typically 365 days). This helps maintain database performance and compliance with data retention policies.
-              </p>
-              
-              <div>
-                <p className="font-semibold text-foreground mb-2">The cleanup process will permanently delete:</p>
-                <ul className="list-disc list-inside space-y-1 ml-2">
-                  <li>
-                    <strong>Activity Logs</strong> - User actions and system events older than the retention period
-                  </li>
-                  <li>
-                    <strong>Email Verification Tokens</strong> - Expired email verification tokens and unused verification records
-                  </li>
-                  <li>
-                    <strong>Password Reset Tokens</strong> - Expired password reset tokens and unused reset requests
-                  </li>
-                  <li>
-                    <strong>Soft-Deleted Users</strong> - User accounts that were deleted more than the retention period ago (permanent deletion)
-                  </li>
-                </ul>
-              </div>
+                <p>
+                  The data cleanup job automatically removes old data based on
+                  the configured retention period (typically 365 days). This
+                  helps maintain database performance and compliance with data
+                  retention policies.
+                </p>
 
-              <div className="pt-2 border-t border-border">
-                <p className="font-semibold text-foreground mb-1">Important Notes:</p>
-                <ul className="list-disc list-inside space-y-1 ml-2">
-                  <li>Only data older than the retention period will be deleted</li>
-                  <li>This action is <strong className="text-red-600 dark:text-red-400">irreversible</strong> - deleted data cannot be recovered</li>
-                  <li>The job runs automatically on schedule or can be triggered manually</li>
-                  <li>During cleanup, the system will process records in batches to minimize impact</li>
-                </ul>
-              </div>
-
-              {status.lastRunStats && (
-                <div className="pt-2 border-t border-border">
-                  <p className="text-xs">
-                    <strong>Current Retention Period:</strong> {status.lastRunStats.retentionDays || 365} days
-                    {status.lastRunStats.cutoffDate && (
-                      <span className="ml-2">
-                        (Data before {new Date(status.lastRunStats.cutoffDate).toLocaleDateString()} will be deleted)
-                      </span>
-                    )}
+                <div>
+                  <p className="font-semibold text-foreground mb-2">
+                    The cleanup process will permanently delete:
                   </p>
+                  <ul className="list-disc list-inside space-y-1 ml-2">
+                    <li>
+                      <strong>Activity Logs</strong> - User actions and system
+                      events older than the retention period
+                    </li>
+                    <li>
+                      <strong>Email Verification Tokens</strong> - Expired email
+                      verification tokens and unused verification records
+                    </li>
+                    <li>
+                      <strong>Password Reset Tokens</strong> - Expired password
+                      reset tokens and unused reset requests
+                    </li>
+                    <li>
+                      <strong>Soft-Deleted Users</strong> - User accounts that
+                      were deleted more than the retention period ago (permanent
+                      deletion)
+                    </li>
+                  </ul>
                 </div>
-              )}
+
+                <div className="pt-2 border-t border-border">
+                  <p className="font-semibold text-foreground mb-1">
+                    Important Notes:
+                  </p>
+                  <ul className="list-disc list-inside space-y-1 ml-2">
+                    <li>
+                      Only data older than the retention period will be deleted
+                    </li>
+                    <li>
+                      This action is{" "}
+                      <strong className="text-red-600 dark:text-red-400">
+                        irreversible
+                      </strong>{" "}
+                      - deleted data cannot be recovered
+                    </li>
+                    <li>
+                      The job runs automatically on schedule or can be triggered
+                      manually
+                    </li>
+                    <li>
+                      During cleanup, the system will process records in batches
+                      to minimize impact
+                    </li>
+                  </ul>
+                </div>
+
+                {status.lastRunStats && (
+                  <div className="pt-2 border-t border-border">
+                    <p className="text-xs">
+                      <strong>Current Retention Period:</strong>{" "}
+                      {status.lastRunStats.retentionDays || 365} days
+                      {status.lastRunStats.cutoffDate && (
+                        <span className="ml-2">
+                          (Data before{" "}
+                          {new Date(
+                            status.lastRunStats.cutoffDate
+                          ).toLocaleDateString()}{" "}
+                          will be deleted)
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -281,9 +348,10 @@ export function DataCleanupPanel() {
               <h3 className="text-lg font-semibold">{status.jobName}</h3>
               <p className="text-sm text-muted-foreground">
                 Schedule: <code className="font-mono">{status.schedule}</code>
-                {humanReadableSchedule && humanReadableSchedule !== status.schedule && (
-                  <span className="ml-2">({humanReadableSchedule})</span>
-                )}
+                {humanReadableSchedule &&
+                  humanReadableSchedule !== status.schedule && (
+                    <span className="ml-2">({humanReadableSchedule})</span>
+                  )}
               </p>
             </div>
           </div>
@@ -358,7 +426,9 @@ export function DataCleanupPanel() {
                 </p>
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Retention Period</p>
+                <p className="text-sm text-muted-foreground">
+                  Retention Period
+                </p>
                 <p className="text-lg font-semibold">
                   {status.lastRunStats.retentionDays || 0} days
                 </p>
@@ -367,7 +437,9 @@ export function DataCleanupPanel() {
                 <p className="text-sm text-muted-foreground">Cutoff Date</p>
                 <p className="text-sm font-semibold">
                   {status.lastRunStats.cutoffDate
-                    ? new Date(status.lastRunStats.cutoffDate).toLocaleDateString()
+                    ? new Date(
+                        status.lastRunStats.cutoffDate
+                      ).toLocaleDateString()
                     : "N/A"}
                 </p>
               </div>
